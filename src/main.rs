@@ -1,14 +1,22 @@
+// ours
+mod connection;
+//use connection;
+
+// crates
 use ferris_says::say;
+use ssh2::Session;
+
+// core
 use std::io::prelude::*;
 use std::io::{stdout, BufWriter};
-use ssh2::Session;
 use std::net::TcpStream;
 use std::path::Path;
-
 use std::process::Command;
 
 fn main() {
     println!("Hello, world!");
+
+    let _my_ssh = connection::ssh::Ssh { host: "127.0.0.1".to_string(), port: 22, username: "root".to_string() };
 
     // example of calling library
 
