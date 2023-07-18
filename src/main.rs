@@ -1,23 +1,34 @@
 // ours
 mod connection;
-//use connection;
+use connection::{Connection};
+use connection::ssh::Ssh;
 
 // crates
-use ferris_says::say;
-use ssh2::Session;
+//use ferris_says::say;
+//use ssh2::Session;
 
 // core
-use std::io::prelude::*;
-use std::io::{stdout, BufWriter};
-use std::net::TcpStream;
-use std::path::Path;
-use std::process::Command;
+//use std::io::prelude::*;
+//use std::io::{stdout, BufWriter};
+//use std::net::TcpStream;
+//use std::path::Path;
+//use std::process::Command;
 
 fn main() {
     println!("Hello, world!");
 
-    let _my_ssh = connection::ssh::Ssh { host: "127.0.0.1".to_string(), port: 22, username: "root".to_string() };
+    let mut my_ssh = connection::ssh::Ssh::new(
+        "165.227.199.225".to_string(), 
+        22, 
+        "root".to_string()
+    );
+    my_ssh.connect();
+    let command_result = my_ssh.run_command("ls".to_string());
 
+    println!("command rc: {}", command_result.exit_status);
+    println!("command data: {}", command_result.data);
+}
+/*
     // example of calling library
 
 	let stdout = stdout();
@@ -118,5 +129,5 @@ fn main() {
 
 
 }
-
+*/
 
