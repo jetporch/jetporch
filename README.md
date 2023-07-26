@@ -1,17 +1,18 @@
 # jetporch
 
-Jetporch is a next generation IT orchestration platform aiming to handle modern enterprise workloads at planetary scale
+Jetporch is the next generation IT orchestration platform aiming to handle modern
+enterprise workloads at planetary scale.
 
-# NAMING
+## NAMING
 
-JetPorch is the JET Enterprise Professional Orchestrator
+JetPorch is the JET Enterprise Professional Orchestrator.
 
-# LICENSE
+## LICENSE
 
-Jetporch is GPLv2 licensed
+Jetporch is GPLv2 licensed.
 
-# CONTACT
+## CONTACT
 
-Author - Michael DeHaan <michael@michaeldehaan.net>
+Author - [Michael DeHaan](mailto:michael@michaeldehaan.net)
 
 More community information is coming soon!
