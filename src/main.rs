@@ -1,7 +1,9 @@
 // ours
-mod connection;
-use connection::{Connection};
-use connection::ssh::Ssh;
+//mod connection;
+//use connection::{Connection};
+//use connection::ssh::Ssh;
+mod cli;
+//use cli::parser;
 
 // crates
 //use ferris_says::say;
@@ -15,7 +17,19 @@ use connection::ssh::Ssh;
 //use std::process::Command;
 
 fn main() {
+
     println!("Hello, world!");
+
+    //let my_parser = cli::parser::Parser::new().go();
+    let mut parser = cli::parser::Parser::new();
+    
+    match parser.parse() => {
+        Error(x) => panic!(x) 
+    }
+
+    println!("mode={}", parser.mode)
+
+    /*
 
     let mut my_ssh = connection::ssh::Ssh::new(
         "165.227.199.225".to_string(), 
@@ -27,6 +41,8 @@ fn main() {
 
     println!("command rc: {}", command_result.exit_status);
     println!("command data: {}", command_result.data);
+    */
+
 }
 /*
     // example of calling library

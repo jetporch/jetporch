@@ -1,5 +1,5 @@
 [package]
-name = "hello-rust"
+name = "jetp"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 ssh2 = "0.9.4"
-ferris-says = "0.2"
+shlex = "1.1.0"
