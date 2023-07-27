@@ -22,12 +22,20 @@ fn main() {
 
     //let my_parser = cli::parser::Parser::new().go();
     let mut parser = cli::parser::Parser::new();
-    
-    match parser.parse() => {
-        Error(x) => panic!(x) 
+    match parser.parse() {
+       Err(x) => panic!("{}",x),
+       _ => (),
+
     }
 
-    println!("mode={}", parser.mode)
+    if parser.needs_help {
+        parser.show_help();
+        return;
+    }
+
+    println!("mode={}", parser.mode);
+    println!("playbook={}", parser.playbook_path);
+    println!("inventory={}", parser.inventory_path);
 
     /*
 
