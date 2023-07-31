@@ -120,6 +120,8 @@ impl Connection for Ssh {
   
     }
 
+    // IT WOULD BE NICE TO STREAM!
+    // also look at main crate docs for subsystem example?
 
      // pull file
  
@@ -154,3 +156,19 @@ impl Connection for Ssh {
 
 
 }
+
+// SHELL may look like this:
+/*
+channel.shell().unwrap();
+for command in commands {
+    channel.write_all(command.as_bytes()).unwrap();
+    channel.write_all(b"\n").unwrap();
+} // Bit inefficient to use separate write calls
+channel.send_eof().unwrap();
+println!("Waiting for output");
+channel.read_to_string(&mut s).unwrap();
+println!("{}", s);
+
+https://stackoverflow.com/questions/74512626/how-can-i-run-a-sequence-of-commands-using-ssh2-rs
+
+*/

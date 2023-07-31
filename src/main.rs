@@ -10,6 +10,7 @@ mod cli;
 //use ssh2::Session;
 
 // core
+use std::process;
 //use std::io::prelude::*;
 //use std::io::{stdout, BufWriter};
 //use std::net::TcpStream;
@@ -21,21 +22,34 @@ fn main() {
     println!("Hello, world!");
 
     //let my_parser = cli::parser::Parser::new().go();
-    let mut parser = cli::parser::Parser::new();
-    match parser.parse() {
-       Err(x) => panic!("{}",x),
-       _ => (),
-
+    let mut cli_parser = cli::parser::CliParser::new();
+    match cli_parser.parse()  {
+        Err(x) => {
+            println!("{}", x);
+            process::exit(0x01);
+        },
+        _ => ()
     }
-
-    if parser.needs_help {
-        parser.show_help();
+    if cli_parser.needs_help {
+        cli_parser.show_help();
         return;
     }
 
-    println!("mode={}", parser.mode);
-    println!("playbook={}", parser.playbook_path);
-    println!("inventory={}", parser.inventory_path);
+    println!("mode={}", cli_parser.mode.as_str());
+
+    for path in cli_parser.playbook_paths.iter() {
+        println!("playbook={}", path.display());
+    }
+    for path in cli_parser.inventory_paths.iter() {
+        println!("inventory={}", path.display());
+    }
+
+    // PLANS:
+    // check syntax and return the playbook and inventory
+    // if mode is syntax check abort
+    // if local, assign the connection plugins
+    // if ssh, assign the connection plugins
+    // pass things to the engine and go, flagging check mode or not
 
     /*
 
