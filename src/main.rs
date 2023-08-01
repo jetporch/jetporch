@@ -3,6 +3,7 @@
 //use connection::{Connection};
 //use connection::ssh::Ssh;
 mod cli;
+mod inventory;
 //use cli::parser;
 
 // crates
@@ -44,12 +45,42 @@ fn main() {
         println!("inventory={}", path.display());
     }
 
+    let inventory_result = inventory::loader::load_inventory(cli_parser.inventory_paths);
+    match inventory_result {
+        Err(x) => { 
+            println!("inventory parsing error: {}", x); 
+            process::exit(0x01); 
+        },
+        _ => (),
+    }
+
+
     // PLANS:
     // check syntax and return the playbook and inventory
-    // if mode is syntax check abort
-    // if local, assign the connection plugins
-    // if ssh, assign the connection plugins
-    // pass things to the engine and go, flagging check mode or not
+    
+    // inventory_loader = InventoryLoader::new(cli_parser.inventory_paths)
+    // report on any errors (ideally don't just record first)
+
+    // playbook_loader = PlaybookLoader::new(cli_parser.playbook_paths)
+    // report on any errors (ideally don't just record first)
+
+    /*
+    if cli_parser.is_local() {
+        connection_factory = ...
+    }
+    else if cli_parser.is_ssh() {
+        connection_factory = ...
+    }
+    // future neat things...
+    */
+
+    // engine = Engine::new(inventories, playbooks, connection_factory)
+    // let result = engine.run(cli_parser.is_check_mode())
+
+
+}
+
+//*****************************************************************************************8
 
     /*
 
@@ -65,7 +96,6 @@ fn main() {
     println!("command data: {}", command_result.data);
     */
 
-}
 /*
     // example of calling library
 
