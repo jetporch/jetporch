@@ -4,6 +4,7 @@
 //use connection::ssh::Ssh;
 mod cli;
 mod inventory;
+mod util;
 //use cli::parser;
 
 // crates
