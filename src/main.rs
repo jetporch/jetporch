@@ -12,7 +12,6 @@ mod util;
 //use ssh2::Session;
 
 // core
-use std::process;
 use crate::util::io::{quit};
 //use std::io::prelude::*;
 //use std::io::{stdout, BufWriter};
@@ -28,8 +27,8 @@ fn main() {
     let mut cli_parser = cli::parser::CliParser::new();
     
     cli_parser.parse().map_or_else(
-        |_| (), 
-        |x| quit(x)
+        |e| quit(&e),
+        |x| x, 
     );
 
     if cli_parser.needs_help {
@@ -48,8 +47,8 @@ fn main() {
 
     let mut inventory = inventory::inventory::Inventory::new();
     inventory.load_inventory_from_disk(cli_parser.inventory_paths).map_or_else(
-        |_| (), 
-        |x| { quit(x); }
+        |e| quit(&e),
+        |x| x
     )
     
 
