@@ -13,6 +13,7 @@ mod util;
 
 // core
 use std::process;
+use crate::util::io::{quit};
 //use std::io::prelude::*;
 //use std::io::{stdout, BufWriter};
 //use std::net::TcpStream;
@@ -25,13 +26,12 @@ fn main() {
 
     //let my_parser = cli::parser::Parser::new().go();
     let mut cli_parser = cli::parser::CliParser::new();
-    match cli_parser.parse()  {
-        Err(x) => {
-            println!("{}", x);
-            process::exit(0x01);
-        },
-        _ => ()
-    }
+    
+    cli_parser.parse().map_or_else(
+        |_| (), 
+        |x| quit(x)
+    );
+
     if cli_parser.needs_help {
         cli_parser.show_help();
         return;
@@ -46,14 +46,12 @@ fn main() {
         println!("inventory={}", path.display());
     }
 
-    let inventory_result = inventory::loader::load_inventory(cli_parser.inventory_paths);
-    match inventory_result {
-        Err(x) => { 
-            println!("inventory parsing error: {}", x); 
-            process::exit(0x01); 
-        },
-        _ => (),
-    }
+    let mut inventory = inventory::inventory::Inventory::new();
+    inventory.load_inventory_from_disk(cli_parser.inventory_paths).map_or_else(
+        |_| (), 
+        |x| { quit(x); }
+    )
+    
 
 
     // PLANS:
