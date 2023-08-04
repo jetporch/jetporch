@@ -29,8 +29,8 @@ pub fn jet_read_dir(path: &Path) -> Result<ReadDir, String> {
 // call fn on each path in a subdirectory of the original path, each step is allowed
 // to return an error to stop the walking.
 
-pub fn path_walk<F>(path: &Path, with_each_path: F) -> Result<(), String> 
-   where F: Fn(&Path) -> Result<(), String> {
+pub fn path_walk<F>(path: &Path, mut with_each_path: F) -> Result<(), String> 
+   where F: FnMut(&Path) -> Result<(), String> {
 
     // get the directory result
     let read_result = jet_read_dir(path);

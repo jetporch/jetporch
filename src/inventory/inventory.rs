@@ -7,11 +7,14 @@ use std::sync::Arc;
 // =============================================================================================
 // external crates
 use serde::{Deserialize};
+//use serde_yaml;
+//use serde_yaml::Value;
 
 // =============================================================================================
 // our stuff
 
 use crate::util::io::{path_walk,jet_file_open,path_basename_as_string,is_executable};
+use crate::util::yaml::{show_yaml_error_in_context};
 use crate::inventory::group::Group;
 use crate::inventory::host::Host;
 
@@ -29,9 +32,10 @@ pub struct Inventory {
 //#[serde(rename_all = "camelCase")]
 
 #[derive(Debug, PartialEq, Deserialize)]
+#[serde(tag = "Group")]
 pub struct YamlGroupFileItem {
-    host : Option<String>,
-    subgroup : Option<String>,
+    hosts : Vec<String>,
+    subgroups : Vec<String>,
     // FIXME: we'll need this later for other things
     //#[serde(flatten)] f
     //extras: HashMap<String, String>,
@@ -56,12 +60,16 @@ impl Inventory  {
     // ------------------------------------------------------------------------------------------
     // look for the named group in inventory, returning an Option
 
+
+    // FIXME: unused for now, enable later
+    /*
     pub fn get_group(&self, group_name: String) -> Option<Arc<Group>> {
         return self.groups.iter().find(|x| x.name == group_name).map_or_else(
             || None,
             |found| Some(found.clone())
         )
     }
+    */
 
     // --------------------------------------------------------------------------------------------
     // look for the named host, returning a pointer to it if found
@@ -215,30 +223,63 @@ impl Inventory  {
 
         // the input path is something like 'inventory/groups'
         // walk the subdirectories below assuming it is full of YAML files named after groups
+        // return any errors up the stack
 
         path_walk(path, |subpath| {
 
             // the basename of the file 'inventory/groups/foo', is 'foo'
             // and is the name of a group
-            let group_name = path_basename_as_string(&path).clone();
+            let group_name = path_basename_as_string(&subpath).clone();
             println!("XDEBUG: looks like a group: {:?}", group_name);
 
             // get a handle to the file, on error, let this function fail
-            let file = jet_file_open(&path)?;
+            let file = jet_file_open(&subpath)?;
 
             // load the YAML file, letting the function fail if there is an error
+
+            let parsed: Result<YamlGroupFileItem, serde_yaml::Error> = serde_yaml::from_reader(file);
+            if parsed.is_err() {
+                show_yaml_error_in_context(&parsed.unwrap_err(), &subpath);
+                return Err(format!("edit the file and try again?"));
+            } 
+            let yaml_result = parsed.unwrap();
+
+            // FIXME: we need to examine the error and produce NICE error messages .. do this next!
+
+            // BOOKMARK
+            // match yaml_results... on error, pretty print and return a simple failure string.
+
+
+            /*
+            map_or_else(
+                |e| { return Err(format!("yaml parsing failed for file: {}\n{}", subpath.display(), e)); } ,
+                |x| x 
+            )?;
+            */
+
+            //let de_ser = serde_yaml::Deserializer::from_reader(file);
+            //let value = Value::deserialize(de_ser).unwrap();  // FIXME: don't unwrap, recast
+
+            //.map_err(
+            //    |e| { return Err(format!("yaml parsing failed for file: {}\n{}", subpath.display(), e)); } ,
+            //    |x| x 
+            //)?;
+
+            
+            // TODO: FIXME: add a subcommand that is 'show-inventory' that prints the tree structure.
+            // this means we probably need a groups function that computes depth and inventory
+            // needs some state flag to compute max depth?
+
+            //FIXME: disabled for now, dealing with serde values
             self.add_group_file_contents_to_inventory(
-                group_name.clone(),
-                serde_yaml::from_reader(file).map_or_else(
-                    |e| { return Err(format!("yaml parsing failed for file: {}\n{}", path.display(), e)); } ,
-                    |x| x 
-                )?
+                group_name.clone(), &yaml_result
             );
+            
 
             // return ok from the closure
             Ok(())
 
-        });
+        })?;
 
         // no failures from loading any of the directory items, yay
         Ok(())
@@ -249,7 +290,7 @@ impl Inventory  {
     // and processes the data in the file, to update inventory - making any hosts and groups
     // in that file part of the inventory object as real objects.
 
-    fn add_group_file_contents_to_inventory(&mut self, group_name: String, yaml_entries: &Vec<YamlGroupFileItem>) {
+    fn add_group_file_contents_to_inventory(&mut self, group_name: String, yaml_entries: &YamlGroupFileItem) {
         
         // ensure the referenced group name exists in inventory
         let mut group = self.find_or_create_group(group_name);
@@ -258,12 +299,16 @@ impl Inventory  {
         //  - host: hostname
         //  OR
         //  - subgroup: subgroupname
+
+                    /*
+
         for item in yaml_entries {
+
                 
             // this entry specifies a host
             if item.host.is_some() {
                 // get the optional YAML value
-                let hostname = item.host.unwrap();
+                let hostname = item.host.as_ref().unwrap().clone();
                 // ensure the host datastructure is in inventory
                 let host = self.find_or_create_host(hostname);
                 // grab a mutable handle on the group object pointer
@@ -276,7 +321,7 @@ impl Inventory  {
             // this entry specifies a subgroup
             if item.subgroup.is_some() {
                 // get the optional YAML value
-                let subgroupname = item.subgroup.unwrap();
+                let subgroupname = item.subgroup.as_ref().unwrap().clone();
                 // ensure the subgroup datastructure is in inventory
                 let subgroup = self.find_or_create_group(subgroupname);
                 // grab a mutable handle on the group object pointer
@@ -286,6 +331,9 @@ impl Inventory  {
                 mutable_group.add_subgroup(new_ptr);
             }
         }
+
+                    */
+
 
     }
           
