@@ -99,6 +99,73 @@ const ARGUMENT_HELP: &'static str = "--help";
 // here's our CLI usage text, it's just hard coded for now, seems fine
 
 fn show_help() {
+
+    let header_table = "|-|:-\n\
+                        |jetp | jetporch: the enterprise performance orchestrator |\n\
+                        | | (C) Michael DeHaan, 2023\n\
+                        | --- | ---\n\
+                        | | usage: jetp <MODE> [flags]\n\
+                        |-|-";
+    
+    println!("");
+    crate::util::terminal::markdown_print(&String::from(header_table));
+    println!("");  
+
+    let mode_table = "|:-|:-|:-|:-:|\n\
+                      |  | *Mode* | *Description* | *Makes Changes?* \n\
+                      | --- | --- | --- | --- \n\
+                      | utility: | | | \n\
+                      | | syntax| evaluates input files for errors| no\n\
+                      | | | \n\
+                      | | simulate| simulates playbook execution | no\n\
+                      | | | \n\
+                      | | show | displays inventory, playbooks, groups, and hosts | no\n\
+                      | | | \n\
+                      | --- | --- | --- | --- \n\
+                      | local machine management: | | | \n\
+                      | | check-local| looks for changes on the local machine| no\n\
+                      | | | \n\
+                      | | local| manages the local machine| YES\n\
+                      | | | \n\
+                      | --- | --- | --- | --- \n\
+                      | remote machine management: | | | \n\
+                      | | check-ssh | connects to nodes over SSH and looks for potential changes| no\n\
+                      | | | \n\
+                      | | ssh| manages nodes over SSH| YES\n\
+                      |-|-|-";
+
+    crate::util::terminal::markdown_print(&String::from(mode_table));
+    println!("");
+
+    let flags_table = "|:-|:-|:-|:-:|:-:\n\
+                       | |*Flags*|*Description*|*Required For*|*Optional For*|\n\
+                       | --- | --- | --- | --- | --- |\n\
+                       | basics: | | | |\n\
+                       | | --playbook path1:path2| specifies automation content| most | - |\n\
+                       | | | | |\n\
+                       | | --inventory path1:path2| specifies which systems to manage| most | - |\n\
+                       | | | | |\n\
+                       | | --roles path1:path2| provides additional role search paths| - | most\n\
+                       | | | | |\n\
+                       | --- | --- | --- | --- | --- |\n\
+                       | scope: | | | |\n\
+                       | | --groups group1:group2| for use with playbook narrowing or 'show' | - | most\n\
+                       | | | | |\n\
+                       | | --hosts host1| for use with playbook narrowing or 'show' | - | most\n\
+                       | | | | |\n\
+                       | | --tags tag1:tag2| for use with playbook narrowing or 'show' | - | most\n\
+                       | | | |\n\
+                       | --- | --- | --- | --- | --- |\n\
+                       | advanced: | | | |\n\
+                       | | --threads tag1:tag2| how many threads to use in SSH operations| - | ssh |\n\
+                       | | | | |\n\
+                       | | --batch_size tag1:tag2| for canary deployments and rolling updates| - | most |\n\
+                       |-|-|-|-|-";
+
+    crate::util::terminal::markdown_print(&String::from(flags_table));
+    println!("");
+    
+    /*
     println!("");
     println!("jetp | jetporch : the jet enterprise performance orchetrator");
     println!("(C) Michael DeHaan, 2023");
@@ -108,6 +175,9 @@ fn show_help() {
     println!("--playbook path1:path2");
     println!("--inventory path1:path2");
     println!("");
+    */
+
+
 }
 
 // ------------------------------------------------------------------------------
