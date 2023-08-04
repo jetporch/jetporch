@@ -4,6 +4,7 @@ use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
 
 const YAML_ERROR_SHOW_LINES:usize = 10;
+const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
 
 // prints nice explanations of YAML messages.  This is to be called from something else that already
 // realizes and handles the error so it doesn't have a meaningful return value. If the YAML error
@@ -19,13 +20,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     let mut reader = BufReader::new(f);
     let mut buffer = String::new();
 
-    let markdown_table = format!("|:-|\n\
-                                  |Error reading YAML file: {}|\n\
-                                  |{}|\n\
-                                  |-", path.display(), yaml_error);
-                        
 
-    crate::util::terminal::markdown_print(&markdown_table);
 
     /*
     println!("---------------------------------------------------------");
@@ -35,10 +30,26 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     println!("");
     */
 
+    // FIXME: may need to trim long error strings as they could contain
+    // the whole file (re: yaml_error) inside of format.
+
     // see if there is a YAML line number in the error structure, if not, we can't show the
     // context in the file
     let location = yaml_error.location();
+    // FIXME: eventually add a "..." if string is too long, ok for now
+    let mut yaml_error_str = String::from(format!("{}", yaml_error));
+
+    yaml_error_str.truncate(YAML_ERROR_WIDTH);
+    if yaml_error_str.len() > YAML_ERROR_WIDTH - 3 {
+        yaml_error_str.push_str("...");
+    }
+
     if location.is_none() {
+        let markdown_table = format!("|:-|\n\
+                                      |Error reading YAML file: {}|\n\
+                                      |{}|\n\
+                                      |-", path.display(), yaml_error_str);
+        crate::util::terminal::markdown_print(&markdown_table);
         return; 
     }
 
@@ -50,15 +61,23 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     let mut line_count: usize = 0;
 
     let lines: Vec<String> = read_to_string(path).unwrap().lines().map(String::from).collect();
-
     let line_count = lines.len();
-
 
     // figure out what our start and stop line numbers are when showing
     // where the errors are in the YAML
     let mut show_start: usize = 0;
     let mut show_stop: usize = 0;
+
+ 
+
+    // header showing the error, a blank line, then the file contents exerpt
+    let mut markdown_table = String::new();
+    markdown_table.push_str(format!("|:-|:-:|:-|\n\
+                                 |||Error reading YAML file: {}|\n\
+                                 |||{}\n\
+                                 |||\n", path.display(), yaml_error_str).as_str());
     
+
     if error_line < YAML_ERROR_SHOW_LINES {
         show_start = 1;
     }
@@ -73,13 +92,16 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
         count = count + 1;
         if count >= show_start && count <= show_stop {
             if count ==  error_line {
-                println!("{count:5.0} >>> | {}", line);
+                markdown_table.push_str(format!("|{count}:{error_column} | >>> | {}\n", line).as_str());
             } else {
-                println!("{count:5.0}     | {}", line);
+                markdown_table.push_str(format!("|{count}|| {}\n", line).as_str());
             }
         }
     }
-    println!("---------------------------------------------------------");
+
+    markdown_table.push_str(format!("|-|-|-\n").as_str());
+    crate::util::terminal::markdown_print(&markdown_table);
+
     println!("");
 
 }

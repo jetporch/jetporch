@@ -1,6 +1,6 @@
 
-use termimad::crossterm::{execute, style::Color::*, terminal};
-use termimad::*;
+//use termimad::crossterm::{execute, style::Color::*, terminal};
+//use termimad::*;
 
 pub fn markdown_print(markdown: &String) {
 
