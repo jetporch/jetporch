@@ -9,3 +9,4 @@ edition = "2021"
 ssh2 = "0.9.4"
 serde = { version = "1.0.180",  features = ["derive"] }
 serde_yaml = "0.9.25"
+termimad = "0.20"
