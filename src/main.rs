@@ -18,6 +18,7 @@ use crate::util::io::{quit};
 //use std::net::TcpStream;
 //use std::path::Path;
 //use std::process::Command;
+use crate::inventory::inventory::{load_inventory};
 
 fn main() {
 
@@ -44,9 +45,8 @@ fn main() {
     for path in cli_parser.inventory_paths.iter() {
         println!("inventory={}", path.display());
     }
-
-    let mut inventory = inventory::inventory::Inventory::new();
-    inventory.load_inventory(cli_parser.inventory_paths).map_or_else(
+    
+    load_inventory(cli_parser.inventory_paths).map_or_else(
         |e| quit(&e),
         |x| x
     )
