@@ -1,5 +1,5 @@
-use std::fs::File;
-use std::io::{prelude::*, BufReader};
+//use std::fs::File;
+//use std::io::{prelude::*, BufReader};
 use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
 
@@ -15,10 +15,10 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     // open the YAML file again so we can print it
     
     // we already tried opening the file once so this should not panic.
-    let f = File::open(path).unwrap();
+    //let f = File::open(path).unwrap();
 
-    let mut reader = BufReader::new(f);
-    let mut buffer = String::new();
+    //let mut reader = BufReader::new(f);
+    //let mut buffer = String::new();
 
 
 
@@ -55,10 +55,9 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     // get the line/column info out of the location object
     let location = location.unwrap();
-    let mut lines : Vec<String> = Vec::new();
+    //let lines : Vec<String> = Vec::new();
     let error_line = location.line();
     let error_column = location.column();
-    let mut line_count: usize = 0;
 
     let lines: Vec<String> = read_to_string(path).unwrap().lines().map(String::from).collect();
     let line_count = lines.len();
@@ -66,7 +65,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     // figure out what our start and stop line numbers are when showing
     // where the errors are in the YAML
     let mut show_start: usize = 0;
-    let mut show_stop: usize = 0;
 
  
 
@@ -81,7 +79,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     if error_line < YAML_ERROR_SHOW_LINES {
         show_start = 1;
     }
-    show_stop = error_line + YAML_ERROR_SHOW_LINES;
+    let mut show_stop = error_line + YAML_ERROR_SHOW_LINES;
     if show_stop > line_count {
         show_stop = line_count;
     }

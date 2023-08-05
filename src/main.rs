@@ -46,7 +46,7 @@ fn main() {
     }
 
     let mut inventory = inventory::inventory::Inventory::new();
-    inventory.load_inventory_from_disk(cli_parser.inventory_paths).map_or_else(
+    inventory.load_inventory(cli_parser.inventory_paths).map_or_else(
         |e| quit(&e),
         |x| x
     )

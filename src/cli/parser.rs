@@ -16,17 +16,18 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // ----------------------------------------------------------------------------
-// ok so this the guts of the CLI command line parsing.  It's a bit rough
+// ok so this the guts of the CLI command line parsing.  It's a lot rough
 // but it's not really 'critical' code so that's ok for now. It leaves
-// options open and I know how it works.  It does some minimal validation
-// but leaves most of that for the inventory/playbook loading code and the
-// the engine and so on.
+// options open for later.  It does some minimal validation to see that
+// any paths exist and arguments are of the right type, but leaves the rest
+// of that for the inventory/playbook loading code and the engine and so on.
 
 // -----------------------------------------------------------------------------
 // standard imports
 use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
+//use std::path::Path;
 
 // ------------------------------------------------------------------------------
 // subcommands for the program are a required argument, this code deals with those
@@ -44,6 +45,21 @@ pub enum CliMode {
 }
 
 // ------------------------------------------------------------------------------
+// storage for CLI results once arguments are loaded, accessed directly
+// by main.rs
+
+pub struct CliParser {
+    // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
+    pub playbook_paths: Vec<PathBuf>,
+    pub inventory_paths: Vec<PathBuf>,
+    pub mode: CliMode,
+    pub needs_help: bool,
+    pub limit_hosts: Option<String>,
+    pub limit_groups: Option<String>,
+    pub batch_size: Option<u32>,
+}
+
+// ------------------------------------------------------------------------------
 
 impl CliMode {
 
@@ -52,13 +68,16 @@ impl CliMode {
 
     pub fn as_str(&self) -> &'static str {
         // add new CLI modes here and elsewhere this comment is found
-        match self {
+        match self {//
             CliMode::UnsetMode => "",
             CliMode::SyntaxOnly => "syntax",
             CliMode::Local => "local",
             CliMode::CheckLocal => "check-local",
             CliMode::Ssh => "ssh",
             CliMode::CheckSsh => "check-ssh",
+            // FIXME: add show
+            // FIXME: add simulate
+
         }
     }
 }
@@ -94,6 +113,13 @@ fn cli_mode_from_string(s: &String) -> Result<CliMode, String> {
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
 const ARGUMENT_HELP: &'static str = "--help";
+// FIXME: add --batch-size
+// FIXME: add --groups
+// FIXME: add --hosts
+// FIXME: add --tags
+// FIXME: add --threads
+// FIXME: add --roles
+// FIXME: make sure online docs match!
 
 // ------------------------------------------------------------------------------
 // here's our CLI usage text, it's just hard coded for now, seems fine
@@ -165,35 +191,9 @@ fn show_help() {
     crate::util::terminal::markdown_print(&String::from(flags_table));
     println!("");
     
-    /*
-    println!("");
-    println!("jetp | jetporch : the jet enterprise performance orchetrator");
-    println!("(C) Michael DeHaan, 2023");
-    println!("------------------------------------------------------------");
-    println!("");
-    println!("--mode ssh|...");
-    println!("--playbook path1:path2");
-    println!("--inventory path1:path2");
-    println!("");
-    */
-
-
 }
 
-// ------------------------------------------------------------------------------
-// storage for CLI results once arguments are loaded, accessed directly
-// by main.rs
 
-pub struct CliParser {
-    // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
-    pub playbook_paths: Vec<PathBuf>,
-    pub inventory_paths: Vec<PathBuf>,
-    pub mode: CliMode,
-    pub needs_help: bool,
-    pub limit_hosts: Option<String>,
-    pub limit_groups: Option<String>,
-    pub batch_size: Option<u32>,
-}
 
 // ------------------------------------------------------------------------------
 // logic behind CLI parsing begins
@@ -381,41 +381,24 @@ impl CliParser  {
 
 }
 
-// ---------------------------------------------------------------------------------------------
-// a helper fucntion to take a string like path1:/path/to/foo/bar and return multiple PathBuf
-// objects in a vector.  
-// FIXME: if this becomes useful elsewhere, possibly move to utils/io.rs
-
+// FIXME: rename
 fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
     
-    // get the seperate string tokens for each path as a vector
     let string_paths = value.split(":");
-    
-    // build a temporary vector to collect the paths that exist
-    let mut paths = Vec::new();
+    let mut results = Vec::new();
 
     for string_path in string_paths {
 
-        // this is me just cloning the path to make the compiler happy
-        // possibly a nicer way to do this
-        let mut path = PathBuf::new();
-        path.push(string_path);
+        let mut path_buf = PathBuf::new();
+        path_buf.push(string_path);
 
-        if path.exists() {
-            // keep track of only the paths that exist which is somewhat 
-            // not important due to the error handling below
-            paths.push(path)
+        if path_buf.exists() {
+            results.push(path_buf)
         } else {
-            // if any paths do not exist, fail at the first path
-            // we could report all of the paths that don't exist
-            // but that doesn't seem important at the moment.
             return Err(format!("path ({}) does not exist", string_path));
         }
     }
 
-    // return all the paths that exist
-    // but we will have returned an error already if any did not
-
-    return Ok(paths);
+    return Ok(results);
 }
 
