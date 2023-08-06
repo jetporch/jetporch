@@ -6,6 +6,19 @@ use serde::{Deserialize};
 use crate::util::io::{path_walk,jet_file_open,path_basename_as_string,is_executable};
 use crate::util::yaml::{show_yaml_error_in_context};
 use std::collections::{HashMap,HashSet};
+use serde_yaml::Value;
+use std::sync::Arc;
+
+//bookmark - we are debugging the makefile to make sure this constructs hosts correctly
+// next up we should make an iterator that takes a list of groups and returns all the hosts therein
+// and then build the show command
+// after that, parse variable files
+// after that, dynamic inventory
+
+// when ready the playbook parser can work a little similar to this,  keeping data structures
+// with names and numeric IDs that load the YAML structures as things go.
+// we could even store their YAML representations in the structures after first parse
+// and then re-walk that structure, TBD, if it was too much to keep the structs in memory.
 
 //=========================================================================================================
 // the inventory is fairly mutable, hopefully the playbook tree will be simpler
@@ -26,12 +39,12 @@ static GROUP_PARENTS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(
     Mutex::new(m) 
 });
 
-static GROUP_HOSTS : Lazy<Mutex<HashMap<String,HashSet<String>>>> =  Lazy::new(|| { 
+static GROUP_HOSTS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(|| { 
     let m =  HashMap::new();
     Mutex::new(m) 
 });
 
-static GROUP_VARIABLES : Lazy<Mutex<HashMap<String,serde_yaml::value::Mapping>>> = Lazy::new(|| { 
+static GROUP_VARIABLES : Lazy<Mutex<HashMap<String,String>>> = Lazy::new(|| { 
     let m =  HashMap::new();
     Mutex::new(m) 
 });
@@ -41,7 +54,7 @@ static HOSTS : Lazy<Mutex<HashSet<String>>> = Lazy::new(|| {
     Mutex::new(m) 
 });
 
-static HOST_VARIABLES : Lazy<Mutex<HashMap<String,serde_yaml::value::Mapping>>> = Lazy::new(|| { 
+static HOST_VARIABLES : Lazy<Mutex<HashMap<String,String>>> = Lazy::new(|| { 
     let m =  HashMap::new();
     Mutex::new(m) 
 });
@@ -85,12 +98,14 @@ fn create_host(host_name: String) {
     hosts.insert(host_name.clone());
 
     let mut host_variables = HOST_VARIABLES.lock().unwrap();
-    host_variables.insert(host_name.clone(), serde_yaml::value::Mapping::new());
-     
+    host_variables.insert(host_name.clone(), String::from(""));
+
+    let mut host_groups = HOST_GROUPS.lock().unwrap();//.expect("LOCKED");
+    host_groups.insert(host_name.clone(), HashSet::new());
+    
 }
 
 fn create_group(group_name: String) {
-    println!("debug: creating group: {}", group_name);
 
     assert!(!has_group(group_name.clone()));
 
@@ -99,11 +114,13 @@ fn create_group(group_name: String) {
     let mut group_parents = GROUP_PARENTS.lock().unwrap();//.expect("LOCKED");
     let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();//.expect("LOCKED");
     let mut group_variables = GROUP_VARIABLES.lock().unwrap();//.expect("LOCKED");
+    let mut group_hosts     = GROUP_HOSTS.lock().unwrap();
 
     groups.insert(group_name.clone());
     group_subgroups.insert(group_name.clone(), HashSet::new());
-    group_variables.insert(group_name.clone(), serde_yaml::value::Mapping::new());
-        
+    group_variables.insert(group_name.clone(), String::from(""));
+    group_hosts.insert(group_name.clone(), HashSet::new());    
+
     if !group_name.eq(&String::from("all")) {
         group_parents.insert(group_name.clone(), HashSet::new());
         group_subgroups.insert(group_name.clone(), HashSet::new());
@@ -111,68 +128,60 @@ fn create_group(group_name: String) {
         std::mem::drop(group_parents);
         std::mem::drop(group_subgroups);
         std::mem::drop(group_variables);
+        std::mem::drop(group_hosts);
         associate_subgroup(String::from("all"), group_name);
     }
 }
 
 fn store_host(group_name: String, host_name: String) {
-    println!("SH");
-
     if !(has_host(host_name.clone())) {
         create_host(host_name.clone());
     }
     associate_host(group_name, host_name);
+
 }
 
 fn associate_host(group: String, host: String) {
-    println!("AH");
+
+    if !has_host(host.clone()) {
+        create_host(host.clone());
+    }
+    if !has_group(group.clone()) {
+        create_group(group.clone());
+    }
 
     let group = group.clone();
     let mut group_hosts = GROUP_HOSTS.lock().expect("LOCKED");
     let mut host_groups = HOST_GROUPS.lock().expect("LOCKED");
     let group_hosts_entry: &mut HashSet<std::string::String> = group_hosts.get_mut(&group).unwrap();
-    let host_groups_entry: &mut HashSet<std::string::String> = host_groups.get_mut(&group).unwrap();
+    let host_groups_entry: &mut HashSet<std::string::String> = host_groups.get_mut(&host).unwrap();
     group_hosts_entry.insert(host.clone());
     host_groups_entry.insert(group.clone());
 }
 
 fn associate_subgroup(group: String, child: String) {
-    println!("AS");
-
     let group = group.clone();
     let child = child.clone();
-    println!("AS1");
-
-    if !has_group(child.clone()) {
-        create_group(child.clone());
-    }
-
-    let mut group_subgroups = GROUP_SUBGROUPS.lock().expect("LOCKED");
-    println!("AS2");
-
-    let mut group_parents = GROUP_PARENTS.lock().expect("LOCKED");
-    println!("AS3: getting subgroups on: {}", group);
-
+    if !has_group(group.clone()) { create_group(group.clone()); }
+    if !has_group(child.clone()) { create_group(child.clone()); }
+    let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
+    let mut group_parents = GROUP_PARENTS.lock().unwrap();
     let group_subgroups_entry: &mut HashSet<std::string::String> = group_subgroups.get_mut(&group).unwrap();
     let group_parents_entry: &mut HashSet<std::string::String> = group_parents.get_mut(&child).unwrap();
     group_subgroups_entry.insert(child.clone());
     group_parents_entry.insert(group.clone());
-
 }
 
 fn store_subgroup(group: String, child: String) {
-    println!("SSG");
-
-    if !has_group(group.clone()) {
-        create_group(group.clone());
-    }
+    if !has_group(group.clone()) { create_group(group.clone()); }
+    if !has_group(child.clone()) { create_group(child.clone()); }
     associate_subgroup(group, child);
 }
 
 pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
-    println!("LI");
 
     create_group(String::from("all"));
+
     for inventory_path_buf in inventory_paths {
         let inventory_path = inventory_path_buf.as_path();
         if inventory_path.is_dir() {
@@ -196,7 +205,6 @@ pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
 }
 
 pub fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<(), String> {
-    println!("LCIT");
     let path_buf = PathBuf::from(path);
     let group_vars_pathbuf = path_buf.join("group_vars");
     let host_vars_pathbuf  = path_buf.join("host_vars");
@@ -218,7 +226,6 @@ pub fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<
 
 
 fn load_groups_directory(path: &Path) -> Result<(), String> {
-    println!("LGD");
 
     path_walk(path, |groups_file_path| {
 
@@ -245,13 +252,10 @@ fn load_groups_directory(path: &Path) -> Result<(), String> {
 
 fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGroup) {
         
-    println!("GFCTI");
-
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
         for hostname in hosts {
-            println!("calling store on host: {}", hostname);
             store_host(group_name.clone(), hostname.clone());
         }
     }
@@ -260,7 +264,6 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
     if subgroups.is_some() {
         let subgroups = subgroups.as_ref().unwrap();
         for subgroupname in subgroups {
-            println!("calling store on subgroup: {}", subgroupname);
             store_subgroup(group_name.clone(), subgroupname.clone());
         }
     }
@@ -268,16 +271,48 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
 }
               
 fn load_group_vars_directory(path: &Path) -> Result<(), String> {
-    println!("L1");
 
-    return Err(format!("NOT IMPLEMENTED1: {}", path.display()));
+    path_walk(path, |groups_vars_path| {
+
+        let group_name = path_basename_as_string(&groups_vars_path).clone();
+
+        if !has_group(group_name.clone()) {
+           println!("skip1");
+           return Ok(());
+        }
+
+        let groups_file = jet_file_open(&groups_vars_path)?;
+        let groups_file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
+        
+        if groups_file_parse_result.is_err() {
+             show_yaml_error_in_context(&groups_file_parse_result.unwrap_err(), &groups_vars_path);
+             return Err(format!("edit the file and try again?"));
+        } 
+        
+        // https://docs.rs/serde_yaml/latest/serde_yaml/enum.Value.html#method.get
+        let yaml_result = groups_file_parse_result.unwrap();
+
+      
+        let mut group_vars = GROUP_VARIABLES.lock().unwrap();
+        let group_vars_entry: &mut String = group_vars.get_mut(&group_name).unwrap();
+        group_vars_entry.clear();
+        
+        group_vars_entry.push_str("I HAVE LOADED VARIABLES!");
+        //println!("yaml result = {}", yaml_result);
+        
+        // FIXME: we need to store this in the group.
+
+        Ok(())
+
+    })?;
+
+    Ok(())
 }
 
 fn load_host_vars_directory(path: &Path) -> Result<(), String> {
     println!("L2");
-
-   // FIXME -- walk this path and load each file
-   return Err(format!("NOT IMPLEMENTED2: {}", path.display()));
+    // FIXME -- walk this path and load each file
+    return Err(format!("NOT IMPLEMENTED2: {}", path.display()));
 }
     
 fn load_dynamic_inventory(path: &Path) -> Result<(), String> {

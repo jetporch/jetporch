@@ -73,7 +73,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     markdown_table.push_str(format!("|:-|:-:|:-|\n\
                                  |||Error reading YAML file: {}|\n\
                                  |||{}\n\
-                                 |||\n", path.display(), yaml_error_str).as_str());
+                                 |-|-|\n", path.display(), yaml_error_str).as_str());
     
 
     if error_line < YAML_ERROR_SHOW_LINES {
