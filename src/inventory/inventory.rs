@@ -271,48 +271,33 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
 }
               
 fn load_group_vars_directory(path: &Path) -> Result<(), String> {
-
     path_walk(path, |groups_vars_path| {
-
         let group_name = path_basename_as_string(&groups_vars_path).clone();
-
-        if !has_group(group_name.clone()) {
-           println!("skip1");
-           return Ok(());
-        }
-
+        if !has_group(group_name.clone()) { return Ok(()); 
         let groups_file = jet_file_open(&groups_vars_path)?;
         let groups_file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
-        
         if groups_file_parse_result.is_err() {
              show_yaml_error_in_context(&groups_file_parse_result.unwrap_err(), &groups_vars_path);
              return Err(format!("edit the file and try again?"));
         } 
-        
-        // https://docs.rs/serde_yaml/latest/serde_yaml/enum.Value.html#method.get
         let yaml_result = groups_file_parse_result.unwrap();
-
-      
         let mut group_vars = GROUP_VARIABLES.lock().unwrap();
         let group_vars_entry: &mut String = group_vars.get_mut(&group_name).unwrap();
         group_vars_entry.clear();
-        
-        group_vars_entry.push_str("I HAVE LOADED VARIABLES!");
-        //println!("yaml result = {}", yaml_result);
-        
-        // FIXME: we need to store this in the group.
-
+        group_vars_entry.push_str(&serde_yaml::to_string(&yaml_result).unwrap());
         Ok(())
-
     })?;
-
     Ok(())
 }
+
+// TODO: implement this and see how fast it goes, then implement show.
+// TODO: some code to walk the mappings.
 
 fn load_host_vars_directory(path: &Path) -> Result<(), String> {
     println!("L2");
     // FIXME -- walk this path and load each file
-    return Err(format!("NOT IMPLEMENTED2: {}", path.display()));
+    //return Err(format!("NOT IMPLEMENTED2: {}", path.display()));
+    Ok(())
 }
     
 fn load_dynamic_inventory(path: &Path) -> Result<(), String> {
@@ -320,6 +305,7 @@ fn load_dynamic_inventory(path: &Path) -> Result<(), String> {
 
     // FIXME: implement the script execution/parsing parts
     load_classic_inventory_tree(false, &path)?;
-    return Err(format!("NOT IMPLEMENTED3: {}", path.display()));
+    //return Err(format!("NOT IMPLEMENTED3: {}", path.display()));
+    Ok(())
 }
 
