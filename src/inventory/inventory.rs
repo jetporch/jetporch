@@ -24,63 +24,21 @@ use std::sync::Arc;
 // the inventory is fairly mutable, hopefully the playbook tree will be simpler
 //=========================================================================================================
 
-static GROUPS : Lazy<Mutex<HashSet<String>>> = Lazy::new(|| { 
-    let m = HashSet::new();
-    Mutex::new(m)
-});
 
-static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(|| { 
-    let m = HashMap::new();
-    Mutex::new(m)
-});
-
-static GROUP_PARENTS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(|| { 
-    let m =  HashMap::new();
-    Mutex::new(m) 
-});
-
-static GROUP_HOSTS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(|| { 
-    let m =  HashMap::new();
-    Mutex::new(m) 
-});
-
-static GROUP_VARIABLES : Lazy<Mutex<HashMap<String,String>>> = Lazy::new(|| { 
-    let m =  HashMap::new();
-    Mutex::new(m) 
-});
-
-static HOSTS : Lazy<Mutex<HashSet<String>>> = Lazy::new(|| { 
-    let m = HashSet::new();
-    Mutex::new(m) 
-});
-
-static HOST_VARIABLES : Lazy<Mutex<HashMap<String,String>>> = Lazy::new(|| { 
-    let m =  HashMap::new();
-    Mutex::new(m) 
-});
-
-static HOST_GROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(|| { 
-    let m =  HashMap::new();
-    Mutex::new(m) 
-});
+static GROUPS          : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
+static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
+static GROUP_PARENTS   : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
+static GROUP_HOSTS     : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
+static GROUP_VARIABLES : Lazy<Mutex<HashMap<String,String>>>          = Lazy::new(||Mutex::new(HashMap::new()));
+static HOSTS           : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
+static HOST_VARIABLES  : Lazy<Mutex<HashMap<String,String>>>          = Lazy::new(||Mutex::new(HashMap::new()));
+static HOST_GROUPS     : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct YamlGroup {
     hosts : Option<Vec<String>>,
     subgroups : Option<Vec<String>>
 }
-
-//#[serde(tag = "Group")]
-// FIXME: we'll need this later for other things
-//#[serde(flatten)] f
-//extras: HashMap<String, String>,
-
-/*
-fn with_state<R>(data: Lazy<Mutex<HashSet<String>>>, f: impl FnOnce(&mut HashSet<String>) -> R) -> R {
-    let state = &mut data.lock().expect("Could not lock mutex");
-    f(state)
-}
-*/
 
 pub fn has_host(host_name: String) -> bool {
     return HOSTS.lock().expect("LOCKED").contains(&host_name);
@@ -91,36 +49,26 @@ pub fn has_group(group_name: String) -> bool {
 }
 
 fn create_host(host_name: String) {
-
     assert!(!has_host(host_name.clone()));
-
     let mut hosts = HOSTS.lock().unwrap();
     hosts.insert(host_name.clone());
-
     let mut host_variables = HOST_VARIABLES.lock().unwrap();
     host_variables.insert(host_name.clone(), String::from(""));
-
     let mut host_groups = HOST_GROUPS.lock().unwrap();//.expect("LOCKED");
     host_groups.insert(host_name.clone(), HashSet::new());
-    
 }
 
 fn create_group(group_name: String) {
-
     assert!(!has_group(group_name.clone()));
-
-    //with_state(GROUPS, |groups| groups.insert(group_name.clone()));
-    let mut groups = GROUPS.lock().unwrap(); // .expect("LOCKED");
-    let mut group_parents = GROUP_PARENTS.lock().unwrap();//.expect("LOCKED");
-    let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();//.expect("LOCKED");
-    let mut group_variables = GROUP_VARIABLES.lock().unwrap();//.expect("LOCKED");
+    let mut groups = GROUPS.lock().unwrap();
+    let mut group_parents = GROUP_PARENTS.lock().unwrap();
+    let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
+    let mut group_variables = GROUP_VARIABLES.lock().unwrap();
     let mut group_hosts     = GROUP_HOSTS.lock().unwrap();
-
     groups.insert(group_name.clone());
     group_subgroups.insert(group_name.clone(), HashSet::new());
     group_variables.insert(group_name.clone(), String::from(""));
     group_hosts.insert(group_name.clone(), HashSet::new());    
-
     if !group_name.eq(&String::from("all")) {
         group_parents.insert(group_name.clone(), HashSet::new());
         group_subgroups.insert(group_name.clone(), HashSet::new());
@@ -142,14 +90,12 @@ fn store_host(group_name: String, host_name: String) {
 }
 
 fn associate_host(group: String, host: String) {
-
     if !has_host(host.clone()) {
         create_host(host.clone());
     }
     if !has_group(group.clone()) {
         create_group(group.clone());
     }
-
     let group = group.clone();
     let mut group_hosts = GROUP_HOSTS.lock().expect("LOCKED");
     let mut host_groups = HOST_GROUPS.lock().expect("LOCKED");
@@ -200,12 +146,11 @@ pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
             }
         }
     }
-    // FIXME: need to do cycle detection yet - doesn't exist in the datastructure but can exist logically
     return Ok(())
 }
 
 pub fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<(), String> {
-    let path_buf = PathBuf::from(path);
+    let path_buf           = PathBuf::from(path);
     let group_vars_pathbuf = path_buf.join("group_vars");
     let host_vars_pathbuf  = path_buf.join("host_vars");
     let groups_path        = path_buf.join("groups");
@@ -216,28 +161,24 @@ pub fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<
         load_groups_directory(&groups_path)?;
     }
     if group_vars_path.exists() {
-        load_group_vars_directory(&group_vars_path)?;
+        load_vars_directory(&group_vars_path, true)?;
     }
     if host_vars_path.exists() {
-        load_host_vars_directory(&host_vars_path)?;
+        load_vars_directory(&host_vars_path, false)?;
     }
     return Ok(())
 }
 
 
 fn load_groups_directory(path: &Path) -> Result<(), String> {
-
     path_walk(path, |groups_file_path| {
-
         let group_name = path_basename_as_string(&groups_file_path).clone();
         let groups_file = jet_file_open(&groups_file_path)?;
         let groups_file_parse_result: Result<YamlGroup, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
-            
         if groups_file_parse_result.is_err() {
             show_yaml_error_in_context(&groups_file_parse_result.unwrap_err(), &groups_file_path);
             return Err(format!("edit the file and try again?"));
-        } 
-            
+        }   
         let yaml_result = groups_file_parse_result.unwrap();
         add_group_file_contents_to_inventory(
             group_name.clone(), &yaml_result
@@ -249,9 +190,7 @@ fn load_groups_directory(path: &Path) -> Result<(), String> {
 }
 
 
-
 fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGroup) {
-        
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
@@ -259,7 +198,6 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
             store_host(group_name.clone(), hostname.clone());
         }
     }
-
     let subgroups = &yaml_group.subgroups;
     if subgroups.is_some() {
         let subgroups = subgroups.as_ref().unwrap();
@@ -270,42 +208,50 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
 
 }
               
-fn load_group_vars_directory(path: &Path) -> Result<(), String> {
-    path_walk(path, |groups_vars_path| {
-        let group_name = path_basename_as_string(&groups_vars_path).clone();
-        if !has_group(group_name.clone()) { return Ok(()); 
-        let groups_file = jet_file_open(&groups_vars_path)?;
-        let groups_file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
-        if groups_file_parse_result.is_err() {
-             show_yaml_error_in_context(&groups_file_parse_result.unwrap_err(), &groups_vars_path);
+fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
+
+    path_walk(path, |vars_path| {
+
+        let base_name = path_basename_as_string(&vars_path).clone();
+        // FIXME: warning and continue instead?
+        match is_group {
+            true => {
+                if !has_group(base_name.clone()) { println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); }
+            } false => {
+                // FIXME warning/logging library?
+                if !has_host(base_name.clone()) { println!("warning: attempting to define host_vars for a host not in inventory: {}", base_name); }
+            }
+        }
+        
+        let file = jet_file_open(&vars_path)?;
+        let file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(file);
+        if file_parse_result.is_err() {
+             show_yaml_error_in_context(&file_parse_result.unwrap_err(), &vars_path);
              return Err(format!("edit the file and try again?"));
         } 
-        let yaml_result = groups_file_parse_result.unwrap();
-        let mut group_vars = GROUP_VARIABLES.lock().unwrap();
-        let group_vars_entry: &mut String = group_vars.get_mut(&group_name).unwrap();
-        group_vars_entry.clear();
-        group_vars_entry.push_str(&serde_yaml::to_string(&yaml_result).unwrap());
+        let yaml_result = file_parse_result.unwrap();
+
+        let mut vars = match is_group {
+            true  => GROUP_VARIABLES.lock().unwrap(),
+            false => HOST_VARIABLES.lock().unwrap()
+        };
+        let vars_entry: &mut String = vars.get_mut(&base_name).unwrap();
+        vars_entry.clear();
+        vars_entry.push_str(&serde_yaml::to_string(&yaml_result).unwrap());
+
         Ok(())
     })?;
     Ok(())
 }
 
-// TODO: implement this and see how fast it goes, then implement show.
-// TODO: some code to walk the mappings.
+// TODO: blended yaml results per host ... but only those selected in the play.
 
-fn load_host_vars_directory(path: &Path) -> Result<(), String> {
-    println!("L2");
-    // FIXME -- walk this path and load each file
-    //return Err(format!("NOT IMPLEMENTED2: {}", path.display()));
-    Ok(())
-}
-    
 fn load_dynamic_inventory(path: &Path) -> Result<(), String> {
-    println!("L3");
+    println!("load_dynamic_inventory: NOT IMPLEMENTED");
 
     // FIXME: implement the script execution/parsing parts
     load_classic_inventory_tree(false, &path)?;
     //return Err(format!("NOT IMPLEMENTED3: {}", path.display()));
-    Ok(())
+    Err("load  dynamic inventory is not implemented".to_string())
 }
 
