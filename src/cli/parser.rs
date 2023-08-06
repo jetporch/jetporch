@@ -30,21 +30,6 @@ use std::path::PathBuf;
 //use std::path::Path;
 
 // ------------------------------------------------------------------------------
-// subcommands for the program are a required argument, this code deals with those
-// so in 'jetp ssh' ... and so on, 'ssh' is a cli mode
-// ------------------------------------------------------------------------------
-
-pub enum CliMode { 
-    // add new CLI modes here and elsewhere this comment is found
-    UnsetMode = 0,
-    SyntaxOnly = 1,
-    Local = 2,
-    CheckLocal = 3,
-    Ssh = 4,
-    CheckSsh = 5,
-}
-
-// ------------------------------------------------------------------------------
 // storage for CLI results once arguments are loaded, accessed directly
 // by main.rs
 
@@ -52,74 +37,50 @@ pub struct CliParser {
     // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
     pub playbook_paths: Vec<PathBuf>,
     pub inventory_paths: Vec<PathBuf>,
-    pub mode: CliMode,
+    pub mode: usize,
     pub needs_help: bool,
-    pub limit_hosts: Option<String>,
-    pub limit_groups: Option<String>,
+    pub hosts: Vec<String>,
+    pub groups: Vec<String>,
     pub batch_size: Option<u32>,
+    // FIXME: threads?
 }
 
 // ------------------------------------------------------------------------------
 
-impl CliMode {
+pub const CLI_MODE_UNSET: usize = 0;
+pub const CLI_MODE_SYNTAX: usize = 1;
+pub const CLI_MODE_LOCAL: usize = 2; 
+pub const CLI_MODE_CHECK_LOCAL: usize = 3;
+pub const CLI_MODE_SSH: usize = 4;
+pub const CLI_MODE_CHECK_SSH: usize = 5;
+pub const CLI_MODE_SHOW: usize = 6;
 
-    // ------------------------------------------------------------------------------
-    // converts an enum of the valid CLI subcommands into a printable string
-
-    pub fn as_str(&self) -> &'static str {
-        // add new CLI modes here and elsewhere this comment is found
-        match self {//
-            CliMode::UnsetMode => "",
-            CliMode::SyntaxOnly => "syntax",
-            CliMode::Local => "local",
-            CliMode::CheckLocal => "check-local",
-            CliMode::Ssh => "ssh",
-            CliMode::CheckSsh => "check-ssh",
-            // FIXME: add show
-            // FIXME: add simulate
-
-        }
+fn is_cli_mode_valid(value: &String) -> bool {
+    match cli_mode_from_string(value) {
+        Ok(_) => true,
+        Err(_) => false,
     }
 }
 
-// ------------------------------------------------------------------------------
-// returns whether the CLI recognizes a given submode, specified as a string
-
-fn is_cli_mode_valid(value: &String) -> bool {
-    // add new CLI modes here and elsewhere this comment is found
-    let valid_choices = vec!["local", "check-local", "ssh", "check-ssh", "syntax"];
-    return valid_choices.contains(&value.as_str());
-}
-
-// ------------------------------------------------------------------------------
-// given a CLI subcommand string, return the associated enum
-
-fn cli_mode_from_string(s: &String) -> Result<CliMode, String> {
-    // add new CLI modes here and elsewhere this comment is found
+fn cli_mode_from_string(s: &String) -> Result<usize, String> {
     return match s.as_str() {
-        "local" => Ok(CliMode::Local),
-        "check-local" => Ok(CliMode::CheckLocal),
-        "ssh"   => Ok(CliMode::Ssh),
-        "check-ssh" => Ok(CliMode::CheckSsh),
-        "syntax" => Ok(CliMode::SyntaxOnly),
+        "local"       => Ok(CLI_MODE_LOCAL),
+        "check-local" => Ok(CLI_MODE_CHECK_LOCAL),
+        "ssh"         => Ok(CLI_MODE_SSH),
+        "check-ssh"   => Ok(CLI_MODE_CHECK_SSH),
+        "syntax"      => Ok(CLI_MODE_SYNTAX),
+        "show"        => Ok(CLI_MODE_SHOW),
         _ => Err(format!("invalid mode: {}", s))
     }
 }
 
 // ------------------------------------------------------------------------------
-// here we define constants for all the random CLI flags
-// add new CLI modes here and elsewhere this comment is found
 
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
+const ARGUMENT_GROUPS: &'static str = "--groups";
+const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
-// FIXME: add --batch-size
-// FIXME: add --groups
-// FIXME: add --hosts
-// FIXME: add --tags
-// FIXME: add --threads
-// FIXME: add --roles
-// FIXME: make sure online docs match!
 
 // ------------------------------------------------------------------------------
 // here's our CLI usage text, it's just hard coded for now, seems fine
@@ -214,9 +175,9 @@ impl CliParser  {
             playbook_paths: Vec::new(),
             inventory_paths: Vec::new(),
             needs_help: false,
-            mode: CliMode::UnsetMode,
-            limit_hosts: None,
-            limit_groups: None,
+            mode: CLI_MODE_UNSET,
+            hosts: Vec::new(),
+            groups: Vec::new(),
             batch_size: None
         }
     }
@@ -282,11 +243,12 @@ impl CliParser  {
                         
                         // the flag wasn't --help, so see if we have a way to store it
                         // if the user types an invalid --flag, return an error
-                        // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
-
+                        // add new flags here and elsewhere this comment is found
                         let result = match argument_str {
                             ARGUMENT_PLAYBOOK  => self.store_playbook_value(&args[arg_count]),
                             ARGUMENT_INVENTORY => self.store_inventory_value(&args[arg_count]),
+                            ARGUMENT_GROUPS    => self.store_groups_value(&args[arg_count]),
+                            ARGUMENT_HOSTS     => self.store_hosts_value(&args[arg_count]),
                             _                  => Err(format!("invalid flag: {}", argument_str)),
                             
                         };
@@ -331,12 +293,13 @@ impl CliParser  {
     fn validate_internal_consistency(&mut self) -> Result<(), String> {
 
         match self.mode {
-            CliMode::Ssh => (),
-            CliMode::CheckSsh => (),
-            CliMode::Local => (),
-            CliMode::CheckLocal => (),
-            CliMode::SyntaxOnly => (),
-            CliMode::UnsetMode => { self.needs_help = true; }
+            CLI_MODE_SSH => (),
+            CLI_MODE_CHECK_SSH => (),
+            CLI_MODE_LOCAL => (),
+            CLI_MODE_CHECK_LOCAL => (),
+            CLI_MODE_SYNTAX_ONLY => (),
+            CLI_MODE_SHOW => (),
+            CLI_MODE_UNSET => { self.needs_help = true; }
         } 
         return Ok(())
     }
@@ -379,9 +342,30 @@ impl CliParser  {
         return Ok(());
     }
 
+    fn store_groups_value(&mut self, value: &String) -> Result<(), String> {
+        match split_string(value) {
+            Ok(values)  =>  { self.groups = values; }, 
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_GROUPS, err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn store_hosts_value(&mut self, value: &String) -> Result<(), String> {
+        match split_string(value) {
+            Ok(values)  =>  { self.hosts = values; }, 
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_HOSTS, err_msg)),
+        }
+        return Ok(());
+    }
+
+
 }
 
-// FIXME: rename
+fn split_string(value: &String) -> Result<Vec<String>, String> {
+    return Ok(value.split(":").map(|x| String::from(x)).collect());
+}
+
+
 fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
     
     let string_paths = value.split(":");

@@ -6,8 +6,8 @@ use serde::{Deserialize};
 use crate::util::io::{path_walk,jet_file_open,path_basename_as_string,is_executable};
 use crate::util::yaml::{show_yaml_error_in_context};
 use std::collections::{HashMap,HashSet};
-use serde_yaml::Value;
-use std::sync::Arc;
+//use serde_yaml::Value;
+//use std::sync::Arc;
 
 //bookmark - we are debugging the makefile to make sure this constructs hosts correctly
 // next up we should make an iterator that takes a list of groups and returns all the hosts therein
@@ -191,6 +191,7 @@ fn load_groups_directory(path: &Path) -> Result<(), String> {
 
 
 fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGroup) {
+
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
@@ -210,16 +211,27 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
               
 fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
 
+
     path_walk(path, |vars_path| {
+
+        //if !is_group {
+        //println!("gv: {}", vars_path.display());
+        //}
 
         let base_name = path_basename_as_string(&vars_path).clone();
         // FIXME: warning and continue instead?
         match is_group {
             true => {
-                if !has_group(base_name.clone()) { println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); }
+                if !has_group(base_name.clone()) { 
+                    println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); 
+                    return Ok(());
+                }
             } false => {
                 // FIXME warning/logging library?
-                if !has_host(base_name.clone()) { println!("warning: attempting to define host_vars for a host not in inventory: {}", base_name); }
+                if !has_host(base_name.clone()) { 
+                    println!("warning: attempting to define host_vars for a host not in inventory: {}", base_name); 
+                    return Ok(());
+                }
             }
         }
         

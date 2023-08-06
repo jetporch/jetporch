@@ -18,11 +18,12 @@ use crate::util::io::{quit};
 //use std::net::TcpStream;
 //use std::path::Path;
 //use std::process::Command;
+
 use crate::inventory::inventory::{load_inventory};
 
 fn main() {
 
-    println!("Hello, world!");
+    //println!("Hello, world!");
 
     //let my_parser = cli::parser::Parser::new().go();
     let mut cli_parser = cli::parser::CliParser::new();
@@ -37,13 +38,17 @@ fn main() {
         return;
     }
 
-    println!("mode={}", cli_parser.mode.as_str());
+    if cli_parser.mode == cli::parser::CLI_MODE_SHOW {
+        handle_show(&cli_parser);
+    }
+    
+    //println!("mode={}", cli_parser.mode.as_str());
 
     for path in cli_parser.playbook_paths.iter() {
-        println!("playbook={}", path.display());
+        //println!("playbook={}", path.display());
     }
     for path in cli_parser.inventory_paths.iter() {
-        println!("inventory={}", path.display());
+        //println!("inventory={}", path.display());
     }
     
     load_inventory(cli_parser.inventory_paths).map_or_else(
@@ -76,6 +81,14 @@ fn main() {
     // let result = engine.run(cli_parser.is_check_mode())
 
 
+}
+
+fn handle_show(cli_parser: &cli::parser::CliParser) {
+    println!("SHOW TIME");
+    let paths = &cli_parser.inventory_paths;
+    for x in paths.iter() {
+        println!("i={}", x.display());
+    }
 }
 
 //*****************************************************************************************8
