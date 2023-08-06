@@ -38,18 +38,21 @@ fn main() {
         return;
     }
 
+
+    println!("mode = {}", cli_parser.mode);
+
     if cli_parser.mode == cli::parser::CLI_MODE_SHOW {
         handle_show(&cli_parser);
     }
     
     //println!("mode={}", cli_parser.mode.as_str());
 
-    for path in cli_parser.playbook_paths.iter() {
+    //for path in cli_parser.playbook_paths.iter() {
         //println!("playbook={}", path.display());
-    }
-    for path in cli_parser.inventory_paths.iter() {
+    //}
+    //for path in cli_parser.inventory_paths.iter() {
         //println!("inventory={}", path.display());
-    }
+    //}
     
     load_inventory(cli_parser.inventory_paths).map_or_else(
         |e| quit(&e),
@@ -84,11 +87,31 @@ fn main() {
 }
 
 fn handle_show(cli_parser: &cli::parser::CliParser) {
+    
+    // show be used as 
+    // jetp show -i inventory
+    // jetp show -i inventory --groups g1:g2
+    // jetp show -i inventory --hosts h1:h2
+
     println!("SHOW TIME");
     let paths = &cli_parser.inventory_paths;
-    for x in paths.iter() {
-        println!("i={}", x.display());
+
+
+    if cli_parser.groups.is_empty() && cli_parser.hosts.is_empty() {
+        cli::show::show_inventory_tree();
     }
+
+    for group_name in cli_parser.groups.iter() {
+        cli::show::show_inventory_group(group_name.clone());
+    }
+
+    for host_name in cli_parser.hosts.iter() {
+        cli::show::show_inventory_host(host_name.clone())
+    }
+
+    //for x in paths.iter() {
+    //    println!("i={}", x.display());
+    // }
 }
 
 //*****************************************************************************************8

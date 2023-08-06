@@ -211,17 +211,13 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
               
 fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
 
-
     path_walk(path, |vars_path| {
-
-        //if !is_group {
-        //println!("gv: {}", vars_path.display());
-        //}
 
         let base_name = path_basename_as_string(&vars_path).clone();
         // FIXME: warning and continue instead?
         match is_group {
             true => {
+                // FIXME warning/logging library?
                 if !has_group(base_name.clone()) { 
                     println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); 
                     return Ok(());
@@ -242,7 +238,6 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
              return Err(format!("edit the file and try again?"));
         } 
         let yaml_result = file_parse_result.unwrap();
-
         let mut vars = match is_group {
             true  => GROUP_VARIABLES.lock().unwrap(),
             false => HOST_VARIABLES.lock().unwrap()

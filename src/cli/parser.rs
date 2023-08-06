@@ -37,7 +37,7 @@ pub struct CliParser {
     // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
     pub playbook_paths: Vec<PathBuf>,
     pub inventory_paths: Vec<PathBuf>,
-    pub mode: usize,
+    pub mode: u32,
     pub needs_help: bool,
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
@@ -47,13 +47,13 @@ pub struct CliParser {
 
 // ------------------------------------------------------------------------------
 
-pub const CLI_MODE_UNSET: usize = 0;
-pub const CLI_MODE_SYNTAX: usize = 1;
-pub const CLI_MODE_LOCAL: usize = 2; 
-pub const CLI_MODE_CHECK_LOCAL: usize = 3;
-pub const CLI_MODE_SSH: usize = 4;
-pub const CLI_MODE_CHECK_SSH: usize = 5;
-pub const CLI_MODE_SHOW: usize = 6;
+pub const CLI_MODE_UNSET: u32 = 0;
+pub const CLI_MODE_SYNTAX: u32 = 1;
+pub const CLI_MODE_LOCAL: u32 = 2; 
+pub const CLI_MODE_CHECK_LOCAL: u32 = 3;
+pub const CLI_MODE_SSH: u32 = 4;
+pub const CLI_MODE_CHECK_SSH: u32 = 5;
+pub const CLI_MODE_SHOW: u32 = 6;
 
 fn is_cli_mode_valid(value: &String) -> bool {
     match cli_mode_from_string(value) {
@@ -62,7 +62,7 @@ fn is_cli_mode_valid(value: &String) -> bool {
     }
 }
 
-fn cli_mode_from_string(s: &String) -> Result<usize, String> {
+fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     return match s.as_str() {
         "local"       => Ok(CLI_MODE_LOCAL),
         "check-local" => Ok(CLI_MODE_CHECK_LOCAL),
@@ -297,9 +297,10 @@ impl CliParser  {
             CLI_MODE_CHECK_SSH => (),
             CLI_MODE_LOCAL => (),
             CLI_MODE_CHECK_LOCAL => (),
-            CLI_MODE_SYNTAX_ONLY => (),
+            CLI_MODE_SYNTAX => (),
             CLI_MODE_SHOW => (),
-            CLI_MODE_UNSET => { self.needs_help = true; }
+            CLI_MODE_UNSET => { self.needs_help = true; },
+            _ => { panic!("internal error: impossible mode"); }
         } 
         return Ok(())
     }
