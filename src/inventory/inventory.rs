@@ -146,8 +146,8 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
         // this will also remove any comments and shorten things up
         let yaml_string = &serde_yaml::to_string(&yaml_result).unwrap();
         match is_group {
-            true => store_host_variables(base_name.clone(), yaml_string.clone()),
-            false => store_group_variables(base_name.clone(), yaml_string.clone())
+            true => store_group_variables(base_name.clone(), yaml_string.clone()),
+            false => store_host_variables(base_name.clone(), yaml_string.clone())
         }
 
         Ok(())

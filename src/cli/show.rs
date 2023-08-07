@@ -1,5 +1,5 @@
-use crate::util::terminal::{banner};
-use crate::inventory::hosts::{has_host};
+use crate::util::terminal::{banner, two_column_table};
+use crate::inventory::hosts::{};
 use crate::inventory::groups::{get_all_group_parents, get_group_subgroups, get_all_group_hosts};
 
 // ==============================================================================================================
@@ -10,7 +10,7 @@ use crate::inventory::groups::{get_all_group_parents, get_group_subgroups, get_a
 pub fn show_inventory_host(host_name: String) -> Result<(),String> {
 
 
-    banner(format!("host: {}", host_name.clone()));
+    //banner(format!("host: {}", host_name.clone()));
 
 
     /*
@@ -26,7 +26,42 @@ pub fn show_inventory_host(host_name: String) -> Result<(),String> {
 pub fn show_inventory_group(group_name: String) -> Result<(),String> {
     
 
-    banner(format!("host: {}", group_name.clone()));
+    //banner(format!("group: {}", group_name.clone()));
+
+    //let subgroups    = get_all_group_subgroups(group_name);
+    //let parents      = get_all_group_parents(group_name);
+    //let direct_hosts = get_all_group_hosts(group_name);
+    //let variables    = get_group_variables(group_name);
+    //let blended      = get_blended_group_variables(group_name);
+
+    let hosts_immediate_count = String::from("42");
+    let hosts_subgroup_count  = String::from("42");
+    
+
+    // FIXME:
+    let subgroups_string = String::from("Bob?");
+    let parents_string = String::from("Bob?");
+    let hosts_string = String::from("Bob?");
+    let variable_string = String::from("Bob?");
+    let blended_string = String::from("Bob?");
+
+    let elements : Vec<(String,String)> = vec![
+        (String::from("Sub groups"), subgroups_string),
+        (String::from("Parent groups"), parents_string),
+        (String::from(format!("Hosts ({})", hosts_immediate_count)), hosts_string),
+        (String::from(format!("Subgroup Hosts ({})", hosts_subgroup_count)), String::from("<not shown>")),
+        (String::from("Variables (configured)"), variable_string),
+        (String::from("Variables (evaluated)"), blended_string),
+    ];
+
+    /*
+    let subgroups = get_all_group_subgroups(group_name);
+    let ancestors = get_all_group_ancestors(group_name);
+    let hosts = get_all_group_hosts(group_name);
+    */
+
+    two_column_table(String::from("Group"), group_name.clone(), elements);
+
 
 
     /*
@@ -39,7 +74,7 @@ pub fn show_inventory_group(group_name: String) -> Result<(),String> {
     banner_print(format!("group: {}", group_name.clone()));
     */
                  
-    inventory_tree(group_name.clone(), 0);
+    //inventory_tree(group_name.clone(), 0);
 
     // FIXME: finish the details table here
     // FIXME: banner table method that takes a key_order and a hashmap of key/values
@@ -67,30 +102,5 @@ pub fn show_inventory_group(group_name: String) -> Result<(),String> {
     */
     Ok(())
     
-
-}
-
-// ==============================================================================================================
-// PRIVATE INTERNALS
-// ==============================================================================================================
-
-
-fn inventory_tree(group_name: String, depth: usize) {
-
-    /*
-    let mut root = String::new("all");
-    let mut depth: usize = 0;
-
-
-    loop {
-
-        let hosts = get_group_hosts().len();
-        println!("{} ({})", "  ".repeat(depth), hosts)
-
-
-        for child in get_group_subgroups() {
-            inventory_tree(child, depth + 1)
-        }
-        */
 
 }
