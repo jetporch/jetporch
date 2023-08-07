@@ -1,42 +1,25 @@
-//use std::fs::File;
-//use std::io::{prelude::*, BufReader};
 use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
 
 const YAML_ERROR_SHOW_LINES:usize = 10;
 const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
 
-// prints nice explanations of YAML messages.  This is to be called from something else that already
-// realizes and handles the error so it doesn't have a meaningful return value. If the YAML error
-// has no line/column info it prints a much shorter explanation.
+// ==============================================================================================================
+// PUBLIC API
+// ==============================================================================================================
 
 pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     // open the YAML file again so we can print it
-    
-    // we already tried opening the file once so this should not panic.
-    //let f = File::open(path).unwrap();
-
-    //let mut reader = BufReader::new(f);
-    //let mut buffer = String::new();
-
-
-
-    /*
-    println!("---------------------------------------------------------");
-    println!("Error reading YAML: {}", path.display());
-    println!("{}", yaml_error);
-    println!("---------------------------------------------------------");
-    println!("");
-    */
 
     // FIXME: may need to trim long error strings as they could contain
-    // the whole file (re: yaml_error) inside of format.
+    // the whole file (re: yaml_error) inside of format for the error message itself
 
     // see if there is a YAML line number in the error structure, if not, we can't show the
     // context in the file
+
     let location = yaml_error.location();
-    // FIXME: eventually add a "..." if string is too long, ok for now
+
     let mut yaml_error_str = String::from(format!("{}", yaml_error));
 
     yaml_error_str.truncate(YAML_ERROR_WIDTH);
@@ -55,7 +38,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     // get the line/column info out of the location object
     let location = location.unwrap();
-    //let lines : Vec<String> = Vec::new();
     let error_line = location.line();
     let error_column = location.column();
 
@@ -66,15 +48,12 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     // where the errors are in the YAML
     let mut show_start: usize = 0;
 
- 
-
     // header showing the error, a blank line, then the file contents exerpt
     let mut markdown_table = String::new();
     markdown_table.push_str(format!("|:-|:-:|:-|\n\
                                  |||Error reading YAML file: {}|\n\
                                  |||{}\n\
                                  |-|-|\n", path.display(), yaml_error_str).as_str());
-    
 
     if error_line < YAML_ERROR_SHOW_LINES {
         show_start = 1;

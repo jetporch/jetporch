@@ -1,4 +1,3 @@
-
 // Jetporch
 // Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
 //
@@ -15,23 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ----------------------------------------------------------------------------
-// ok so this the guts of the CLI command line parsing.  It's a lot rough
-// but it's not really 'critical' code so that's ok for now. It leaves
-// options open for later.  It does some minimal validation to see that
-// any paths exist and arguments are of the right type, but leaves the rest
-// of that for the inventory/playbook loading code and the engine and so on.
 
-// -----------------------------------------------------------------------------
-// standard imports
+
 use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
-//use std::path::Path;
+use crate::cli::show::{show_inventory_group, show_inventory_host};
 
-// ------------------------------------------------------------------------------
-// storage for CLI results once arguments are loaded, accessed directly
-// by main.rs
+// =============================================================================
+// PUBLIC API - for main.rs only
+// =============================================================================
 
 pub struct CliParser {
     // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
@@ -44,8 +36,6 @@ pub struct CliParser {
     pub batch_size: Option<u32>,
     // FIXME: threads?
 }
-
-// ------------------------------------------------------------------------------
 
 pub const CLI_MODE_UNSET: u32 = 0;
 pub const CLI_MODE_SYNTAX: u32 = 1;
@@ -74,7 +64,11 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     }
 }
 
-// ------------------------------------------------------------------------------
+// see also cli_parse.parse and other public methods in main.rs
+
+// =============================================================================
+// BEGIN INTERNALS
+// =============================================================================
 
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
@@ -82,9 +76,8 @@ const ARGUMENT_GROUPS: &'static str = "--groups";
 const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
 
-// ------------------------------------------------------------------------------
-// here's our CLI usage text, it's just hard coded for now, seems fine
-
+// here's our CLI usage text, it's just hard coded for now
+// the markdown isn't too friendly to read but it looks great
 fn show_help() {
 
     let header_table = "|-|:-\n\
@@ -160,15 +153,16 @@ fn show_help() {
 // logic behind CLI parsing begins
 // we're not using a library like clap as I've been told it changes a lot
 // and it would be nice to have flexibility.  There are some capabilities
-// missing in the parser but can be added as needed
-
+// missing in the parser but can be added as neede
 
 impl CliParser  {
 
 
-    // ---------------------------------------------------------------------------
-    // construct a new empty CliParser object, where all the values are empty
+    // ===========================================================================
+    // PUBLIC METHODS
+    // ===========================================================================
 
+    // construct a new empty CliParser object, where all the values are empty
     pub fn new() -> Self {
 
         CliParser { 
@@ -182,10 +176,30 @@ impl CliParser  {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // this is called by main.rs and returns whether it was ok or not, but modifies
-    // the values on the CliParser struct to hold the answers from parsing ARGV
+    // all 'show' subcommand logic
+    pub fn handle_show(&mut self) -> Result<(), String> {
+        // jetp show -i inventory
+        // jetp show -i inventory --groups g1:g2
+        // jetp show -i inventory --hosts h1:h2
+        if self.groups.is_empty() && self.hosts.is_empty() {
+            show_inventory_group(String::from("all"));
+        }
+        for group_name in self.groups.iter() {
+            show_inventory_group(group_name.clone())?;
+        }
+        for host_name in self.hosts.iter() {
+            show_inventory_host(host_name.clone())?;
+        }
+        return Ok(());
+    
+    }
 
+    // print the usage message
+    pub fn show_help(&self) {
+        show_help();
+    }
+
+    // modiifes the values on the CliParser struct to hold the answers from parsing ARGV
     pub fn parse(&mut self) -> Result<(), String> {
   
         // keep track of the argument number
@@ -277,42 +291,13 @@ impl CliParser  {
         return self.validate_internal_consistency()
     } 
 
-    pub fn handle_show(&mut self) -> Result<(), String> {
-    
-        // show be used as 
-        // jetp show -i inventory
-        // jetp show -i inventory --groups g1:g2
-        // jetp show -i inventory --hosts h1:h2
-    
-        //let paths = self.inventory_paths;
-    
-        if self.groups.is_empty() && self.hosts.is_empty() {
-            crate::cli::show::show_inventory_tree()?;
-        }
-    
-        for group_name in self.groups.iter() {
-            crate::cli::show::show_inventory_group(group_name.clone())?;
-        }
-    
-        for host_name in self.hosts.iter() {
-            crate::cli::show::show_inventory_host(host_name.clone())?;
-        }
-    
-        return Ok(());
-    
-        //for x in paths.iter() {
-        //    println!("i={}", x.display());
-        // }
-    }
 
-    // ---------------------------------------------------------------------------------------
-    // print the usage message
-    // FIXME: do we need the non-method function?  move code here?
-
-    pub fn show_help(&self) {
-        show_help();
-    }
     
+    // ===========================================================================
+    // PRIVATE METHODS
+    // ===========================================================================
+
+
     // ---------------------------------------------------------------------------------------
     // some arguments may incompatible with each other, so add error handling here
     // FIXME: no implementation yet
