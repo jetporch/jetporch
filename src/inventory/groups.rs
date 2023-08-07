@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use Vec;
 use std::collections::{HashMap,HashSet};
 use crate::inventory::hosts::{associate_host_to_group, has_host, create_host};
+use crate::util::data::{deduplicate,recursive_descent};
 
 static GROUPS          : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
 static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
@@ -20,36 +21,61 @@ pub fn has_group(group_name: String) -> bool {
     return GROUPS.lock().expect("LOCKED").contains(&group_name);
 }
 
-
 //get_ancestor_groups, get_parent_groups, get_child_groups, get_descendent_groups, get_child_hosts, get_descendent_hosts}
 pub fn get_ancestor_groups(group: String) -> Vec<String> {
-    let set : Vec<String> = internal_get_all_group_parents(group.clone(), 0usize).into_iter().collect();
-    return set
+    return recursive_descent(
+        group.clone(), 
+        &|x| { get_parent_groups(x) },
+        0
+    );
 }
 
 pub fn get_parent_groups(group: String) -> Vec<String> {
-    println!("FIXME: not implemented1");
-    return Vec::new();
+    let group = group.clone();
+    let group_parents = GROUP_PARENTS.lock().unwrap();
+    let mut group_parents_entry = group_parents.get(&group).unwrap();
+    let mut group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
+    return group_names;
 }
 
 pub fn get_child_groups(group: String) -> Vec<String> {
-    println!("FIXME: not implemented2");
-    return Vec::new();
+    let group = group.clone();
+    let group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
+    let mut child_entry = group_subgroups.get(&group).unwrap();
+    let mut group_names : Vec<String> = child_entry.iter().map(|x| x.clone()).collect();
+    return group_names;
 }
 
 pub fn get_descendant_groups(group: String) -> Vec<String> {
-    println!("FIXME: not implemented2");
-    return Vec::new();
+    return recursive_descent(
+        group.clone(), 
+        &|x| { get_child_groups(x) },
+        0
+    );
 }
 
 pub fn get_child_hosts(group: String) -> Vec<String> {
-    println!("FIXME: not implemented2");
-    return Vec::new();
+    // FIXME: can make a function to help with these!
+    let group = group.clone();
+    let group_hosts = GROUP_HOSTS.lock().unwrap();
+    println!("FETCHING group hosts for {}", group);
+    let mut group_hosts_entry = group_hosts.get(&group).unwrap();
+    let mut host_names : Vec<String> = group_hosts_entry.iter().map(|x| x.clone()).collect();
+    return host_names;
 }
 
 pub fn get_descendant_hosts(group: String) -> Vec<String> {
-    println!("FIXME: not implemented2");
-    return Vec::new();
+    let mut results : Vec<String> = Vec::new();
+    let groups = get_descendant_groups(group);
+    for group in groups.iter() {
+        println!("Looking in child groups for hosts: {}", group.clone());
+        let hosts = get_child_hosts(group.clone());
+        for host in hosts.iter() {
+            println!("Found a hosts: {}", host.clone());
+            results.push(host.clone());
+        }
+    }    
+    return deduplicate(results);
 }
 
 
@@ -77,14 +103,19 @@ pub fn store_group(group: String) {
 }
 
 pub fn associate_host(group: String, host: String) {
+    println!("ASSOCIATE HOST <<{} WITH {}>>", group, host);
+
     if !has_host(host.clone()) {
         create_host(host.clone());
     }
     if !has_group(group.clone()) {
+
         create_group(group.clone());
     }
     let group = group.clone();
     let mut group_hosts = GROUP_HOSTS.lock().unwrap();
+    println!("updating GROUP_HOSTS for group {} with {}.", group, host);
+
     let group_hosts_entry: &mut HashSet<std::string::String> = group_hosts.get_mut(&group).unwrap();
     group_hosts_entry.insert(host.clone());
 
@@ -98,6 +129,7 @@ pub fn associate_host(group: String, host: String) {
 fn create_group(group_name: String) {
 
     assert!(!has_group(group_name.clone()));
+
     let mut groups          = GROUPS.lock().unwrap();
     let mut group_parents   = GROUP_PARENTS.lock().unwrap();
     let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
@@ -134,35 +166,8 @@ fn associate_subgroup(group: String, child: String) {
     group_parents_entry.insert(group.clone());
 }
 
-fn internal_get_all_group_parents(group: String, depth: usize) -> Vec<String> {
-    if depth > 1000 {
-        panic!("maximum group depth (1000) exceeded: {}", depth);
-    }
-    let group = group.clone();
-    let group_parents = GROUP_PARENTS.lock().unwrap();
-    let mut group_parents_entry = group_parents.get(&group).unwrap();
-    let mut group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
-    std::mem::drop(group_parents);
-    
-    let mut results: Vec<String> = Vec::new();
 
-    for parent in group_names.iter() {
 
-        let grand_parents = internal_get_all_group_parents(parent.clone(), depth + 1);
-        for grand_parent in grand_parents.iter() {
-            if ! results.contains(&grand_parent.clone()) {
-                results.push(grand_parent.clone());
-            }
-        }
-        if ! results.contains(&parent.clone()) {
-            results.push(parent.clone());
-        }
-    }
-
-    let mut seen: HashSet<String> = HashSet::new();
-    results.retain(|&x| seen.contains(&x) == false);
-    return results;
-}
 
 
 
