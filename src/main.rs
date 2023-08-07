@@ -19,47 +19,35 @@ use crate::util::io::{quit};
 //use std::path::Path;
 //use std::process::Command;
 
+use std::path::PathBuf;
 use crate::inventory::inventory::{load_inventory};
 
 fn main() {
-
-    //println!("Hello, world!");
-
-    //let my_parser = cli::parser::Parser::new().go();
-    let mut cli_parser = cli::parser::CliParser::new();
     
-    cli_parser.parse().map_or_else(
-        |e| quit(&e),
-        |x| x, 
-    );
+    match liftoff() {
+        Err(e) => quit(&e),
+        _ => {}
+    }
+
+}
+
+fn liftoff() -> Result<(),String> {
+
+    let mut cli_parser = cli::parser::CliParser::new();
+    cli_parser.parse()?;
 
     if cli_parser.needs_help {
         cli_parser.show_help();
-        return;
+        return Ok(());
     }
 
+    let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
+    load_inventory(inventory_paths);
 
-    println!("mode = {}", cli_parser.mode);
-
-    if cli_parser.mode == cli::parser::CLI_MODE_SHOW {
-        handle_show(&cli_parser);
+    return match cli_parser.mode {
+        cli::parser::CLI_MODE_SHOW => cli_parser.handle_show(),
+        _ => Err(String::from("invalid CLI mode"))
     }
-    
-    //println!("mode={}", cli_parser.mode.as_str());
-
-    //for path in cli_parser.playbook_paths.iter() {
-        //println!("playbook={}", path.display());
-    //}
-    //for path in cli_parser.inventory_paths.iter() {
-        //println!("inventory={}", path.display());
-    //}
-    
-    load_inventory(cli_parser.inventory_paths).map_or_else(
-        |e| quit(&e),
-        |x| x
-    )
-    
-
 
     // PLANS:
     // check syntax and return the playbook and inventory
@@ -83,36 +71,9 @@ fn main() {
     // engine = Engine::new(inventories, playbooks, connection_factory)
     // let result = engine.run(cli_parser.is_check_mode())
 
-
 }
 
-fn handle_show(cli_parser: &cli::parser::CliParser) {
-    
-    // show be used as 
-    // jetp show -i inventory
-    // jetp show -i inventory --groups g1:g2
-    // jetp show -i inventory --hosts h1:h2
 
-    println!("SHOW TIME");
-    let paths = &cli_parser.inventory_paths;
-
-
-    if cli_parser.groups.is_empty() && cli_parser.hosts.is_empty() {
-        cli::show::show_inventory_tree();
-    }
-
-    for group_name in cli_parser.groups.iter() {
-        cli::show::show_inventory_group(group_name.clone());
-    }
-
-    for host_name in cli_parser.hosts.iter() {
-        cli::show::show_inventory_host(host_name.clone())
-    }
-
-    //for x in paths.iter() {
-    //    println!("i={}", x.display());
-    // }
-}
 
 //*****************************************************************************************8
 

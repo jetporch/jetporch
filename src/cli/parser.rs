@@ -277,6 +277,34 @@ impl CliParser  {
         return self.validate_internal_consistency()
     } 
 
+    pub fn handle_show(&mut self) -> Result<(), String> {
+    
+        // show be used as 
+        // jetp show -i inventory
+        // jetp show -i inventory --groups g1:g2
+        // jetp show -i inventory --hosts h1:h2
+    
+        //let paths = self.inventory_paths;
+    
+        if self.groups.is_empty() && self.hosts.is_empty() {
+            crate::cli::show::show_inventory_tree()?;
+        }
+    
+        for group_name in self.groups.iter() {
+            crate::cli::show::show_inventory_group(group_name.clone())?;
+        }
+    
+        for host_name in self.hosts.iter() {
+            crate::cli::show::show_inventory_host(host_name.clone())?;
+        }
+    
+        return Ok(());
+    
+        //for x in paths.iter() {
+        //    println!("i={}", x.display());
+        // }
+    }
+
     // ---------------------------------------------------------------------------------------
     // print the usage message
     // FIXME: do we need the non-method function?  move code here?

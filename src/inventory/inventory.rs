@@ -59,19 +59,25 @@ fn create_host(host_name: String) {
 }
 
 fn create_group(group_name: String) {
+    println!(">>>>>>>> CREATE GROUP [{}] <<<<<<<<", group_name);
+
     assert!(!has_group(group_name.clone()));
     let mut groups = GROUPS.lock().unwrap();
     let mut group_parents = GROUP_PARENTS.lock().unwrap();
     let mut group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
     let mut group_variables = GROUP_VARIABLES.lock().unwrap();
     let mut group_hosts     = GROUP_HOSTS.lock().unwrap();
+
     groups.insert(group_name.clone());
     group_subgroups.insert(group_name.clone(), HashSet::new());
     group_variables.insert(group_name.clone(), String::from(""));
     group_hosts.insert(group_name.clone(), HashSet::new());    
+
+    group_parents.insert(group_name.clone(), HashSet::new());
+    //println!("adding parent to {}", group_name.clone());
+    group_subgroups.insert(group_name.clone(), HashSet::new());
     if !group_name.eq(&String::from("all")) {
-        group_parents.insert(group_name.clone(), HashSet::new());
-        group_subgroups.insert(group_name.clone(), HashSet::new());
+
         std::mem::drop(groups);
         std::mem::drop(group_parents);
         std::mem::drop(group_subgroups);
@@ -122,6 +128,58 @@ fn store_subgroup(group: String, child: String) {
     if !has_group(group.clone()) { create_group(group.clone()); }
     if !has_group(child.clone()) { create_group(child.clone()); }
     associate_subgroup(group, child);
+}
+
+pub fn internal_get_all_group_parents(group: String, depth: usize) -> Vec<String> {
+    if depth > 1000 {
+        panic!("maximum group depth (1000) exceeded: {}", depth);
+    }
+    let group = group.clone();
+    println!("fetching group parents for {}", group);
+    let group_parents = GROUP_PARENTS.lock().unwrap();
+    let mut group_parents_entry = group_parents.get(&group).unwrap();
+    let mut group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
+    std::mem::drop(group_parents);
+    
+    let mut results: Vec<String> = Vec::new();
+
+    for parent in group_names.iter() {
+        let grand_parents = internal_get_all_group_parents(parent.clone(), depth + 1);
+        for grand_parent in grand_parents.iter() {
+            results.push(grand_parent.clone())
+        }
+        results.push(parent.clone());
+    }
+    return results;
+}
+
+pub fn get_all_group_parents(group: String) -> HashSet<String> {
+    let mut set : HashSet<String> = internal_get_all_group_parents(group.clone(), 0usize).into_iter().collect();
+    return set
+}
+
+pub fn internal_get_all_host_groups(host: String) -> Vec<String> {
+    let host = host.clone();
+    let host_groups = HOST_GROUPS.lock().unwrap();
+    let host_groups_entry = host_groups.get(&host).unwrap();
+    let mut group_names: Vec<String> = host_groups_entry.iter().map(|x| x.clone()).collect();
+    std::mem::drop(host_groups);
+
+    let mut results : Vec<String> = Vec::new();
+
+    for group in group_names.iter() {
+        results.push(group.clone());
+        let parents = internal_get_all_group_parents(group.clone(), 0); 
+        for parent in parents.iter() {
+            results.push(parent.clone());
+        }
+    }
+    return results;
+}
+
+pub fn get_all_host_groups(host: String) -> HashSet<String> {
+    let mut set : HashSet<String> = internal_get_all_host_groups(host.clone()).into_iter().collect();
+    return set
 }
 
 pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
