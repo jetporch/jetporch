@@ -182,13 +182,13 @@ impl CliParser  {
         // jetp show -i inventory --groups g1:g2
         // jetp show -i inventory --hosts h1:h2
         if self.groups.is_empty() && self.hosts.is_empty() {
-            show_inventory_group(String::from("all"));
+            return show_inventory_group(String::from("all"));
         }
         for group_name in self.groups.iter() {
-            show_inventory_group(group_name.clone())?;
+            return show_inventory_group(group_name.clone());
         }
         for host_name in self.hosts.iter() {
-            show_inventory_host(host_name.clone())?;
+            return show_inventory_host(host_name.clone());
         }
         return Ok(());
     

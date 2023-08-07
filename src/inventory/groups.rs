@@ -20,20 +20,39 @@ pub fn has_group(group_name: String) -> bool {
     return GROUPS.lock().expect("LOCKED").contains(&group_name);
 }
 
-pub fn get_all_group_parents(group: String) -> HashSet<String> {
-    let mut set : HashSet<String> = internal_get_all_group_parents(group.clone(), 0usize).into_iter().collect();
+
+//get_ancestor_groups, get_parent_groups, get_child_groups, get_descendent_groups, get_child_hosts, get_descendent_hosts}
+pub fn get_ancestor_groups(group: String) -> Vec<String> {
+    let set : Vec<String> = internal_get_all_group_parents(group.clone(), 0usize).into_iter().collect();
     return set
 }
 
-pub fn get_group_subgroups(group: String) -> Vec<String> {
+pub fn get_parent_groups(group: String) -> Vec<String> {
     println!("FIXME: not implemented1");
     return Vec::new();
 }
 
-pub fn get_all_group_hosts(group: String) -> Vec<String> {
+pub fn get_child_groups(group: String) -> Vec<String> {
     println!("FIXME: not implemented2");
     return Vec::new();
 }
+
+pub fn get_descendant_groups(group: String) -> Vec<String> {
+    println!("FIXME: not implemented2");
+    return Vec::new();
+}
+
+pub fn get_child_hosts(group: String) -> Vec<String> {
+    println!("FIXME: not implemented2");
+    return Vec::new();
+}
+
+pub fn get_descendant_hosts(group: String) -> Vec<String> {
+    println!("FIXME: not implemented2");
+    return Vec::new();
+}
+
+
 
 // ==============================================================================================================
 // PACKAGE API (for use by inventory.rs/hosts.rs only)
@@ -57,7 +76,6 @@ pub fn store_group(group: String) {
     create_group(group.clone());
 }
 
-// put this host into this group
 pub fn associate_host(group: String, host: String) {
     if !has_host(host.clone()) {
         create_host(host.clone());
@@ -77,7 +95,6 @@ pub fn associate_host(group: String, host: String) {
 // PRIVATE INTERNALS
 // ==============================================================================================================
 
-// add this group to inventory
 fn create_group(group_name: String) {
 
     assert!(!has_group(group_name.clone()));
@@ -104,7 +121,6 @@ fn create_group(group_name: String) {
     }
 }
 
-// put this group into this other group
 fn associate_subgroup(group: String, child: String) {
     let group = group.clone();
     let child = child.clone();
@@ -140,6 +156,8 @@ fn internal_get_all_group_parents(group: String, depth: usize) -> Vec<String> {
     }
     return results;
 }
+
+
 
 
 

@@ -14,19 +14,19 @@ pub fn banner(msg: String) {
     markdown_print(&markdown);
 }
 
-pub fn two_column_table(label_header: String, value_header: String, elements: Vec<(String,String)>) {
-    let mut buffer = String::from("|:-|:-|\n");
+pub fn three_column_table(headerA: String, headerB: String, headerC: String, elements: Vec<(String,String,String)>) {
+    let mut buffer = String::from("|:-|:-|:-\n");
     println!("");
     buffer.push_str(
-        &String::from(format!("|{}|{}|\n", label_header, value_header))
+        &String::from(format!("|{}|{}|{}\n", headerA, headerB, headerC))
     );
-    for (a,b) in elements.iter() {
-        buffer.push_str(&String::from("|-|-|\n"));
+    for (a,b,c) in elements.iter() {
+        buffer.push_str(&String::from("|-|-|-\n"));
         buffer.push_str(
-            &String::from(format!("|{}|{}|\n", a, b))
+            &String::from(format!("|{}|{}|{}\n", a, b, c))
         );
     }
-    buffer.push_str(&String::from("|-|-|\n"));
+    buffer.push_str(&String::from("|-|-|-\n"));
     println!("");
     markdown_print(&buffer);
 }

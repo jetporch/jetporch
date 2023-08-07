@@ -42,7 +42,7 @@ fn liftoff() -> Result<(),String> {
     }
 
     let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
-    load_inventory(inventory_paths);
+    load_inventory(inventory_paths)?;
 
     return match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW => cli_parser.handle_show(),
