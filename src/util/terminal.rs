@@ -14,19 +14,29 @@ pub fn banner(msg: String) {
     markdown_print(&markdown);
 }
 
-pub fn three_column_table(headerA: String, headerB: String, headerC: String, elements: Vec<(String,String,String)>) {
-    let mut buffer = String::from("|:-|:-|:-\n");
-    println!("");
+pub fn two_column_table(header_a: String, header_b: String, elements: Vec<(String,String)>) {
+    let mut buffer = String::from("|:-|:-\n");
     buffer.push_str(
-        &String::from(format!("|{}|{}|{}\n", headerA, headerB, headerC))
+        &String::from(format!("|{}|{}\n", header_a, header_b))
     );
-    for (a,b,c) in elements.iter() {
-        buffer.push_str(&String::from("|-|-|-\n"));
+    for (a,b) in elements.iter() {
+        buffer.push_str(&String::from("|-|-\n"));
         buffer.push_str(
-            &String::from(format!("|{}|{}|{}\n", a, b, c))
+            &String::from(format!("|{}|{}\n", a, b))
         );
     }
-    buffer.push_str(&String::from("|-|-|-\n"));
-    println!("");
+    buffer.push_str(&String::from("|-|-\n"));
     markdown_print(&buffer);
+}
+
+pub fn captioned_display(caption: String, body: String) {
+    let mut buffer = String::from("|:-\n");
+    buffer.push_str(&String::from(format!("|{}|\n", caption)));
+    buffer.push_str(&String::from("|---|\n"));
+    let lines : Vec<String> = body.lines().map(String::from).collect();
+    for line in lines.iter() {
+        buffer.push_str(&String::from(format!("|{}|\n", line.trim())));
+    }
+    buffer.push_str(&String::from("|-|\n"));
+    markdown_print(&buffer);   
 }

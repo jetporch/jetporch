@@ -52,18 +52,15 @@ pub fn associate_host_to_group(group: String, host: String) {
 
 pub fn store_host_variables(host: String, yaml_string: String) {
     let mut vars = HOST_VARIABLES.lock().unwrap();
-    println!("??? requesting store variables for {}", host);
     let vars_entry: &mut String = vars.get_mut(&host).unwrap();
     vars_entry.clear();
     vars_entry.push_str(&yaml_string.clone());
 }
 
 pub fn create_host(host_name: String) {
-    println!("creating host: {}", host_name);
     assert!(!has_host(host_name.clone()));
     let mut hosts = HOSTS.lock().unwrap();
     hosts.insert(host_name.clone());
-    println!("??? setting variables for {}", host_name);
 
     let mut host_variables = HOST_VARIABLES.lock().unwrap();
     host_variables.insert(host_name.clone(), String::from(""));

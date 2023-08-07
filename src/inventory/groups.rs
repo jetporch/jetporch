@@ -58,7 +58,6 @@ pub fn get_child_hosts(group: String) -> Vec<String> {
     // FIXME: can make a function to help with these!
     let group = group.clone();
     let group_hosts = GROUP_HOSTS.lock().unwrap();
-    println!("FETCHING group hosts for {}", group);
     let mut group_hosts_entry = group_hosts.get(&group).unwrap();
     let mut host_names : Vec<String> = group_hosts_entry.iter().map(|x| x.clone()).collect();
     return host_names;
@@ -68,16 +67,19 @@ pub fn get_descendant_hosts(group: String) -> Vec<String> {
     let mut results : Vec<String> = Vec::new();
     let groups = get_descendant_groups(group);
     for group in groups.iter() {
-        println!("Looking in child groups for hosts: {}", group.clone());
         let hosts = get_child_hosts(group.clone());
         for host in hosts.iter() {
-            println!("Found a hosts: {}", host.clone());
             results.push(host.clone());
         }
     }    
     return deduplicate(results);
 }
 
+pub fn get_group_variables(group: String) -> String {
+    let vars = GROUP_VARIABLES.lock().unwrap();
+    let vars_entry: &String = vars.get(&group).unwrap();
+    return vars_entry.clone()
+}
 
 
 // ==============================================================================================================
@@ -103,7 +105,6 @@ pub fn store_group(group: String) {
 }
 
 pub fn associate_host(group: String, host: String) {
-    println!("ASSOCIATE HOST <<{} WITH {}>>", group, host);
 
     if !has_host(host.clone()) {
         create_host(host.clone());
@@ -114,7 +115,6 @@ pub fn associate_host(group: String, host: String) {
     }
     let group = group.clone();
     let mut group_hosts = GROUP_HOSTS.lock().unwrap();
-    println!("updating GROUP_HOSTS for group {} with {}.", group, host);
 
     let group_hosts_entry: &mut HashSet<std::string::String> = group_hosts.get_mut(&group).unwrap();
     group_hosts_entry.insert(host.clone());
