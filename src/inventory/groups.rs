@@ -139,7 +139,6 @@ fn internal_get_all_group_parents(group: String, depth: usize) -> Vec<String> {
         panic!("maximum group depth (1000) exceeded: {}", depth);
     }
     let group = group.clone();
-    println!("fetching group parents for {}", group);
     let group_parents = GROUP_PARENTS.lock().unwrap();
     let mut group_parents_entry = group_parents.get(&group).unwrap();
     let mut group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
@@ -148,12 +147,20 @@ fn internal_get_all_group_parents(group: String, depth: usize) -> Vec<String> {
     let mut results: Vec<String> = Vec::new();
 
     for parent in group_names.iter() {
+
         let grand_parents = internal_get_all_group_parents(parent.clone(), depth + 1);
         for grand_parent in grand_parents.iter() {
-            results.push(grand_parent.clone())
+            if ! results.contains(&grand_parent.clone()) {
+                results.push(grand_parent.clone());
+            }
         }
-        results.push(parent.clone());
+        if ! results.contains(&parent.clone()) {
+            results.push(parent.clone());
+        }
     }
+
+    let mut seen: HashSet<String> = HashSet::new();
+    results.retain(|&x| seen.contains(&x) == false);
     return results;
 }
 
