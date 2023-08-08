@@ -1,5 +1,6 @@
 use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
+use crate::util::terminal::{banner};
 
 const YAML_ERROR_SHOW_LINES:usize = 10;
 const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
@@ -10,6 +11,7 @@ const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
 
 pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
+    println!("");
     // open the YAML file again so we can print it
 
     // FIXME: may need to trim long error strings as they could contain
@@ -49,11 +51,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     let mut show_start: usize = 0;
 
     // header showing the error, a blank line, then the file contents exerpt
-    let mut markdown_table = String::new();
-    markdown_table.push_str(format!("|:-|:-:|:-|\n\
-                                 |||Error reading YAML file: {}|\n\
-                                 |||{}\n\
-                                 |-|-|\n", path.display(), yaml_error_str).as_str());
+    banner(format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
 
     if error_line < YAML_ERROR_SHOW_LINES {
         show_start = 1;
@@ -63,21 +61,21 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
         show_stop = line_count;
     }
 
+    println!("");
+
     let mut count: usize = 0;
 
     for line in lines.iter() {
         count = count + 1;
         if count >= show_start && count <= show_stop {
             if count ==  error_line {
-                markdown_table.push_str(format!("|{count}:{error_column} | >>> | {}\n", line).as_str());
+                println!("     {count:5}:{error_column:5} | >>> | {}", line);
             } else {
-                markdown_table.push_str(format!("|{count}|| {}\n", line).as_str());
+                println!("     {count:5}       |     | {}", line);
             }
         }
     }
 
-    markdown_table.push_str(format!("|-|-|-\n").as_str());
-    crate::util::terminal::markdown_print(&markdown_table);
 
     println!("");
 
