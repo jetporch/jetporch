@@ -23,52 +23,52 @@ pub fn has_group(group_name: String) -> bool {
 }
 
 //get_ancestor_groups, get_parent_groups, get_child_groups, get_descendent_groups, get_child_hosts, get_descendent_hosts}
-pub fn get_ancestor_groups(group: String) -> Vec<String> {
+pub fn get_group_ancestor_groups(group: String) -> Vec<String> {
     return recursive_descent(
         group.clone(), 
-        &|x| { get_parent_groups(x) },
+        &|x| { get_group_parent_groups(x) },
         0
     );
 }
 
-pub fn get_parent_groups(group: String) -> Vec<String> {
+pub fn get_group_parent_groups(group: String) -> Vec<String> {
     let group = group.clone();
     let group_parents = GROUP_PARENTS.lock().unwrap();
-    let mut group_parents_entry = group_parents.get(&group).unwrap();
-    let mut group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
+    let group_parents_entry = group_parents.get(&group).unwrap();
+    let group_names : Vec<String> = group_parents_entry.iter().map(|x| x.clone()).collect();
     return group_names;
 }
 
-pub fn get_child_groups(group: String) -> Vec<String> {
+pub fn get_group_child_groups(group: String) -> Vec<String> {
     let group = group.clone();
     let group_subgroups = GROUP_SUBGROUPS.lock().unwrap();
-    let mut child_entry = group_subgroups.get(&group).unwrap();
-    let mut group_names : Vec<String> = child_entry.iter().map(|x| x.clone()).collect();
+    let child_entry = group_subgroups.get(&group).unwrap();
+    let group_names : Vec<String> = child_entry.iter().map(|x| x.clone()).collect();
     return group_names;
 }
 
-pub fn get_descendant_groups(group: String) -> Vec<String> {
+pub fn get_group_descendant_groups(group: String) -> Vec<String> {
     return recursive_descent(
         group.clone(), 
-        &|x| { get_child_groups(x) },
+        &|x| { get_group_child_groups(x) },
         0
     );
 }
 
-pub fn get_child_hosts(group: String) -> Vec<String> {
+pub fn get_group_child_hosts(group: String) -> Vec<String> {
     // FIXME: can make a function to help with these!
     let group = group.clone();
     let group_hosts = GROUP_HOSTS.lock().unwrap();
-    let mut group_hosts_entry = group_hosts.get(&group).unwrap();
-    let mut host_names : Vec<String> = group_hosts_entry.iter().map(|x| x.clone()).collect();
+    let group_hosts_entry = group_hosts.get(&group).unwrap();
+    let host_names : Vec<String> = group_hosts_entry.iter().map(|x| x.clone()).collect();
     return host_names;
 }
 
-pub fn get_descendant_hosts(group: String) -> Vec<String> {
+pub fn get_group_descendant_hosts(group: String) -> Vec<String> {
     let mut results : Vec<String> = Vec::new();
-    let groups = get_descendant_groups(group);
+    let groups = get_group_descendant_groups(group);
     for group in groups.iter() {
-        let hosts = get_child_hosts(group.clone());
+        let hosts = get_group_child_hosts(group.clone());
         for host in hosts.iter() {
             results.push(host.clone());
         }
@@ -82,20 +82,15 @@ pub fn get_group_variables(group: String) -> String {
     return vars_entry.clone()
 }
 
-pub fn get_blended_variables(group: String) -> String {
+pub fn get_group_blended_variables(group: String) -> String {
     let mut blended = String::from("");
-    // FIXME: see if direction of ancestral relationship is correct, if not reverse!
-    let ancestors = get_ancestor_groups(group.clone());
+    let ancestors = get_group_ancestor_groups(group.clone());
     for ancestor in ancestors.iter() {
-        println!("blending with ancestor: {}", ancestor);
         let theirs = get_group_variables(ancestor.clone());
-        println!("vars: {}", theirs);
-
         blended = blend_variables(theirs.clone(), blended.clone());
     }
     let mine = get_group_variables(group.clone());
     return blend_variables(mine.clone(), blended.clone());
-
 }
 
 // BOOKMARK: get_blended_variables!

@@ -15,6 +15,7 @@ use crate::inventory::hosts::{has_host, store_host, store_host_variables};
 
 //#[derive(Debug, PartialEq, Deserialize)]
 #[derive(Debug,Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct YamlGroup {
     hosts : Option<Vec<String>>,
     subgroups : Option<Vec<String>>
