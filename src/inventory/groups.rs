@@ -5,6 +5,7 @@ use Vec;
 use std::collections::{HashMap,HashSet};
 use crate::inventory::hosts::{associate_host_to_group, has_host, create_host};
 use crate::util::data::{deduplicate,recursive_descent};
+use crate::util::yaml::{blend_variables};
 
 static GROUPS          : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
 static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
@@ -81,6 +82,29 @@ pub fn get_group_variables(group: String) -> String {
     return vars_entry.clone()
 }
 
+pub fn get_blended_variables(group: String) -> String {
+    let mut blended = String::from("");
+    // FIXME: see if direction of ancestral relationship is correct, if not reverse!
+    let ancestors = get_ancestor_groups(group.clone());
+    for ancestor in ancestors.iter() {
+        println!("blending with ancestor: {}", ancestor);
+        let theirs = get_group_variables(ancestor.clone());
+        println!("vars: {}", theirs);
+
+        blended = blend_variables(theirs.clone(), blended.clone());
+    }
+    let mine = get_group_variables(group.clone());
+    return blend_variables(mine.clone(), blended.clone());
+
+}
+
+// BOOKMARK: get_blended_variables!
+// to get blended variables find the ancestor chain and walk it. 
+// we need to do some tests to make sure a diamond pattern is correct
+// then blend with each going up the chain
+// then add to show, enough to blog then!
+// then move on to host reports, do the same thing as for groups basically
+// then we can start more fun things!
 
 // ==============================================================================================================
 // PACKAGE API (for use by inventory.rs/hosts.rs only)

@@ -1,7 +1,7 @@
 use crate::util::terminal::{two_column_table, captioned_display};
 //use crate::inventory::hosts::{};
 use crate::inventory::groups::{has_group, get_ancestor_groups, get_parent_groups, get_child_groups, get_descendant_groups,
-    get_child_hosts, get_descendant_hosts, get_group_variables};
+    get_child_hosts, get_descendant_hosts, get_group_variables, get_blended_variables};
 
 // ==============================================================================================================
 // PUBLIC API
@@ -35,14 +35,14 @@ pub fn show_inventory_group(group_name: String) -> Result<(),String> {
 
     //banner(format!("group: {}", group_name.clone()));
 
-    let descendants      = get_descendant_groups(group_name.clone());
-    let children         = get_child_groups(group_name.clone());
-    let ancestors        = get_ancestor_groups(group_name.clone());
-    let parents          = get_parent_groups(group_name.clone());
-    let descendant_hosts = get_descendant_hosts(group_name.clone());
-    let child_hosts      = get_child_hosts(group_name.clone());
-    let group_variables  = get_group_variables(group_name.clone());
-
+    let descendants       = get_descendant_groups(group_name.clone());
+    let children          = get_child_groups(group_name.clone());
+    let ancestors         = get_ancestor_groups(group_name.clone());
+    let parents           = get_parent_groups(group_name.clone());
+    let descendant_hosts  = get_descendant_hosts(group_name.clone());
+    let child_hosts       = get_child_hosts(group_name.clone());
+    let group_variables   = get_group_variables(group_name.clone());
+    let blended_variables = get_blended_variables(group_name.clone());
     //let parents      = get_all_group_parents(group_name);
     //let direct_hosts = get_all_group_hosts(group_name);
     //let variables    = get_group_variables(group_name);
@@ -59,11 +59,6 @@ pub fn show_inventory_group(group_name: String) -> Result<(),String> {
     let parents_string = parents.join(", ");
     let descendant_hosts_string = descendant_hosts.join(", ");
     let child_hosts_string = child_hosts.join(", ");
-
-    // FIXME:
-
-    let blended_variables = String::from("Bob?"); // FIXME
-    
 
     let group_elements : Vec<(String,String)> = vec![
         (String::from("All Descendants"), descendants_string),
