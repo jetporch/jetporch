@@ -11,7 +11,10 @@ use crate::inventory::hosts::{has_host, store_host, store_host_variables};
 // ==============================================================================================================
 
 // for groups/<groupname> inventory files
-#[derive(Debug, PartialEq, Deserialize)]
+// for groups/<groupname> inventory files
+
+//#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug,Deserialize)]
 pub struct YamlGroup {
     hosts : Option<Vec<String>>,
     subgroups : Option<Vec<String>>
