@@ -178,23 +178,6 @@ impl CliParser  {
         }
     }
 
-    // all 'show' subcommand logic
-    pub fn handle_show(&mut self) -> Result<(), String> {
-        // jetp show -i inventory
-        // jetp show -i inventory --groups g1:g2
-        // jetp show -i inventory --hosts h1:h2
-        if self.groups.is_empty() && self.hosts.is_empty() {
-            return show_inventory_group(String::from("all"));
-        }
-        for group_name in self.groups.iter() {
-            return show_inventory_group(group_name.clone());
-        }
-        for host_name in self.hosts.iter() {
-            return show_inventory_host(host_name.clone());
-        }
-        return Ok(());
-    
-    }
 
     // print the usage message
     pub fn show_help(&self) {

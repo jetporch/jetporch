@@ -1,3 +1,21 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// code for the CLI subcommand 'show'.
+
 use crate::util::terminal::{two_column_table, captioned_display};
 use crate::inventory::groups::{has_group, get_group_ancestor_groups, get_group_parent_groups, 
     get_group_child_groups, get_group_descendant_groups, get_group_child_hosts, 
@@ -9,6 +27,7 @@ use crate::inventory::hosts::{has_host, get_host_groups, get_host_ancestor_group
 // PUBLIC API
 // ==============================================================================================================
 
+// jetp show --inventory <path> --hosts host1:host2
 
 pub fn show_inventory_host(host_name: String) -> Result<(),String> {
 
@@ -43,6 +62,9 @@ pub fn show_inventory_host(host_name: String) -> Result<(),String> {
 
     Ok(())
 }
+
+// jetp show --inventory <path> # implicit --group all
+// jetp show --inventory <path> --groups group1:group2
 
 pub fn show_inventory_group(group_name: String) -> Result<(),String> {
 

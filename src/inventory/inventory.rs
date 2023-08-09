@@ -174,7 +174,7 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
     Ok(())
 }
 
-// TODO: implemented
+// TODO: implement
 fn load_dynamic_inventory(path: &Path) -> Result<(), String> {
      println!("load_dynamic_inventory: NOT IMPLEMENTED");
     // FIXME: implement the script execution/parsing parts on top

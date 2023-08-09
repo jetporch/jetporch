@@ -17,22 +17,22 @@
 mod cli;
 mod inventory;
 mod util;
-use crate::util::io::{quit};
+mod playbooks;
+
 use std::path::PathBuf;
+use crate::util::io::{quit};
 use crate::inventory::inventory::{load_inventory};
+use crate::cli::show::{show_inventory_group,show_inventory_host};
+use crate::cli::parser::{CliParser};
+use crate::cli::syntax::{playbook_syntax_scan};
 
 fn main() {
-    
-    match liftoff() {
-        Err(e) => quit(&e),
-        _ => {}
-    }
-
+    match liftoff() { Err(e) => quit(&e), _ => {} }
 }
 
 fn liftoff() -> Result<(),String> {
 
-    let mut cli_parser = cli::parser::CliParser::new();
+    let mut cli_parser = CliParser::new();
     cli_parser.parse()?;
 
     // jetp --help was given, or no arguments
@@ -51,14 +51,38 @@ fn liftoff() -> Result<(),String> {
     // now split off into various logic based on the CLI subcommand
     return match cli_parser.mode {
         // FIXME: REFACTOR: move this "show" logic into this file, and out of cli.rs
-        cli::parser::CLI_MODE_SHOW => cli_parser.handle_show(),
+        cli::parser::CLI_MODE_SHOW => handle_show(&cli_parser),
+        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&cli_parser),
+
         // FIXME: add playbook run commands here, etc
         _ => Err(String::from("invalid CLI mode"))
     }
 
-    
-
 }
+
+pub fn handle_show(parser: &CliParser) -> Result<(), String> {
+    // jetp show -i inventory
+    // jetp show -i inventory --groups g1:g2
+    // jetp show -i inventory --hosts h1:h2
+    if parser.groups.is_empty() && parser.hosts.is_empty() {
+        return show_inventory_group(String::from("all"));
+    }
+    for group_name in parser.groups.iter() {
+        return show_inventory_group(group_name.clone());
+    }
+    for host_name in parser.hosts.iter() {
+        return show_inventory_host(host_name.clone());
+    }
+    return Ok(());
+}
+
+// FIXME: look at anyhow crate
+
+pub fn handle_syntax(parser: &CliParser) -> Result<(), String> {
+    return playbook_syntax_scan(&parser.playbook_paths);
+}
+
+
 
 //******************************************************************************************
 // EOF

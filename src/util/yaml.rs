@@ -20,7 +20,6 @@
 use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
 use crate::util::terminal::{banner};
-use serde_yaml::{Mapping};
 
 const YAML_ERROR_SHOW_LINES:usize = 10;
 const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
@@ -32,18 +31,11 @@ const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
 pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     println!("");
-    // open the YAML file again so we can print it
-
-    // FIXME: may need to trim long error strings as they could contain
-    // the whole file (re: yaml_error) inside of format for the error message itself
-
-    // see if there is a YAML line number in the error structure, if not, we can't show the
-    // context in the file
 
     let location = yaml_error.location();
-
     let mut yaml_error_str = String::from(format!("{}", yaml_error));
 
+    // FIXME: make a utility function for this and also use it in show.rs
     yaml_error_str.truncate(YAML_ERROR_WIDTH);
     if yaml_error_str.len() > YAML_ERROR_WIDTH - 3 {
         yaml_error_str.push_str("...");
@@ -65,12 +57,8 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     let lines: Vec<String> = read_to_string(path).unwrap().lines().map(String::from).collect();
     let line_count = lines.len();
-
-    // figure out what our start and stop line numbers are when showing
-    // where the errors are in the YAML
     let mut show_start: usize = 0;
 
-    // header showing the error, a blank line, then the file contents exerpt
     banner(format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
 
     if error_line < YAML_ERROR_SHOW_LINES {
@@ -120,7 +108,7 @@ pub fn blend_variables(left_shark: String, right_shark: String) -> String {
 
 fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
  
-    /*
+    /* saving these notes as useful for template code probably
     println!("~");
     if a.is_mapping() {
         println!("A: I'm a mapping!");
@@ -147,16 +135,14 @@ fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
     }
     */
 
-
     match (a, b) {
 
-        (a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Null) => {
+        (_a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Null) => {
         },
 
         (a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Mapping(b)) => {
             let a = a.as_mapping_mut().unwrap();
             for (k, v) in b {
-                let temp_string = &serde_yaml::to_string(&k).unwrap();
                 if v.is_sequence() && a.contains_key(&k) && a[&k].is_sequence() { 
                     let mut _b = a.get(&k).unwrap().as_sequence().unwrap().to_owned();
                     _b.append(&mut v.as_sequence().unwrap().to_owned());

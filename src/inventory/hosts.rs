@@ -1,11 +1,27 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use Vec;
 use std::collections::{HashMap,HashSet};
 use crate::inventory::groups::{associate_host, get_group_variables, get_group_ancestor_groups};
-use crate::util::data::{deduplicate,recursive_descent};
 use crate::util::yaml::{blend_variables};
 
+// this implementation need not stay
 static HOSTS           : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
 static HOST_VARIABLES  : Lazy<Mutex<HashMap<String,String>>>          = Lazy::new(||Mutex::new(HashMap::new()));
 static HOST_GROUPS     : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
@@ -52,7 +68,6 @@ pub fn get_host_blended_variables(host: String) -> String {
     let mine = get_host_variables(host.clone());
     return blend_variables(mine.clone(), blended.clone());
 }
-
 
 // =============================================================================================================
 // INVENTORY API - for use by inventory.rs/groups.rs only!

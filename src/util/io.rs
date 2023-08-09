@@ -30,7 +30,7 @@ use std::process;
 // ==============================================================================================================
 
 // read a directory as per the normal rust way, but map any errors to strings
-// FIXME: look into anyhow crate?
+// FIXME: look into anyhow crate here and throughout program?
 pub fn jet_read_dir(path: &Path) -> Result<ReadDir, String> {
     return fs::read_dir(path).map_err(
         |_x| format!("failed to read directory: {}", path.display())
