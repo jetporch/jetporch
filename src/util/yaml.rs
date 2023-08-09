@@ -1,3 +1,22 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// yaml.rs: functions to simplify YAML processing
+
+
 use std::path::{Path}; // ,PathBuf};
 use std::fs::read_to_string;
 use crate::util::terminal::{banner};
@@ -77,16 +96,12 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
         }
     }
 
-
     println!("");
 
 }
 
 // left takes on values from right
 pub fn blend_variables(left_shark: String, right_shark: String) -> String {
-
-    println!("---- BLEND CALLED");
-
     let l = left_shark.clone();
     let r = right_shark.clone();
     let mut left: serde_yaml::Value = serde_yaml::from_str(&l).unwrap();
@@ -96,10 +111,16 @@ pub fn blend_variables(left_shark: String, right_shark: String) -> String {
     return yaml_string.clone();
 }
 
-// https://stackoverflow.com/questions/67727239/how-to-combine-including-nested-array-values-two-serde-yamlvalue-objects
-fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
-    // a side wins
+// ==============================================================================================================
+// PRIVATE
+// ==============================================================================================================
 
+// adapted from
+// https://stackoverflow.com/questions/67727239/how-to-combine-including-nested-array-values-two-serde-yamlvalue-objects
+
+fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
+ 
+    /*
     println!("~");
     if a.is_mapping() {
         println!("A: I'm a mapping!");
@@ -124,46 +145,34 @@ fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
     } else {
         println!("B: I'm something else!");
     }
+    */
 
 
     match (a, b) {
 
         (a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Null) => {
-            // there is no erasing of a value by blending with an empty value
-            println!("cowardly refusing to blend in the null stuff");
         },
 
-        // if both sides are mappings
         (a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Mapping(b)) => {
-            println!("match1");
             let a = a.as_mapping_mut().unwrap();
             for (k, v) in b {
                 let temp_string = &serde_yaml::to_string(&k).unwrap();
-                println!("k,v in b: {}", temp_string);
                 if v.is_sequence() && a.contains_key(&k) && a[&k].is_sequence() { 
-
-                    // arrays currently append, do we want this?
-
-                    println!("cond1");
                     let mut _b = a.get(&k).unwrap().as_sequence().unwrap().to_owned();
                     _b.append(&mut v.as_sequence().unwrap().to_owned());
                     a[&k] = serde_yaml::Value::from(_b);
                     continue;
                 }
                 if !a.contains_key(&k) {
-                    println!("insert k,v");
                     a.insert(k.to_owned(), v.to_owned());
                 }
                 else { 
-                    println!("recurse!");
                     merge_yaml(&mut a[&k], v); 
                 }
 
             }
         }
-        // else the left takes the right hand side values
         (a, b) => {
-            println!("nooooo....");
             *a = b
         },
     }

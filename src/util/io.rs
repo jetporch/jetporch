@@ -1,3 +1,24 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// io.rs: functions to (mostly) wrap file I/O and CLI program behavior 
+// to make things occasionally more friendly and allow some place to hook 
+// common functionality if we ever want to.
+
+
 use std::fs;
 use std::path::{Path}; // ,PathBuf};
 use std::fs::ReadDir;
@@ -9,6 +30,7 @@ use std::process;
 // ==============================================================================================================
 
 // read a directory as per the normal rust way, but map any errors to strings
+// FIXME: look into anyhow crate?
 pub fn jet_read_dir(path: &Path) -> Result<ReadDir, String> {
     return fs::read_dir(path).map_err(
         |_x| format!("failed to read directory: {}", path.display())
@@ -51,7 +73,6 @@ pub fn is_executable(path: &Path) -> bool {
     } else {
         return false;
     }
-
 }
 
 // quit with a message - don't use this except in main.rs!

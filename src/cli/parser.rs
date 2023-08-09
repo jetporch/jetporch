@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+// the guts of CLI command line option parsing
+// we don't use any libraries here because they are a bit automagical
+// this is clearly the least organized part of jet, sorry
 
 use std::env;
 use std::vec::Vec;
@@ -34,7 +36,7 @@ pub struct CliParser {
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
     pub batch_size: Option<u32>,
-    // FIXME: threads?
+    // FIXME: threads and other arguments should be added here.
 }
 
 pub const CLI_MODE_UNSET: u32 = 0;
@@ -297,10 +299,7 @@ impl CliParser  {
     // PRIVATE METHODS
     // ===========================================================================
 
-
-    // ---------------------------------------------------------------------------------------
     // some arguments may incompatible with each other, so add error handling here
-    // FIXME: no implementation yet
     // add new CLI modes here and elsewhere this comment is found
       
     fn validate_internal_consistency(&mut self) -> Result<(), String> {
@@ -318,7 +317,6 @@ impl CliParser  {
         return Ok(())
     }
 
-    // ---------------------------------------------------------------------------------------
     // this function is used to store the subcommand in the playbook.  main.rs can
     // perform different logic based on the subcommand, that logic does not happen in this file
 
@@ -330,7 +328,6 @@ impl CliParser  {
         return Err(format!("jetp mode ({}) is not valid, see --help", value))
      }
     
-    // ---------------------------------------------------------------------------------------
     // store --playbook path/to/foo.yml
     // this will raise an error if any of the paths are not present
     // paths can be specified as multiple locations by using a colon between locations
@@ -343,7 +340,6 @@ impl CliParser  {
         return Ok(());
     }
     
-    // ---------------------------------------------------------------------------------------
     // store --inventory path/to/inventory/folder and so on
     // this will raise an error if any of the paths are not present
     // paths can be specified as multiple locations by using a colon between locations
@@ -375,10 +371,18 @@ impl CliParser  {
 
 }
 
+// =====================================================================================
+// utility functions
+// =====================================================================================
+
+// split a string on colons returning a vector, eventually it may split on a few other
+// elements or do some more validation
+
 fn split_string(value: &String) -> Result<Vec<String>, String> {
     return Ok(value.split(":").map(|x| String::from(x)).collect());
 }
 
+// accept paths eliminated by ":" and return a list of paths, provided they exist
 
 fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
     

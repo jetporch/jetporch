@@ -1,3 +1,19 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 use std::path::{Path,PathBuf};
 use Vec;
 use serde::{Deserialize};
@@ -9,8 +25,6 @@ use crate::inventory::hosts::{has_host, store_host, store_host_variables};
 // ==============================================================================================================
 // YAML SPEC
 // ==============================================================================================================
-
-// for groups/<groupname> inventory files
 // for groups/<groupname> inventory files
 
 //#[derive(Debug, PartialEq, Deserialize)]
@@ -25,7 +39,6 @@ pub struct YamlGroup {
 // PUBLIC API
 // ==============================================================================================================
 
-
 pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
 
     store_group(String::from("all"));
@@ -36,7 +49,7 @@ pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
             let groups_pathbuf      = inventory_path_buf.join("groups");
             let groups_path         = groups_pathbuf.as_path();
             if groups_path.exists() && groups_path.is_dir() {
-                load_classic_inventory_tree(true, &inventory_path)?;
+                load_on_disk_inventory_tree(true, &inventory_path)?;
             } else {
                 if is_executable(&inventory_path) {
                     load_dynamic_inventory(&inventory_path)?;
@@ -55,8 +68,8 @@ pub fn load_inventory(inventory_paths: Vec<PathBuf>) -> Result<(), String> {
 // PRIVATE INTERNALS
 // ==============================================================================================================
 
-
-fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<(), String> {
+// loads an entire on-disk inventory tree structure (groups/, group_vars/, host_vars/)
+fn load_on_disk_inventory_tree(include_groups: bool, path: &Path) -> Result<(), String> {
     let path_buf           = PathBuf::from(path);
     let group_vars_pathbuf = path_buf.join("group_vars");
     let host_vars_pathbuf  = path_buf.join("host_vars");
@@ -76,7 +89,7 @@ fn load_classic_inventory_tree(include_groups: bool, path: &Path) -> Result<(), 
     return Ok(())
 }
 
-
+// for inventory/groups/* files
 fn load_groups_directory(path: &Path) -> Result<(), String> {
     path_walk(path, |groups_file_path| {
         let group_name = path_basename_as_string(&groups_file_path).clone();
@@ -97,8 +110,8 @@ fn load_groups_directory(path: &Path) -> Result<(), String> {
 }
 
 
+// for inventory/groups/* files
 fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGroup) {
-
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
@@ -115,7 +128,8 @@ fn add_group_file_contents_to_inventory(group_name: String, yaml_group: &YamlGro
     }
 
 }
-              
+            
+// this is used by both on-disk and dynamic inventory sources to load group/ and vars/ directories
 fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
 
     path_walk(path, |vars_path| {
@@ -124,15 +138,16 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
         // FIXME: warning and continue instead?
         match is_group {
             true => {
-                // FIXME warning/logging library?
                 if !has_group(base_name.clone()) { 
-                    println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); 
+                    // FIXME warning/logging library?
+                    //println!("warning: attempting to define group_vars for a group not in inventory: {}", base_name); 
                     return Ok(());
                 }
             } false => {
                 // FIXME warning/logging library?
                 if !has_host(base_name.clone()) { 
-                    println!("warning: attempting to define host_vars for a host not in inventory: {}", base_name); 
+                    // FIXME warning/logging library?
+                    //println!("warning: attempting to define host_vars for a host not in inventory: {}", base_name); 
                     return Ok(());
                 }
             }
@@ -150,7 +165,7 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
         // this will also remove any comments and shorten things up
         let yaml_string = &serde_yaml::to_string(&yaml_result).unwrap();
         match is_group {
-            true => store_group_variables(base_name.clone(), yaml_string.clone()),
+            true  => store_group_variables(base_name.clone(), yaml_string.clone()),
             false => store_host_variables(base_name.clone(), yaml_string.clone())
         }
 
@@ -159,13 +174,11 @@ fn load_vars_directory(path: &Path, is_group: bool) -> Result<(), String> {
     Ok(())
 }
 
-// TODO: blended yaml results per host ... but only those selected in the play.
-
+// TODO: implemented
 fn load_dynamic_inventory(path: &Path) -> Result<(), String> {
-    println!("load_dynamic_inventory: NOT IMPLEMENTED");
-
-    // FIXME: implement the script execution/parsing parts
-    load_classic_inventory_tree(false, &path)?;
+     println!("load_dynamic_inventory: NOT IMPLEMENTED");
+    // FIXME: implement the script execution/parsing parts on top
+    load_on_disk_inventory_tree(false, &path)?;
     //return Err(format!("NOT IMPLEMENTED3: {}", path.display()));
     Err("load  dynamic inventory is not implemented".to_string())
 }

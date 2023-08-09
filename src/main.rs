@@ -1,24 +1,23 @@
-// ours
-//mod connection;
-//use connection::{Connection};
-//use connection::ssh::Ssh;
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 mod cli;
 mod inventory;
 mod util;
-//use cli::parser;
-
-// crates
-//use ferris_says::say;
-//use ssh2::Session;
-
-// core
 use crate::util::io::{quit};
-//use std::io::prelude::*;
-//use std::io::{stdout, BufWriter};
-//use std::net::TcpStream;
-//use std::path::Path;
-//use std::process::Command;
-
 use std::path::PathBuf;
 use crate::inventory::inventory::{load_inventory};
 
@@ -36,46 +35,36 @@ fn liftoff() -> Result<(),String> {
     let mut cli_parser = cli::parser::CliParser::new();
     cli_parser.parse()?;
 
+    // jetp --help was given, or no arguments
     if cli_parser.needs_help {
         cli_parser.show_help();
         return Ok(());
     }
 
+    // at this point, a valid subcommand is assured because we didn't hit an error.
+    // FIXME: add a vector clone function in data.rs
     let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
+
+    // parse the inventory files specified with --inventory
     load_inventory(inventory_paths)?;
 
+    // now split off into various logic based on the CLI subcommand
     return match cli_parser.mode {
+        // FIXME: REFACTOR: move this "show" logic into this file, and out of cli.rs
         cli::parser::CLI_MODE_SHOW => cli_parser.handle_show(),
+        // FIXME: add playbook run commands here, etc
         _ => Err(String::from("invalid CLI mode"))
     }
 
-    // PLANS:
-    // check syntax and return the playbook and inventory
     
-    // inventory_loader = InventoryLoader::new(cli_parser.inventory_paths)
-    // report on any errors (ideally don't just record first)
-
-    // playbook_loader = PlaybookLoader::new(cli_parser.playbook_paths)
-    // report on any errors (ideally don't just record first)
-
-    /*
-    if cli_parser.is_local() {
-        connection_factory = ...
-    }
-    else if cli_parser.is_ssh() {
-        connection_factory = ...
-    }
-    // future neat things...
-    */
-
-    // engine = Engine::new(inventories, playbooks, connection_factory)
-    // let result = engine.run(cli_parser.is_check_mode())
 
 }
 
+//******************************************************************************************
+// EOF
+//******************************************************************************************
 
-
-//*****************************************************************************************8
+// SAVING NOTES ON SSH API FOR NOW
 
     /*
 

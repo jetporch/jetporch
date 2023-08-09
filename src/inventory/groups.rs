@@ -1,3 +1,18 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
@@ -7,6 +22,7 @@ use crate::inventory::hosts::{associate_host_to_group, has_host, create_host};
 use crate::util::data::{deduplicate,recursive_descent};
 use crate::util::yaml::{blend_variables};
 
+// this implementation need not stay
 static GROUPS          : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
 static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
 static GROUP_PARENTS   : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
@@ -17,12 +33,12 @@ static GROUP_VARIABLES : Lazy<Mutex<HashMap<String,String>>>          = Lazy::ne
 // PUBLIC API
 // ==============================================================================================================
 
-// is this group name in inventory?
 pub fn has_group(group_name: String) -> bool {
-    return GROUPS.lock().expect("LOCKED").contains(&group_name);
+    return GROUPS.lock().unwrap().contains(&group_name);
 }
 
-//get_ancestor_groups, get_parent_groups, get_child_groups, get_descendent_groups, get_child_hosts, get_descendent_hosts}
+// FIXME: we need to sort these by depth after we get them back, currently 'all' can show up in the middle
+// FIXME: implies we need to record depth on entry or use different storage (eventually)
 pub fn get_group_ancestor_groups(group: String) -> Vec<String> {
     return recursive_descent(
         group.clone(), 
@@ -56,7 +72,6 @@ pub fn get_group_descendant_groups(group: String) -> Vec<String> {
 }
 
 pub fn get_group_child_hosts(group: String) -> Vec<String> {
-    // FIXME: can make a function to help with these!
     let group = group.clone();
     let group_hosts = GROUP_HOSTS.lock().unwrap();
     let group_hosts_entry = group_hosts.get(&group).unwrap();
@@ -93,19 +108,10 @@ pub fn get_group_blended_variables(group: String) -> String {
     return blend_variables(mine.clone(), blended.clone());
 }
 
-// BOOKMARK: get_blended_variables!
-// to get blended variables find the ancestor chain and walk it. 
-// we need to do some tests to make sure a diamond pattern is correct
-// then blend with each going up the chain
-// then add to show, enough to blog then!
-// then move on to host reports, do the same thing as for groups basically
-// then we can start more fun things!
-
 // ==============================================================================================================
 // PACKAGE API (for use by inventory.rs/hosts.rs only)
 // ==============================================================================================================
 
-// add a child group, used by inventory loading code
 pub fn store_subgroup(group: String, child: String) {
     if !has_group(group.clone()) { create_group(group.clone()); }
     if !has_group(child.clone()) { create_group(child.clone()); }
@@ -124,20 +130,12 @@ pub fn store_group(group: String) {
 }
 
 pub fn associate_host(group: String, host: String) {
-
-    if !has_host(host.clone()) {
-        create_host(host.clone());
-    }
-    if !has_group(group.clone()) {
-
-        create_group(group.clone());
-    }
+    if !has_host(host.clone())   { create_host(host.clone());   }
+    if !has_group(group.clone()) { create_group(group.clone()); }
     let group = group.clone();
     let mut group_hosts = GROUP_HOSTS.lock().unwrap();
-
     let group_hosts_entry: &mut HashSet<std::string::String> = group_hosts.get_mut(&group).unwrap();
     group_hosts_entry.insert(host.clone());
-
     associate_host_to_group(group, host);
 }
 
