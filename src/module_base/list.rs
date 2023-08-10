@@ -30,7 +30,7 @@ use crate::module_library::shell::{Shell};
 
 
 #[derive(Debug,Deserialize,PartialEq)]
-#[serde(tag = "module")]
+#[serde(tag="module", rename_all="lowercase")]
 //#[serde(untagged,deny_unknown_fields)]
 pub enum Task {
     External,

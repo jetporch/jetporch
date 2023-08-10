@@ -59,8 +59,18 @@ pub fn jet_file_open(path: &Path) -> Result<std::fs::File, String> {
 
 // get the last part of the file ignoring the directory part
 pub fn path_basename_as_string(path: &Path) -> String {
-    // LOL, Rust...
     return path.file_name().unwrap().to_str().unwrap().to_string();
+}
+
+// get the last part of the file ignoring the directory part
+pub fn path_as_string(path: &Path) -> String {
+    return path.to_str().unwrap().to_string();
+
+}
+
+pub fn directory_as_string(path: &Path) -> String {
+    assert!(path.is_file(), "path should be a file");
+    return path.parent().unwrap().to_str().unwrap().to_string();
 
 }
 

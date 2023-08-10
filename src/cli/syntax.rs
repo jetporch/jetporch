@@ -15,10 +15,28 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
-use crate::playbooks::traversal::{playbook_traversal};
+use crate::playbooks::traversal::{playbook_traversal,PlaybookVisitor,PlaybookContext};
+
+struct SyntaxVisitor {
+}
+impl PlaybookVisitor for SyntaxVisitor {
+}
+
+impl SyntaxVisitor {
+    // so far just take most of the default behavior, since syntax checking is the least
+    // meaning of operations.
+    pub fn new() -> Self {
+        Self {
+        }
+    }
+
+}
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    return playbook_traversal(playbook_paths); // FIXME: add syntax_visitor, connection_factory);
+    let context = PlaybookContext::new();
+    let visitor = SyntaxVisitor::new();
+
+    return playbook_traversal(&playbook_paths, &context, &visitor);
 
 }
