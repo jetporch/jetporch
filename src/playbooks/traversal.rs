@@ -19,7 +19,7 @@ use std::path::PathBuf;
 
 // FIXME: this will take a lot of callback params most likely
 
-pub fn playbook_traversal(playbook_paths: Vec<PathBuf>) -> Result<(), String> {
+pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
 // where F, etc
 
     for path in playbook_paths {

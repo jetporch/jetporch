@@ -19,6 +19,6 @@ use crate::playbooks::traversal::{playbook_traversal};
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    return playbook_traversal(playbook_paths);
+    return playbook_traversal(playbook_paths); // FIXME: add syntax_visitor, connection_factory);
 
 }
