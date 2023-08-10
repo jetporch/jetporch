@@ -21,7 +21,7 @@ use crate::util::yaml::show_yaml_error_in_context;
 use crate::module_base::list::Task;
 use crate::inventory::groups::{has_group,get_group_descendant_hosts};
 use crate::util::data::{deduplicate};
-use crate::util::io::{directory_as_string,path_as_string,path_basename_as_string};
+use crate::util::io::{directory_as_string,path_as_string} // path_basename_as_string};
 use std::sync::Mutex;
 use std::sync::Arc;
 
@@ -83,6 +83,24 @@ impl PlaybookContext {
     }
 }
 
+/* MAYBE FOR LATER
+use crossbeam_utils::atomic::AtomicCell;
+use std::thread;
+
+fn main() {
+    let rofl = Some("lol".to_string());
+    
+    let foo = AtomicCell::new(None);
+    foo.store(rofl);
+    
+    let bar = thread::spawn(move || {
+        println!("{:?}", foo.into_inner());
+    });
+    
+    bar.join().unwrap();
+}
+*/
+
 // default implementation mostly just runs the syntax scan
 // FIXME: since these share a lot of output in common, what if we construct this
 // to take another class as a parameter and then loop over that vector of embedded handlers?
@@ -105,21 +123,15 @@ pub trait PlaybookVisitor {
     }
 
     fn on_task_start(&self, context: &PlaybookContext) {
-        let task = context.task.unwrap();
-        if task.name.is_empty() {
-            println!("> task start: {}", task.module);
-        } else {
-            println!("> task start: {}", task.name);
-        }
+        let task = context.task.lock().unwrap().unwrap();
+        let name = task.get_name();
+        //let module = task.get_module();
+        println!("> task start: {}", name);
     }
 
     fn on_task_complete(&self, context: &PlaybookContext) {
-        let task = context.task.lock().unwrap();
-        if task.name.is_empty() {
-            println!("> task complete: {}", task.module);
-        } else {
-            println!("> task complete: {}", task.name);
-        }
+        let task = context.task.lock().unwrap().unwrap();
+        println!("> task complete: {}", task.name);
     }
 
     
@@ -190,7 +202,7 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &PlaybookConte
 }
 
 fn validate_jet_version(version: &String) -> Result<(), String> {
-    // FIXME: not implemented
+    return Ok();
 }
 
 fn get_all_hosts(groups: &Vec<String>) {

@@ -31,4 +31,8 @@ impl IsTask for External {
     fn run(&self) -> Result<(), String> {
         return Ok(());
     }
+
+    fn get_module(&self) -> String {
+        return String::from("external");
+    }
 }

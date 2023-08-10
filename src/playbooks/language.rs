@@ -21,7 +21,6 @@ use crate::module_base::list::Task;
 
 #[derive(Debug,Deserialize)]
 #[serde(untagged)]
-#[serde(rename_all = "lowercase")]
 pub enum AsInteger {
     String(String),
     Integer(usize),

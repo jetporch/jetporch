@@ -19,6 +19,7 @@ use crate::playbooks::language::{AsInteger};
 
 pub trait TaskProperties {
     // FIXME: add failed_when, other keywords 
+    fn get_name(&self) -> String;
     fn get_when(&self) -> Option<String>;
     fn get_changed_when(&self) -> Option<String>;
     fn get_retry(&self) -> Option<AsInteger>;
@@ -32,7 +33,7 @@ macro_rules! define_task {
         #[derive(Debug,Deserialize)]
         #[serde(deny_unknown_fields,tag="$name")]
         pub struct $name {
-            pub name: Option<String>,
+            pub name: String,
             pub when: Option<String>,
             pub changed_when: Option<String>,
             pub register: Option<String>,
@@ -51,12 +52,12 @@ pub(crate) use define_task;
 macro_rules! add_task_properties { 
     ($T:ident) => {
         impl TaskProperties for $T {
+            fn get_name(&self) -> String { return self.name.clone() }
             fn get_when(&self) -> Option<String> { return self.when.clone() } 
             fn get_changed_when(&self) -> Option<String> { return self.changed_when.clone() }
             fn get_retry(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
             fn get_delay(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
             fn get_register(&self) -> Option<String> { return self.register.clone(); }
-
         }
     }
 }
@@ -64,5 +65,6 @@ macro_rules! add_task_properties {
 pub(crate) use add_task_properties; 
 
 pub trait IsTask: TaskProperties { 
+    fn get_module(&self) -> String;
     fn run(&self) -> Result<(), String>;
 }

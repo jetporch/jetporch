@@ -27,4 +27,10 @@ impl IsTask for Include {
     fn run(&self) -> Result<(), String> {
         return Ok(());
     }
+
+    fn get_module(&self) -> String {
+        return String::from("include");
+    }
+
 }
+
