@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use serde_yaml::Value;
+#[allow(unused_imports)]
 use serde::{Deserialize};
 use crate::playbooks::language::AsInteger;
 use crate::module_base::common::{IsTask};
 use crate::module_base::common::TaskProperties;
+use serde_yaml::Value;
 use std::collections::HashMap;
-
 
 crate::module_base::common::define_task!(External { module: String, params: HashMap<String, Value> });
 crate::module_base::common::add_task_properties!(External);

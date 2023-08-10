@@ -14,14 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use serde::{Deserialize};
-use serde_yaml::{Value};
+#[allow(unused_imports)]
 use crate::playbooks::language::{AsInteger};
 
 pub trait TaskProperties {
     
     // FIXME: add failed_when, other keywords 
-
     fn get_when(&self) -> Option<String>;
     fn get_changed_when(&self) -> Option<String>;
     fn get_retry(&self) -> Option<AsInteger>;

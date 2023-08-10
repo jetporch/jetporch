@@ -17,8 +17,8 @@
 use serde::{Deserialize};
 //use serde_yaml::{Value};
 
-// all internal modules here alphabetized
-// unused imports are shown here because of macros
+// all internal modules here alphabetized here (and below)
+// unused imports are disabled here because of macros
 
 #[allow(unused_imports)]
 use crate::module_library::external::{External};
@@ -28,6 +28,7 @@ use crate::module_library::include::{Include};
 use crate::module_library::shell::{Shell};
 
 // all internal modules here alphabetized
+
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Task {
