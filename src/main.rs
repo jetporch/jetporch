@@ -18,6 +18,8 @@ mod cli;
 mod inventory;
 mod util;
 mod playbooks;
+mod module_library;
+mod module_base;
 
 use std::path::PathBuf;
 use crate::util::io::{quit};

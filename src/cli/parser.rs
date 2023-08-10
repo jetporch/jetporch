@@ -21,7 +21,6 @@
 use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
-use crate::cli::show::{show_inventory_group, show_inventory_host};
 
 // =============================================================================
 // PUBLIC API - for main.rs only
