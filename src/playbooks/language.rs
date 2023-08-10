@@ -29,18 +29,18 @@ pub enum AsInteger {
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JetHeader {
-    version: String
+    pub version: String
 }
 
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Play {
-    jet : JetHeader,
-    groups: Vec<String>,
-    roles : Option<Vec<String>>,
-    force_vars: Option<HashMap<String,Value>>,
-    defaults: Option<HashMap<String,Value>>,
-    remote_user: Option<String>,
-    tasks: Option<Vec<Task>>,
-    handlers: Option<Vec<Task>>
+    pub jet : JetHeader,
+    pub groups: Vec<String>,
+    //pub roles : Option<Vec<String>>,
+    //pub force_vars: Option<HashMap<String,Value>>,
+    pub defaults: Option<HashMap<String,Value>>,
+    //pub remote_user: Option<String>,
+    pub tasks: Option<Vec<Task>>,
+    //pub handlers: Option<Vec<Task>>
 }

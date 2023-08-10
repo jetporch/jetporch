@@ -16,13 +16,39 @@
 
 use crate::playbooks::language::{Play};
 use std::path::PathBuf;
+use crate::util::io::jet_file_open;
+use crate::util::yaml::show_yaml_error_in_context;
 
 // FIXME: this will take a lot of callback params most likely
 
 pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
 // where F, etc
 
-    for path in playbook_paths {
+    for playbook_path in playbook_paths {
+
+        println!("traversing a playbook, much to do: {}", playbook_path.display());
+
+        //let group_name = path_basename_as_string(&groups_file_path).clone();
+        // playbook_directory_name = ...
+
+        let playbook_file = jet_file_open(&playbook_path)?;
+
+        let playbook_parse_result: Result<Vec<Play>, serde_yaml::Error> = serde_yaml::from_reader(playbook_file);
+        if playbook_parse_result.is_err() {
+            show_yaml_error_in_context(&playbook_parse_result.unwrap_err(), &playbook_path);
+            return Err(format!("edit the file and try again?"));
+        }   
+        let play_vec: Vec<Play> = playbook_parse_result.unwrap();
+
+        for play in play_vec.iter() {
+            println!("version: {}", play.jet.version);
+        }
+
+        //let yaml_string = &serde_yaml::to_string(&play_vec).unwrap();
+
+        //let test_read: Vec<Play> = serde_yaml::from_str(&l).unwrap();
+        //println("test read playbook: {}", test_read);
+
 
         // let basename = 
         // let dirname = 
@@ -37,22 +63,6 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
         // walk handlers
         // walk roles in play (handlers)
         
-        println!("traversing a playbook, much to do: {}", path.display());
-        /*
-        let group_name = path_basename_as_string(&groups_file_path).clone();
-        let groups_file = jet_file_open(&groups_file_path)?;
-        let groups_file_parse_result: Result<YamlGroup, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
-        if groups_file_parse_result.is_err() {
-            show_yaml_error_in_context(&groups_file_parse_result.unwrap_err(), &groups_file_path);
-            return Err(format!("edit the file and try again?"));
-        }   
-        let yaml_result = groups_file_parse_result.unwrap();
-        add_group_file_contents_to_inventory(
-            group_name.clone(), &yaml_result
-        );
-        */
-            
-       // Ok(())
     }
-    Ok(())
+    return Ok(())
 }

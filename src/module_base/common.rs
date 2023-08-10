@@ -18,22 +18,19 @@
 use crate::playbooks::language::{AsInteger};
 
 pub trait TaskProperties {
-    
     // FIXME: add failed_when, other keywords 
     fn get_when(&self) -> Option<String>;
     fn get_changed_when(&self) -> Option<String>;
     fn get_retry(&self) -> Option<AsInteger>;
     fn get_delay(&self) -> Option<AsInteger>;
     fn get_register(&self) -> Option<String>;
-
 }
-
 
 #[macro_export]
 macro_rules! define_task {
     ($name:ident { $($fname:ident : $ftype:ty),* }) => {
         #[derive(Debug,Deserialize)]
-        #[serde(deny_unknown_fields)]
+        #[serde(deny_unknown_fields,tag="$name")]
         pub struct $name {
             pub name: Option<String>,
             pub when: Option<String>,
@@ -46,7 +43,7 @@ macro_rules! define_task {
     };
 }
 
-// FIXME: implement clone on AsInteger?
+// TODO: maybe implement clone on AsInteger?
 
 pub(crate) use define_task; 
 
@@ -66,7 +63,6 @@ macro_rules! add_task_properties {
 
 pub(crate) use add_task_properties; 
 
-
-pub trait IsTask: TaskProperties { // + Runnable?
+pub trait IsTask: TaskProperties { 
     fn run(&self) -> Result<(), String>;
 }

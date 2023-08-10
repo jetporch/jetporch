@@ -15,10 +15,9 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{Deserialize};
-//use serde_yaml::{Value};
 
 // all internal modules here alphabetized here (and below)
-// unused imports are disabled here because of macros
+// unused imports warnings are disabled here because of macros - they are used
 
 #[allow(unused_imports)]
 use crate::module_library::external::{External};
@@ -29,8 +28,10 @@ use crate::module_library::shell::{Shell};
 
 // all internal modules here alphabetized
 
-#[derive(Debug,Deserialize)]
-#[serde(deny_unknown_fields)]
+
+#[derive(Debug,Deserialize,PartialEq)]
+#[serde(tag = "module")]
+//#[serde(untagged,deny_unknown_fields)]
 pub enum Task {
     External,
     Include,
