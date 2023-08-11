@@ -19,6 +19,30 @@ use ssh2::Session;
 use std::io::{Read,Write};
 use std::net::TcpStream;
 use std::path::Path;
+use crate::connection::factory::ConnectionFactory;
+use crate::playbooks::context::PlaybookContext;
+
+pub struct SshFactory {}
+
+impl SshFactory { 
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl SshFactory for ConnectionFactory {
+    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection {
+        if host.eq("localhost") {
+            return LocalConnection::new();
+        } else {
+            return SshConnection::new(
+                host.clone,
+                context.get_remote_user(host),
+                context.get_remote_port(host),
+            );
+        }
+    }
+}
 
 pub struct SshConnection {
     pub host: String,
@@ -27,7 +51,7 @@ pub struct SshConnection {
     pub session: Option<Session>,
 }
 
-impl Ssh {
+impl SshConnection {
     pub fn new(host: String, port: u32, username: String) -> Self {
         Self { host: host, port: port, username: username, session: None }
     }

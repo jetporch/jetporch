@@ -39,10 +39,21 @@ pub struct Play {
     pub name : String,
     pub jet : JetHeader,
     pub groups : Vec<String>,
-    pub roles : Option<Vec<String>>,
+    pub roles : Option<Vec<Role>>,
     pub force_vars : Option<HashMap<String,Value>>,
     pub defaults : Option<HashMap<String,Value>>,
     pub remote_user : Option<String>,
     pub tasks : Option<Vec<Task>>,
     pub handlers : Option<Vec<Task>>
 }
+
+#[derive(Debug,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Role {
+    pub name: String,
+    pub params: Option<HashMap<String,Value>>
+}
+
+
+// for Tasks definitions please, see modules/list.rs
+// which includes items form module_library/*.rs

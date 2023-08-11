@@ -14,87 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::connection::connection::{ConnectionFactory}
-use ssh2::Session;
-use std::io::{Read,Write};
-use std::net::TcpStream;
-use std::path::Path;
-use crate::connection::ssh::NoConnection;
-use crate::connection::local::LocalConnection;
-use crate::connection::ssh::SshConnection;
-use crate::playbook::traversal::PlaybookContext;
+use crate::connection::connection::{Connection};
+use crate::playbooks::context::PlaybookContext;
 
-// FIXME: smart connection caching at least for SSH.
-
-trait ConnectionFactory {
-    pub fn get_connection(host: String) -> dyn Connection;
-}
-
-// ============================================================================================
-// NO FACTORY (FOR SYNTAX CHECKS, ETC)
-// ============================================================================================
-
-pub struct NoFactory {
-}
-
-impl NoFactory {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl ConnectionFactory for NoFactory  {
-
-    pub get_connection(context: &PlaybookContext, host: String) -> Connection {
-        return NoConnection::new();
-    }
-}
-
-// ============================================================================================
-// LOCAL FACTORY
-// ============================================================================================
-
-pub struct LocalFactory {
-}
-
-impl LocalFactory {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl ConnectionFactory for LocalFactory {
-    
-
-
-    pub get_connection(context: &PlaybookContext, host: String) -> Connection {
-        return LocalConnection::new();
-    }
-
-}
-
-// ============================================================================================
-// SSH FACTORY
-// ============================================================================================
-
-pub struct SshFactory {
-}
-
-impl SshFactory {
-    pub fn new() -> Self {
-        Self { }
-    }
-}
-
-impl ConnectionFactory for SshFactory {
-  
-    pub get_connection(context: &PlaybookContext, host: String) -> Connection {
-        // FIXME: get the remote user from the context
-        // FIXME: look for host in blended host variables
-        // FIXME: look for port in blended host variables
-        // FIXME: return the local connection for hosts named localhost
-        return SshConnection::new(host, 22);
-    }
-
+pub trait ConnectionFactory {
+    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection;
 }
 

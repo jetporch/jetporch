@@ -15,4 +15,6 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod language;
+pub mod context;
+pub mod visitor;
 pub mod traversal;

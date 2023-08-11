@@ -14,30 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::playbooks::traversal::{playbook_traversal};
-use crate::connection::no::{NoFactory};
-use crate::playbooks::context::{PlaybookContext};
-use std::path::PathBuf;
-use crate::playbooks::visitor::PlaybookVisitor;
+#[allow(unused_imports)]
+use serde::{Deserialize};
 
-struct SyntaxVisitor {
-}
+use crate::playbooks::language::AsInteger;
+use crate::module_base::common::{IsTask};
+use crate::module_base::common::TaskProperties;
 
-impl PlaybookVisitor for SyntaxVisitor {
-}
+crate::module_base::common::define_task!(Echo { path: String });
+crate::module_base::common::add_task_properties!(Echo);
 
-impl SyntaxVisitor {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
+impl IsTask for Echo {
     
-    let mut context = PlaybookContext::new();
-    let visitor = SyntaxVisitor::new();
-    let factory = NoFactory::new();
+    fn run(&self) -> Result<(), String> {
+        return Ok(());
+    }
 
-    return playbook_traversal(&playbook_paths, &mut context, &factory, &visitor, None);
+    fn get_module(&self) -> String {
+        return String::from("echo");
+    }
 
 }

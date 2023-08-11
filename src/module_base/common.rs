@@ -68,3 +68,4 @@ pub trait IsTask: TaskProperties {
     fn get_module(&self) -> String;
     fn run(&self) -> Result<(), String>;
 }
+

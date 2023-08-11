@@ -16,10 +16,11 @@
 
 #[allow(unused_imports)]
 use serde::{Deserialize};
+use serde_yaml::Value;
+
 use crate::playbooks::language::AsInteger;
 use crate::module_base::common::{IsTask};
 use crate::module_base::common::TaskProperties;
-use serde_yaml::Value;
 use std::collections::HashMap;
 
 crate::module_base::common::define_task!(External { module: String, params: HashMap<String, Value> });

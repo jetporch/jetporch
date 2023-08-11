@@ -20,6 +20,7 @@ mod util;
 mod playbooks;
 mod module_library;
 mod module_base;
+mod connection;
 
 use std::path::PathBuf;
 use crate::util::io::{quit};

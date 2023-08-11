@@ -24,6 +24,7 @@ crate::module_base::common::define_task!(Include { path: String });
 crate::module_base::common::add_task_properties!(Include);
 
 impl IsTask for Include {
+    
     fn run(&self) -> Result<(), String> {
         return Ok(());
     }

@@ -15,11 +15,28 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::connection::connection::{Connection,ConnectionCommandResult};
+use crate::connection::factory::ConnectionFactory;
+use crate::playbooks::context::PlaybookContext;
+
+pub struct LocalFactory {}
+
+impl LocalFactory { 
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl LocalFactory for ConnectionFactory {
+    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection {
+        return LocalConnection::new();
+    }
+}
+
 
 pub struct LocalConnection {
 }
 
-impl Ssh {
+impl LocalConnection {
     pub fn new() -> Self {
         Self { }
     }

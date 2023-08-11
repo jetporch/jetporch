@@ -16,16 +16,16 @@
 
 #[allow(unused_imports)]
 use serde::{Deserialize};
+
 use crate::playbooks::language::AsInteger;
 use crate::module_base::common::{IsTask};
-//use serde_yaml::{Value};
-
 use crate::module_base::common::TaskProperties;
 
 crate::module_base::common::define_task!(Shell { cmd: String });
 crate::module_base::common::add_task_properties!(Shell);
 
 impl IsTask for Shell {
+    
     fn run(&self) -> Result<(), String> {
         return Ok(());
     }

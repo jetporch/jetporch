@@ -24,208 +24,94 @@ use crate::util::data::{deduplicate};
 use crate::util::io::{directory_as_string,path_as_string}; // path_basename_as_string};
 use std::sync::Mutex;
 use std::sync::Arc;
+use crate::playbooks::visitor::PlaybookVisitor;
+use crate::playbooks::context::PlaybookContext;
+use std::collections::HashMap;
+use crate::connection::factory::ConnectionFactory;
 
-// FIXME: this will take a lot of callback params most likely
-
-/*
-#[derive(Debug,Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Play {
-    pub jet : JetHeader,
-    pub groups: Vec<String>,
-    pub roles : Option<Vec<String>>,
-    pub force_vars: Option<HashMap<String,Value>>,
-    pub defaults: Option<HashMap<String,Value>>,
-    pub remote_user: Option<String>,
-    pub tasks: Option<Vec<Task>>,
-    pub handlers: Option<Vec<Task>>
-}
-*/
-
-pub struct PlaybookContext {
-    pub playbook_path: Arc<Mutex<Option<String>>>,
-    pub playbook_directory: Arc<Mutex<Option<String>>>,
-    pub play: Arc<Mutex<Option<String>>>,
-    pub task: Arc<Mutex<Option<String>>>,
-    pub host: Arc<Mutex<Option<String>>>,
-    pub all_hosts: Arc<Mutex<Option<Vec<String>>>>,
-    pub role_path: Arc<Mutex<Option<String>>>,
-    pub role_name: Arc<Mutex<Option<String>>>
-}
-// get_mut
-// load(&self, order: Ordering) -> T
-// store(&self, val: T, order: Ordering)
-// Ordering::Relaxed
-
-
-impl PlaybookContext {
-
-    pub fn new() -> Self {
-        Self {
-            playbook_path: Arc::new(Mutex::new(None)),
-            playbook_directory: Arc::new(Mutex::new(None)),
-            play: Arc::new(Mutex::new(None)),
-            task: Arc::new(Mutex::new(None)),
-            host: Arc::new(Mutex::new(None)),
-            all_hosts: Arc::new(Mutex::new(None)),
-            role_path: Arc::new(Mutex::new(None)),
-            role_name: Arc::new(Mutex::new(None))
-        }
-    }
-
-    pub fn set_playbook_path(&mut self, path: &PathBuf) {
-        *self.playbook_path.lock().unwrap() = Some(path_as_string(&path));
-        *self.playbook_directory.lock().unwrap() = Some(directory_as_string(&path));
-    }
-
-    pub fn set_play(&mut self, play: &Play) {
-        *self.play.lock().unwrap() = Some(play.name.clone());
-    }
-}
-
-/* MAYBE FOR LATER
-use crossbeam_utils::atomic::AtomicCell;
-use std::thread;
-
-fn main() {
-    let rofl = Some("lol".to_string());
-    
-    let foo = AtomicCell::new(None);
-    foo.store(rofl);
-    
-    let bar = thread::spawn(move || {
-        println!("{:?}", foo.into_inner());
-    });
-    
-    bar.join().unwrap();
-}
-*/
-// default implementation mostly just runs the syntax scan
-// FIXME: since these share a lot of output in common, what if we construct this
-// to take another class as a parameter and then loop over that vector of embedded handlers?
-
-pub trait PlaybookVisitor {
-
-    fn debug(&self, message: String) {
-        println("> debug: {}", message.clone());
-    }
-
-    fn on_playbook_start(&self, context: &PlaybookContext) {
-        let arc = context.playbook_path.lock().unwrap();
-        let path = arc.as_ref().unwrap();
-        println!("> playbook start: {}", path)
-    }
-
-    fn on_play_start(&self, context: &PlaybookContext) {
-        let arc = context.play.lock().unwrap();
-        let play = arc.as_ref().unwrap();
-        println!("> play start: {}", play);
-    }
-    
-    fn on_role_start(&self, context: &PlaybookContext) {
-        let arc = context.role.lock().unwrap();
-        let role = arc.as_ref().unwrap();
-        println!("> role start: {}", role);
-    }
-
-    fn on_role_stop(&self, context: &PlaybookContext) {
-        let arc = context.role.lock().unwrap();
-        let role = arc.as_ref().unwrap();
-        println!("> role stop: {}", role);
-    }
-
-    fn on_play_complete(&self, context: &PlaybookContext) {
-        let arc = context.play.lock().unwrap();
-        let play = arc.as_ref().unwrap();
-        println!("> play complete: {}", play);
-    }
-
-    fn on_task_start(&self, context: &PlaybookContext) {
-        let arc = context.task.lock().unwrap();
-        let task = arc.as_ref().unwrap();
-        //let module = task.get_module();
-        println!("> task start: {}", task);
-    }
-
-    fn on_task_complete(&self, context: &PlaybookContext) {
-        let arc = context.task.lock().unwrap();
-        let task = arc.as_ref().unwrap();
-        println!("> task complete: {}", task);
-    }
-
-    
-
-    // TODO: functions for loading in variables and such.
-
-}
-
+// ============================================================================
+// PUBLIC API, see syntax.rs/etc for usage
+// ============================================================================
 
 pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, 
     context: &mut PlaybookContext, 
     visitor: &dyn PlaybookVisitor,
-    connection_factory: &dyn ConnectionFactory) -> Result<(), String> {
+    connection_factory: &dyn ConnectionFactory,
+    batch_size: Option<usize>) -> Result<(), String> {
 
     for playbook_path in playbook_paths {
 
-        //context.playbook_path.store(&playbook_path, Ordering::Relaxed);
+        context.set_playbook_path(playbook_path);
         visitor.on_playbook_start(&context);
 
         let playbook_file = jet_file_open(&playbook_path)?;
         let parsed: Result<Vec<Play>, serde_yaml::Error> = serde_yaml::from_reader(playbook_file);
-
+       
         if parsed.is_err() {
             show_yaml_error_in_context(&parsed.unwrap_err(), &playbook_path);
             return Err(format!("edit the file and try again?"));
         }   
-        let play_vec: Vec<Play> = parsed.unwrap();
 
-        for play in play_vec.iter() {
+        let plays: Vec<Play> = parsed.unwrap();
+        for play in plays.iter() {
 
             context.set_play(&play);
+            context.unset_role();
             visitor.on_play_start(&context);
-            validate_jet_version(&play.jet.version)?;
-            validate_groups(&play.groups)?;
-            validate_hosts(&play.groups)?;
-            process_force_vars(&context, visitor, &play.force_vars);
-            process_remote_user(&context, visitor, connection_factory, &play.remote_user);
 
-            if play.roles.is_some() {
-                let roles = play.roles.as_ref().unwrap();
-                for role_name in roles.iter() {
-                    let role_path : PathBuf = find_role(role_name)?;
-                    let mut defaults_path = role_path.clone();
-                    let mut module_path = role_path.clone();
-                    let mut tasks_path = role_path.clone();
-                    defaults_path.push("defaults");
-                    module_path.push("jet_modules");
-                    tasks_path.push("tasks");
-                    traverse_defaults_directory(&context, visitor, &defaults_path)?;
-                    traverse_modules_directory(&context, visitor, &module_path)?;
-                    traverse_tasks_directory(&context, visitor, connection_factory, &tasks_path, false)?;
+            // FIXME: add teh concept of host_sets here, and then loop over the sets
+            // for use with batch... everything goes an indent level deeper, basically.
+
+            validate_jet_version(&context, &play.jet.version)?;
+            validate_groups(&context, &play.groups)?;
+            validate_hosts(&context, &play.groups)?;
+
+            let (batch_size, batches) = get_host_batches(batch_size);
+
+            for batch_num in 1..batch_size {
+
+                let hosts = batches.nth(batch_num).unwrap();
+
+                context.set_hosts(hosts);
+
+                process_force_vars(&context, visitor, &play.force_vars);
+                process_remote_user(&context, visitor, connection_factory, &play.remote_user);
+                register_external_modules(&context, visitor)?;
+
+                if play.roles.is_some() {
+                    let roles = play.roles.as_ref().unwrap();
+                    for role_name in roles.iter() {
+                        let role_path = find_role(role_name)?;
+                        context.set_role(role_name.clone(), role_path.clone());
+                        apply_defaults_directory(&context, visitor)?;
+                        register_external_modules(&context, visitor)?;
+                        traverse_tasks_directory(&context, visitor, connection_factory, false)?;
+                    }
                 }
-            }
+                context.unset_role();
 
-            if play.tasks.is_some() {
-                let tasks = play.tasks.as_ref().unwrap();
-                for task in tasks.iter() { 
-                    process_task(&context, visitor, connection_factory, &task, false)?; 
+                if play.tasks.is_some() {
+                    let tasks = play.tasks.as_ref().unwrap();
+                    for task in tasks.iter() { 
+                        process_task(&context, visitor, connection_factory, &task, false)?; 
+                    }
                 }
-            }
 
-            if play.roles.is_some() {
-                let roles = play.roles.as_ref().unwrap();
-                for role_name in roles.iter() {
-                    let role_path = find_role(&contxt, visitor, role_name)?;
-                    let mut handlers_path = role_path.clone();
-                    handlers_path.push("handlers");
-                    traverse_tasks_directory(&context, visitor, connection_factory, &handlers_path, true)?;
-                }
-            }            
+                if play.roles.is_some() {
+                    let roles = play.roles.as_ref().unwrap();
+                    for role_name in roles.iter() {
+                        let role_path = find_role(&context, visitor, role_name)?;
+                        context.set_role(role_name.clone(), role_path.clone());
+                        traverse_tasks_directory(&context, visitor, connection_factory, true)?;
+                    }
+                }     
+                context.unset_role();      
 
-            if play.handlers.is_some() {
-                let handlers = play.handlers.as_ref().unwrap();
-                for handler in handlers {  
-                    process_task(&context, visitor, connection_factory, &handler, true)?; 
+                if play.handlers.is_some() {
+                    let handlers = play.handlers.as_ref().unwrap();
+                    for handler in handlers {  
+                        process_task(&context, visitor, connection_factory, &handler, true)?; 
+                    }
                 }
             }
             println!("version: {}", &play.jet.version);
@@ -235,9 +121,33 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
     return Ok(())
 }
 
+// ============================================================================
+// PRIVATE
+// ============================================================================
+
+fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<usize, String>) {
+    
+    // fixme: implement logic
+
+    let mut results : HashMap<usize, String> = HashMap::new();
+    for host in hosts.iter() {
+        result.insert(0usize, host.clone());
+    }
+    return (1, results);
+
+}
+                    /*
+                    let mut defaults_path = role_path.clone();
+                    let mut module_path = role_path.clone();
+                    let mut tasks_path = role_path.clone();
+                    defaults_path.push("defaults");
+                    module_path.push("jet_modules");
+                    */
+
 fn validate_jet_version(version: &String) -> Result<(), String> {
+    // FIXME
     if version.equal("5000") {
-        return Err(format!("FIXME: at some point we'll implement string comparisons here, {}" % version));
+        return Err(format!("the version cannot be 5000, was: {}", version));
     }
     return Ok(());
 }
@@ -254,7 +164,7 @@ fn get_all_hosts(groups: &Vec<String>) -> Vec<String> {
 fn validate_groups(groups: &Vec<String>) -> Result<(), String> {
     for group in groups.iter() {
         if !has_group(group.clone()) {
-            return Err(format!("group ({}) not found", group))
+            return Err(format!("referenced group ({}) not found in inventory", group));
         }
     }
     return Ok(());
@@ -267,57 +177,99 @@ fn validate_hosts(hosts: &Vec<String>) -> Result<(), String> {
     return Ok(());
 }
 
-// FIXME: needs implementation.
-
 fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename: &String) -> Result<PathBuf, String> {
-    visitor.debug(String::from("finding role..."))
+    // FIXME
+    visitor.debug(String::from("finding role..."));
+
+    // look in context.get_roles_paths() and also in "./roles" (that first) for a role with the right name.
+    // if not found, raise an error
+    // then raise an error if there is not one of the valid roles subdirectories:
+    //     tasks defaults files templates jet_modules handlers
+
+    /*
+        path_walk(path, |groups_file_path| {
+        let group_name = path_basename_as_string(&groups_file_path).clone();
+        let groups_file = jet_file_open(&groups_file_path)?;
+        let groups_file_parse_result: Result<YamlGroup, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
+    */
+
+
     return Err(String::from("find role path is not implemented"));
 }  
 
 
-fn traverse_defaults_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, defaults_path: &PathBuf) -> Result<(), String> {
-    visitor.debug(String::from("loading defaults directory"))
+fn apply_defaults_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+    // FIXME
+    // all the files in the defaults directory should be loaded as YAML files and then send to the context
+    // easiest if we just use the blend functions
+    visitor.debug(String::from("loading defaults directory"));
     return Ok(());
 }
 
-fn traverse_modules_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, modules_path: &PathBuf) -> Result<(), String> {
-    visitor.debug(String::from("loading modules directory"))
+fn register_external_modules(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+    // FIXME
+    // if there are any files found in the modules directory add their module names to the modules registry in the context
+    // object.  We should look in context.role_paths directories as well as if there is a module path parameter
+    // in the CLI, which there is currently not.  Also pbdir/jet_modules
+    // then the "External" module code can  use this to find the actual module.  What we should register is the full
+    // path
+
+    visitor.debug(String::from("loading modules directory"));
     return Ok(());
 }
 
 fn traverse_tasks_directory(context: &PlaybookContext, 
     visitor: &dyn PlaybookVisitor, 
-    connection_factory: &dyn ConnectionFactory,
-    tasks_path: &PathBuf, 
+    connection_factory: &dyn ConnectionFactory, 
     are_handlers: bool) -> Result<(), String> {
 
-    visitor.debug(String::from("loading tasks directory"))
+        // FIXME:
+        // get all YAML files in the task directory, do main.yml first, the context
+        // given to the include module should allow it to find things in the right place
+        // so technically this is not a full traversal, the Include module must then
+        // call the same function this would call on other files with the same
+        // parameters.  From Include, we may need to tell the Workflow to not
+        // parallelize further.
+
+        // use context.get_hosts for what hosts to talk to.
+
+    // FIXME
+    visitor.debug(String::from("loading tasks directory"));
     return Ok(());
 
 }
 
 fn process_task(context: &PlaybookContext, 
     visitor: &dyn PlaybookVisitor, 
-    connection_factory: &dyn ConnectionFactory,
-    task: &Task, 
+    connection_factory: &dyn ConnectionFactory, 
     are_handlers: bool) -> Result<(), String> {
 
-    visitor.debug(String::from("processing task"))
+       
+    // ask the connection factory for a connection, call the global module 'workflow'
+    // code (TBD) and record the result from that workflow via the context
+    // we don't actually crash here.  The workflow code should handle parallelization
+    // as this function needs access to the task list.
+
+
+    visitor.debug(String::from("processing task"));
+
+    // use context.get_hosts for what hosts to talk to.
+
     return Ok(());
 
 }
 
 fn process_force_vars(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String>  {
     
-    visitor.debug(String::from("processing force_vars"))
+    // FIXME
+    visitor.debug(String::from("processing force_vars"));
     return Ok(());
 
 }
 
-fn process_remote_user(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String>  {
-
-    visitor.debug(String::from("processing remote user")
-    context.set_remote_user(remote_user);
+fn process_remote_user(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, play: &Play) -> Result<(), String>  {
+    visitor.debug(String::from("processing remote user"));
+    context.set_remote_user(remote_user, play: play);
     return Ok(());
 
 }
