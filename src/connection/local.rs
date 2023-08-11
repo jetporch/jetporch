@@ -14,30 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::PathBuf;
-use crate::playbooks::traversal::{playbook_traversal,PlaybookVisitor,PlaybookContext};
+use crate::connection::connection::{Connection,ConnectionCommandResult};
 
-struct SyntaxVisitor {
-}
-impl PlaybookVisitor for SyntaxVisitor {
+pub struct LocalConnection {
 }
 
-impl SyntaxVisitor {
-    // so far just take most of the default behavior, since syntax checking is the least
-    // meaning of operations.
+impl Ssh {
     pub fn new() -> Self {
-        Self {
-        }
+        Self { }
     }
-
 }
 
-pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
-    
-    let mut context = PlaybookContext::new();
-    let visitor = SyntaxVisitor::new();
-    let factory = NoFactory::new();
+impl Connection for LocalConnection {
 
-    return playbook_traversal(&playbook_paths, &mut context, &factory, &visitor);
+   fn connect(&mut self) {
+   }
+
+   fn run_command(&self, command: String) -> ConnectionCommandResult {
+       ConnectionCommandResult {
+           data: String::from("unimplemented"),
+           exit_status: 0
+       }
+   }
+
+   // FIXME: should return some type of result object
+   fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+   }
 
 }

@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::connection::*;
+use crate::connection::connection::{Connection,ConnectionCommandResult};
 use ssh2::Session;
 use std::io::{Read,Write};
 use std::net::TcpStream;
 use std::path::Path;
 
-pub struct Ssh {
+pub struct SshConnection {
     pub host: String,
     pub port: u32,
     pub username: String,
@@ -33,7 +33,7 @@ impl Ssh {
     }
 }
 
-impl Connection for Ssh {
+impl Connection for SshConnection {
 
    fn connect(&mut self) {
 

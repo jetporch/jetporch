@@ -106,6 +106,10 @@ fn main() {
 
 pub trait PlaybookVisitor {
 
+    fn debug(&self, message: String) {
+        println("> debug: {}", message.clone());
+    }
+
     fn on_playbook_start(&self, context: &PlaybookContext) {
         let arc = context.playbook_path.lock().unwrap();
         let path = arc.as_ref().unwrap();
@@ -116,6 +120,18 @@ pub trait PlaybookVisitor {
         let arc = context.play.lock().unwrap();
         let play = arc.as_ref().unwrap();
         println!("> play start: {}", play);
+    }
+    
+    fn on_role_start(&self, context: &PlaybookContext) {
+        let arc = context.role.lock().unwrap();
+        let role = arc.as_ref().unwrap();
+        println!("> role start: {}", role);
+    }
+
+    fn on_role_stop(&self, context: &PlaybookContext) {
+        let arc = context.role.lock().unwrap();
+        let role = arc.as_ref().unwrap();
+        println!("> role stop: {}", role);
     }
 
     fn on_play_complete(&self, context: &PlaybookContext) {
@@ -144,7 +160,10 @@ pub trait PlaybookVisitor {
 }
 
 
-pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &mut PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, 
+    context: &mut PlaybookContext, 
+    visitor: &dyn PlaybookVisitor,
+    connection_factory: &dyn ConnectionFactory) -> Result<(), String> {
 
     for playbook_path in playbook_paths {
 
@@ -167,8 +186,8 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &mut PlaybookC
             validate_jet_version(&play.jet.version)?;
             validate_groups(&play.groups)?;
             validate_hosts(&play.groups)?;
-            process_force_vars(&context, visitor);
-            process_remote_user(&context, visitor);
+            process_force_vars(&context, visitor, &play.force_vars);
+            process_remote_user(&context, visitor, connection_factory, &play.remote_user);
 
             if play.roles.is_some() {
                 let roles = play.roles.as_ref().unwrap();
@@ -182,31 +201,31 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &mut PlaybookC
                     tasks_path.push("tasks");
                     traverse_defaults_directory(&context, visitor, &defaults_path)?;
                     traverse_modules_directory(&context, visitor, &module_path)?;
-                    traverse_tasks_directory(&context, visitor, &tasks_path, false)?;
+                    traverse_tasks_directory(&context, visitor, connection_factory, &tasks_path, false)?;
                 }
             }
 
             if play.tasks.is_some() {
                 let tasks = play.tasks.as_ref().unwrap();
                 for task in tasks.iter() { 
-                    process_task(&context, visitor, &task, false)?; 
+                    process_task(&context, visitor, connection_factory, &task, false)?; 
                 }
             }
 
             if play.roles.is_some() {
                 let roles = play.roles.as_ref().unwrap();
                 for role_name in roles.iter() {
-                    let role_path = find_role(role_name)?;
+                    let role_path = find_role(&contxt, visitor, role_name)?;
                     let mut handlers_path = role_path.clone();
                     handlers_path.push("handlers");
-                    traverse_tasks_directory(&context, visitor, &handlers_path, true)?;
+                    traverse_tasks_directory(&context, visitor, connection_factory, &handlers_path, true)?;
                 }
             }            
 
             if play.handlers.is_some() {
                 let handlers = play.handlers.as_ref().unwrap();
                 for handler in handlers {  
-                    process_task(&context, visitor, &handler, true)?; 
+                    process_task(&context, visitor, connection_factory, &handler, true)?; 
                 }
             }
             println!("version: {}", &play.jet.version);
@@ -217,6 +236,9 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &mut PlaybookC
 }
 
 fn validate_jet_version(version: &String) -> Result<(), String> {
+    if version.equal("5000") {
+        return Err(format!("FIXME: at some point we'll implement string comparisons here, {}" % version));
+    }
     return Ok(());
 }
 
@@ -240,36 +262,62 @@ fn validate_groups(groups: &Vec<String>) -> Result<(), String> {
 
 fn validate_hosts(hosts: &Vec<String>) -> Result<(), String> {
     if hosts.is_empty() {
-        return Err(String::from("no hosts selected in play"));
+        return Err(String::from("no hosts selected by groups in play"));
     }
     return Ok(());
 }
 
-fn find_role(rolename: &String) -> Result<PathBuf, String> {
+// FIXME: needs implementation.
+
+fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename: &String) -> Result<PathBuf, String> {
+    visitor.debug(String::from("finding role..."))
     return Err(String::from("find role path is not implemented"));
 }  
 
+
 fn traverse_defaults_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, defaults_path: &PathBuf) -> Result<(), String> {
-    return Err(String::from("nope"));
+    visitor.debug(String::from("loading defaults directory"))
+    return Ok(());
 }
 
 fn traverse_modules_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, modules_path: &PathBuf) -> Result<(), String> {
-    return Err(String::from("nope"));
+    visitor.debug(String::from("loading modules directory"))
+    return Ok(());
 }
 
-fn traverse_tasks_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, tasks_path: &PathBuf, are_handlers: bool) -> Result<(), String> {
-    return Err(String::from("nope"));
+fn traverse_tasks_directory(context: &PlaybookContext, 
+    visitor: &dyn PlaybookVisitor, 
+    connection_factory: &dyn ConnectionFactory,
+    tasks_path: &PathBuf, 
+    are_handlers: bool) -> Result<(), String> {
+
+    visitor.debug(String::from("loading tasks directory"))
+    return Ok(());
+
 }
 
-fn process_task(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, task: &Task, are_handlers: bool) -> Result<(), String> {
-    return Err(String::from("nope"));
+fn process_task(context: &PlaybookContext, 
+    visitor: &dyn PlaybookVisitor, 
+    connection_factory: &dyn ConnectionFactory,
+    task: &Task, 
+    are_handlers: bool) -> Result<(), String> {
+
+    visitor.debug(String::from("processing task"))
+    return Ok(());
+
 }
 
 fn process_force_vars(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String>  {
-    return Err(String::from("nope"));
+    
+    visitor.debug(String::from("processing force_vars"))
+    return Ok(());
+
 }
 
 fn process_remote_user(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String>  {
-    return Err(String::from("nope"));
+
+    visitor.debug(String::from("processing remote user")
+    context.set_remote_user(remote_user);
+    return Ok(());
 
 }
