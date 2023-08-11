@@ -17,6 +17,7 @@
 use crate::connection::connection::{Connection,ConnectionCommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
+use std::sync::Arc;
 
 pub struct LocalFactory {}
 
@@ -26,9 +27,9 @@ impl LocalFactory {
     }
 }
 
-impl LocalFactory for ConnectionFactory {
-    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection {
-        return LocalConnection::new();
+impl ConnectionFactory for LocalFactory {
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection> {
+        return Arc::new(LocalConnection::new());
     }
 }
 

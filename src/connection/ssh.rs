@@ -21,6 +21,8 @@ use std::net::TcpStream;
 use std::path::Path;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
+use crate::connection::local::LocalConnection;
+use std::sync::Arc;
 
 pub struct SshFactory {}
 
@@ -30,29 +32,30 @@ impl SshFactory {
     }
 }
 
-impl SshFactory for ConnectionFactory {
-    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection {
+impl ConnectionFactory for SshFactory {
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection> {
         if host.eq("localhost") {
-            return LocalConnection::new();
+            return Arc::new(LocalConnection::new());
         } else {
-            return SshConnection::new(
-                host.clone,
-                context.get_remote_user(host),
-                context.get_remote_port(host),
-            );
+            let host2 = host.clone();
+            return Arc::new(SshConnection::new(
+                host2.clone(),
+                context.get_remote_port(host2.clone()),
+                context.get_remote_user(host2.clone()),
+            ));
         }
     }
 }
 
 pub struct SshConnection {
     pub host: String,
-    pub port: u32,
+    pub port: usize,
     pub username: String,
     pub session: Option<Session>,
 }
 
 impl SshConnection {
-    pub fn new(host: String, port: u32, username: String) -> Self {
+    pub fn new(host: String, port: usize, username: String) -> Self {
         Self { host: host, port: port, username: username, session: None }
     }
 }

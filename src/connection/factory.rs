@@ -16,8 +16,9 @@
 
 use crate::connection::connection::{Connection};
 use crate::playbooks::context::PlaybookContext;
+use std::sync::Arc;
 
 pub trait ConnectionFactory {
-    fn get_connection(context: &PlaybookContext, host: String) -> dyn Connection;
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection>;
 }
 

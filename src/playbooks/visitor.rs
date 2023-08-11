@@ -36,13 +36,13 @@ pub trait PlaybookVisitor {
     }
     
     fn on_role_start(&self, context: &PlaybookContext) {
-        let arc = context.role.lock().unwrap();
+        let arc = context.role_name.lock().unwrap();
         let role = arc.as_ref().unwrap();
         println!("> role start: {}", role);
     }
 
     fn on_role_stop(&self, context: &PlaybookContext) {
-        let arc = context.role.lock().unwrap();
+        let arc = context.role_name.lock().unwrap();
         let role = arc.as_ref().unwrap();
         println!("> role stop: {}", role);
     }

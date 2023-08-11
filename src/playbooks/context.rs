@@ -24,12 +24,13 @@ pub struct PlaybookContext {
     pub playbook_path: Arc<Mutex<Option<String>>>,
     pub playbook_directory: Arc<Mutex<Option<String>>>,
     pub play: Arc<Mutex<Option<String>>>,
+    pub role: Arc<Mutex<Option<String>>>,
     pub task: Arc<Mutex<Option<String>>>,
     pub host: Arc<Mutex<Option<String>>>,
     pub all_hosts: Arc<Mutex<Option<Vec<String>>>>,
     pub role_path: Arc<Mutex<Option<String>>>,
     pub role_name: Arc<Mutex<Option<String>>>,
-    pub remote_user: Arc<Mutex<Option<String>>
+    pub remote_user: Arc<Mutex<Option<String>>>
 }
 
 impl PlaybookContext {
@@ -39,11 +40,13 @@ impl PlaybookContext {
             playbook_path: Arc::new(Mutex::new(None)),
             playbook_directory: Arc::new(Mutex::new(None)),
             play: Arc::new(Mutex::new(None)),
+            role: Arc::new(Mutex::new(None)),
             task: Arc::new(Mutex::new(None)),
             host: Arc::new(Mutex::new(None)),
             all_hosts: Arc::new(Mutex::new(None)),
             role_path: Arc::new(Mutex::new(None)),
-            role_name: Arc::new(Mutex::new(None))
+            role_name: Arc::new(Mutex::new(None)),
+            remote_user: Arc::new(Mutex::new(None))
         }
     }
 
@@ -55,11 +58,42 @@ impl PlaybookContext {
     pub fn set_play(&mut self, play: &Play) {
         *self.play.lock().unwrap() = Some(play.name.clone());
     }
+
+    pub fn set_role(&mut self, role_name: String, role_path: String) {
+        *self.role_name.lock().unwrap() = Some(role_name.clone());
+        *self.role_path.lock().unwrap() = Some(role_path.clone());
+    }
+
+    pub fn unset_role(&mut self) {
+        *self.role_name.lock().unwrap() = None;
+        *self.role_path.lock().unwrap() = None;
+    }
     
-    pub set_remote_user(&mut self, play: &Play) {
-        match play.remote_user {
+    pub fn set_remote_user(&mut self, play: &Play) {
+        match &play.remote_user {
             Some(x) => { *self.remote_user.lock().unwrap() = Some(x.clone()) },
-            None => { *self.remote_user.lock().unwrap() = String::from("root"); }
+            None => { *self.remote_user.lock().unwrap() = Some(String::from("root")); }
         }
     }
+
+    pub fn get_remote_user(&mut self, host: String) -> String {
+        // notice this doesn't really use the context.
+        // FIXME: check the variables + host variables and use those to override if set
+        let default = self.remote_user.lock().unwrap();
+        if default.is_some() {
+            let x = default.as_ref().unwrap();
+            return x.clone();
+        } else {
+            return String::from("root"); 
+        }
+    }
+
+    pub fn get_remote_port(&mut self, host: String) -> usize {
+        // notice this doesn't really use the context.
+        // FIXME: check the variables + host variables
+        return 22usize;
+
+    }
+
+
 }
