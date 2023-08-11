@@ -29,6 +29,7 @@ use crate::connection::factory::ConnectionFactory;
 use serde_yaml::Value;
 use crate::module_base::common::IsTask;
 use crate::module_base::list::Task;
+use std::sync::Arc;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
@@ -84,7 +85,8 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                 // FIXME: does the context even need to know?
                 // context.set_hosts(hosts);
 
-                process_force_vars(&context, visitor, play.force_vars);
+                let force = Arc::new(&play.force_vars);
+                process_force_vars(&context, visitor, force);
                 register_external_modules(&context, visitor)?;
 
                 if play.roles.is_some() {
@@ -277,7 +279,7 @@ fn process_task(context: &PlaybookContext,
 
 fn process_force_vars(context: &PlaybookContext, 
     visitor: &dyn PlaybookVisitor, 
-    force_vars: Option<HashMap<std::string::String, Value>>) -> Result<(), String>  {
+    force_vars: Arc<&Option<HashMap<std::string::String, Value>>>) -> Result<(), String>  {
     
     // FIXME
     visitor.debug(String::from("processing force_vars"));
