@@ -21,7 +21,7 @@ use crate::util::yaml::show_yaml_error_in_context;
 use crate::module_base::list::Task;
 use crate::inventory::groups::{has_group,get_group_descendant_hosts};
 use crate::util::data::{deduplicate};
-use crate::util::io::{directory_as_string,path_as_string} // path_basename_as_string};
+use crate::util::io::{directory_as_string,path_as_string}; // path_basename_as_string};
 use std::sync::Mutex;
 use std::sync::Arc;
 
@@ -45,8 +45,8 @@ pub struct Play {
 pub struct PlaybookContext {
     pub playbook_path: Arc<Mutex<Option<String>>>,
     pub playbook_directory: Arc<Mutex<Option<String>>>,
-    pub play: Arc<Mutex<Option<Play>>>,
-    pub task: Arc<Mutex<Option<Task>>>,
+    pub play: Arc<Mutex<Option<String>>>,
+    pub task: Arc<Mutex<Option<String>>>,
     pub host: Arc<Mutex<Option<String>>>,
     pub all_hosts: Arc<Mutex<Option<Vec<String>>>>,
     pub role_path: Arc<Mutex<Option<String>>>,
@@ -78,8 +78,8 @@ impl PlaybookContext {
         *self.playbook_directory.lock().unwrap() = Some(directory_as_string(&path));
     }
 
-    pub fn set_play(&mut self, play: Play) {
-        *self.play.lock().unwrap() = Some(play);
+    pub fn set_play(&mut self, play: &Play) {
+        *self.play.lock().unwrap() = Some(play.name.clone());
     }
 }
 
@@ -100,7 +100,6 @@ fn main() {
     bar.join().unwrap();
 }
 */
-
 // default implementation mostly just runs the syntax scan
 // FIXME: since these share a lot of output in common, what if we construct this
 // to take another class as a parameter and then loop over that vector of embedded handlers?
@@ -108,30 +107,34 @@ fn main() {
 pub trait PlaybookVisitor {
 
     fn on_playbook_start(&self, context: &PlaybookContext) {
-        let path = context.playbook_path.lock().unwrap().unwrap();
+        let arc = context.playbook_path.lock().unwrap();
+        let path = arc.as_ref().unwrap();
         println!("> playbook start: {}", path)
     }
 
     fn on_play_start(&self, context: &PlaybookContext) {
-        let play = context.play.lock().unwrap().unwrap();
-        println!("> play start: {}", play.name);
+        let arc = context.play.lock().unwrap();
+        let play = arc.as_ref().unwrap();
+        println!("> play start: {}", play);
     }
 
     fn on_play_complete(&self, context: &PlaybookContext) {
-        let play = context.play.lock().unwrap().unwrap();
-        println!("> play complete: {}", play.name);
+        let arc = context.play.lock().unwrap();
+        let play = arc.as_ref().unwrap();
+        println!("> play complete: {}", play);
     }
 
     fn on_task_start(&self, context: &PlaybookContext) {
-        let task = context.task.lock().unwrap().unwrap();
-        let name = task.get_name();
+        let arc = context.task.lock().unwrap();
+        let task = arc.as_ref().unwrap();
         //let module = task.get_module();
-        println!("> task start: {}", name);
+        println!("> task start: {}", task);
     }
 
     fn on_task_complete(&self, context: &PlaybookContext) {
-        let task = context.task.lock().unwrap().unwrap();
-        println!("> task complete: {}", task.name);
+        let arc = context.task.lock().unwrap();
+        let task = arc.as_ref().unwrap();
+        println!("> task complete: {}", task);
     }
 
     
@@ -141,7 +144,7 @@ pub trait PlaybookVisitor {
 }
 
 
-pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &mut PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
 
     for playbook_path in playbook_paths {
 
@@ -159,40 +162,52 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &PlaybookConte
 
         for play in play_vec.iter() {
 
-            context.set_play(play);
+            context.set_play(&play);
             visitor.on_play_start(&context);
             validate_jet_version(&play.jet.version)?;
             validate_groups(&play.groups)?;
             validate_hosts(&play.groups)?;
-            process_force_vars(&context, &visitor);
-            process_remote_user(&context, &visitor);
+            process_force_vars(&context, visitor);
+            process_remote_user(&context, visitor);
 
             if play.roles.is_some() {
-                for role_name in play.roles.unwrap().iter() {
-                    let role_path = find_role(role_name)?;
-                    let defaults_path = role_path.append("defaults");
-                    let modules_path = role_path.append("jet_modules");
-                    let tasks_path = role_path.append("tasks");
-                    traverse_defaults_directory(&context, &visitor, defaults_path)?;
-                    traverse_modules_directory(&context, &visitor, modules_path)?;
-                    traverse_tasks_directory(&context, &visitor, tasks_path, false)?;
+                let roles = play.roles.as_ref().unwrap();
+                for role_name in roles.iter() {
+                    let role_path : PathBuf = find_role(role_name)?;
+                    let mut defaults_path = role_path.clone();
+                    let mut module_path = role_path.clone();
+                    let mut tasks_path = role_path.clone();
+                    defaults_path.push("defaults");
+                    module_path.push("jet_modules");
+                    tasks_path.push("tasks");
+                    traverse_defaults_directory(&context, visitor, &defaults_path)?;
+                    traverse_modules_directory(&context, visitor, &module_path)?;
+                    traverse_tasks_directory(&context, visitor, &tasks_path, false)?;
                 }
             }
 
             if play.tasks.is_some() {
-                for task in play.tasks { process_task(&context, &visitor, task, false)?; }
+                let tasks = play.tasks.as_ref().unwrap();
+                for task in tasks.iter() { 
+                    process_task(&context, visitor, &task, false)?; 
+                }
             }
 
             if play.roles.is_some() {
-                for role_name in play.roles.unwrap().iter() {
+                let roles = play.roles.as_ref().unwrap();
+                for role_name in roles.iter() {
                     let role_path = find_role(role_name)?;
-                    let handlers_path = role_path.append("handlers");
-                    traverse_tasks_directory(&context, &visitor, handlers_path, true)?;
+                    let mut handlers_path = role_path.clone();
+                    handlers_path.push("handlers");
+                    traverse_tasks_directory(&context, visitor, &handlers_path, true)?;
                 }
             }            
 
             if play.handlers.is_some() {
-                for handler in play.handlers {  process_task(&context, &visitor, handler, true); }
+                let handlers = play.handlers.as_ref().unwrap();
+                for handler in handlers {  
+                    process_task(&context, visitor, &handler, true)?; 
+                }
             }
             println!("version: {}", &play.jet.version);
             visitor.on_play_complete(&context);
@@ -202,13 +217,13 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, context: &PlaybookConte
 }
 
 fn validate_jet_version(version: &String) -> Result<(), String> {
-    return Ok();
+    return Ok(());
 }
 
-fn get_all_hosts(groups: &Vec<String>) {
-    let mut results: String = Vec::new();
+fn get_all_hosts(groups: &Vec<String>) -> Vec<String> {
+    let mut results: Vec<String> = Vec::new();
     for group in groups.iter() {
-        let mut hosts = get_group_descendant_hosts(group);
+        let mut hosts = get_group_descendant_hosts(group.clone());
         results.append(&mut hosts);
     }
     return deduplicate(results);
@@ -216,21 +231,21 @@ fn get_all_hosts(groups: &Vec<String>) {
 
 fn validate_groups(groups: &Vec<String>) -> Result<(), String> {
     for group in groups.iter() {
-        if !has_group(group) {
-            return Err(&format!("group ({}) not found", group))
+        if !has_group(group.clone()) {
+            return Err(format!("group ({}) not found", group))
         }
     }
-    return Ok();
+    return Ok(());
 }
 
 fn validate_hosts(hosts: &Vec<String>) -> Result<(), String> {
     if hosts.is_empty() {
         return Err(String::from("no hosts selected in play"));
     }
-    return Ok();
+    return Ok(());
 }
 
-fn find_role(rolename: &String) -> Result<(), String> {
+fn find_role(rolename: &String) -> Result<PathBuf, String> {
     return Err(String::from("find role path is not implemented"));
 }  
 

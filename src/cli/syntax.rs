@@ -34,9 +34,9 @@ impl SyntaxVisitor {
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    let context = PlaybookContext::new();
+    let mut context = PlaybookContext::new();
     let visitor = SyntaxVisitor::new();
 
-    return playbook_traversal(&playbook_paths, &context, &visitor);
+    return playbook_traversal(&playbook_paths, &mut context, &visitor);
 
 }

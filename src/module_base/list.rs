@@ -33,6 +33,7 @@ use crate::module_library::shell::{Shell};
 #[serde(tag="module", rename_all="lowercase")]
 //#[serde(untagged,deny_unknown_fields)]
 pub enum Task {
+    Echo,
     External,
     Include,
     Shell,
