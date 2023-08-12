@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use crate::connection::factory::ConnectionFactory;
 use serde_yaml::Value;
 use crate::module_base::list::Task;
+use crate::module_base::common::TaskProperty;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
@@ -110,15 +111,14 @@ pub fn playbook_traversal(
                     for task in tasks.iter() {
                         //println!("NAME! {}", task.get_name());
 
-                        blip(task);
+                        //blip(task);
 
-
-                        /*
-                        context.set_task(task.get_name().clone());
+                        //context.set_task(task.get_name().clone());
                         visitor.on_task_start(&context);
+                        
                         process_task(&context, visitor, connection_factory, task, false)?; 
-                        visitor.on_task_stop(&context);
-                        */
+                        //visitor.on_task_stop(&context);
+                        
                     }
                 }
 
@@ -159,9 +159,6 @@ pub fn playbook_traversal(
 // PRIVATE
 // ============================================================================
 
-fn blip(task: &Task) {
-    println!("task name: {}", task.get_name());
-}
 
 fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<usize, String>) {
     
@@ -287,7 +284,7 @@ fn process_task(context: &PlaybookContext,
     task: &Task,
     are_handlers: bool) -> Result<(), String> {
 
-       
+    
     // ask the connection factory for a connection, call the global module 'workflow'
     // code (TBD) and record the result from that workflow via the context
     // we don't actually crash here.  The workflow code should handle parallelization
@@ -295,6 +292,12 @@ fn process_task(context: &PlaybookContext,
 
 
     visitor.debug(String::from("processing task"));
+
+    // FIXME: we need some logic to say if are_handlers = true only run the task if
+    // the task is modified.
+
+    fsm_run_task(context, visitor, connection_factory, task)?; 
+
 
     // use context.get_hosts for what hosts to talk to.
 

@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#[allow(unused_imports)]
+//#[allow(unused_imports)]
 use serde::{Deserialize};
-use crate::module_base::list::{IsTask,TaskProperties,get_optional_string_property};
+use crate::module_base::common::*;
+use crate::playbooks::context::PlaybookContext;
+use crate::playbooks::visitor::PlaybookVisitor;
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -25,25 +27,63 @@ pub struct Echo {
     // ** MODULE SPECIFIC PARAMETERS ****
     pub msg: String,
 
-    // *** COMMON BOILERPLATE ****
-    pub name: Option<String>,
-    pub when: Option<String>,
+    // *** COMMON MODULE BOILERPLATE ****
     pub changed_when: Option<String>,
-    pub register: Option<String>,
     pub delay: Option<String>,
+    pub name: Option<String>,
+    pub register: Option<String>,
     pub retry: Option<String>,
-}
-
-impl TaskProperties for Echo {
-
-    // *** COMMON BOILERPLATE ****
-    fn get_name(&self) -> String          { get_optional_string_property(&self.name) }
-    fn get_when(&self) -> String          { get_optional_string_property(&self.when) } 
-    fn get_changed_when(&self) -> String  { get_optional_string_property(&self.changed_when) }
-    fn get_retry(&self) -> String         { get_optional_string_property(&self.retry) } 
-    fn get_delay(&self) -> String         { get_optional_string_property(&self.delay) }
-    fn get_register(&self) -> String      { get_optional_string_property(&self.register) }
+    pub when: Option<String>,
 }
 
 impl IsTask for Echo {
+
+    /** COMMON MODULE BOILERPLATE **/
+    fn get_property(&self, property: TaskProperty) -> String { 
+        return match property {
+            TaskProperty::ChangedWhen => get_optional_string_property(&self.changed_when),
+            TaskProperty::Delay => get_optional_string_property(&self.delay),
+            TaskProperty::Register => get_optional_string_property(&self.register),
+            TaskProperty::Retry => get_optional_string_property(&self.retry),
+            TaskProperty::Name => get_optional_string_property(&self.name),
+            TaskProperty::When => get_optional_string_property(&self.when), 
+        }
+    }
+
+    /** MODULE SPECIFIC IMPLEMENTATION **/
+    fn dispatch(&self, 
+        context: &PlaybookContext, 
+        visitor: &dyn PlaybookVisitor, 
+        connection: &dyn Connection, 
+        request: TaskRequest) -> TaskResponse {
+    
+        match request.request_type {
+
+            TaskRequestType::Validate => {
+                // the echo module has nothing to validate
+                return is_validated();
+            },
+    
+            TaskRequestType::Query => {
+                // can also return a hashmap of changes in request.changes we could conditionally consider 
+                return needs_creation();
+            },
+    
+            TaskRequestType::Create => {
+                context.debug(self.msg);
+                return done();
+            },
+    
+            TaskRequestType::Remove => {
+                panic!("impossible");
+            },
+
+            TaskRequestType::Modify => {
+                panic!("impossible");
+            },
+    
+
+    
+        }
+    }
 }

@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+/*
 #[allow(unused_imports)]
 use serde::{Deserialize};
 use crate::playbooks::language::AsInteger;
@@ -46,4 +47,7 @@ impl TaskProperties for Shell {
 }
 
 impl IsTask for Shell {
+
 }
+
+*/

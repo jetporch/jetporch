@@ -14,70 +14,42 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use serde::Deserialize;
-use crate::playbooks::language::{AsInteger};
+use crate::module_base::common::*;
+use crate::playbooks::visitor::PlaybookVisitor;
+use crate::playbooks::context::PlaybookContext;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
 use crate::module_library::echo::Echo;
-
-pub trait TaskProperties {
-    fn get_name(&self) -> String;
-    fn get_when(&self) -> String;
-    fn get_changed_when(&self) -> String;
-    fn get_retry(&self) -> String;
-    fn get_delay(&self) -> String;
-    fn get_register(&self) -> String;
-}
-
-pub fn get_optional_string_property(property: &Option<String>) -> String {
-    return match property { 
-        Some(x) => x.clone(), 
-        _ => String::from("") 
-    }
-}
-
-pub trait IsTask: TaskProperties { 
-    /*
-    fn get_module(&self) -> String;
-    fn run(&self) -> Result<(), String>;
-    */
-}
-
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
     // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2)
     Echo(Echo),
-    /* Shell(Shell), */
 }
 
-// maybe macros later, but right now they are hurting things
 impl Task {
 
-    pub fn get_name(&self) -> String { 
+    pub fn get_property(&self, property: TaskProperty) -> String { 
         return match self {
-            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3A) 
-            Task::Echo(x) => x.get_name(), 
+            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
+            Task::Echo(x) => x.get_proprerty(property), 
             _ => { panic!("internal error"); },
         };
     }
 
-    // FIXME: REPEAT for remaining TaskProperty fields
+    // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
+    fn dispatch(&self, context: &PlaybookContext, visitor: &dyn PlaybookVisitor, connection: &dyn Connection, request: TaskRequest) -> TaskResponse {
+        return match self {
+            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
+            Task::Echo(x) => self.dispatch(context, visitor, connection, request), 
+            _ => { panic!("internal error"); },
+        };
+    }
 
 }
 
-    //return self.name.clone() }
-    
-    /*
-    fn get_when(&self) -> Option<String> { return self.when.clone() } 
-        fn get_changed_when(&self) -> Option<String> { return self.changed_when.clone() }
-        fn get_retry(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
-        fn get_delay(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
-        fn get_register(&self) -> Option<String> { return self.register.clone(); }
-    } 
-    */ 
 
 
 
