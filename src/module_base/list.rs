@@ -16,8 +16,10 @@
 
 
 use serde::Deserialize;
-
 use crate::playbooks::language::{AsInteger};
+
+// ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
+use crate::module_library::echo::Echo;
 
 pub trait TaskProperties {
     fn get_name(&self) -> String;
@@ -28,8 +30,12 @@ pub trait TaskProperties {
     fn get_register(&self) -> String;
 }
 
-/** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1) **/
-use crate::module_library::echo::Echo;
+pub fn get_optional_string_property(property: &Option<String>) -> String {
+    return match property { 
+        Some(x) => x.clone(), 
+        _ => String::from("") 
+    }
+}
 
 pub trait IsTask: TaskProperties { 
     /*
@@ -40,10 +46,9 @@ pub trait IsTask: TaskProperties {
 
 
 #[derive(Deserialize,Debug)]
-//#[serde(tag="module", rename_all="lowercase")]
 #[serde(rename_all="lowercase")]
 pub enum Task {
-    /** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2) **/
+    // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2)
     Echo(Echo),
     /* Shell(Shell), */
 }
@@ -53,11 +58,13 @@ impl Task {
 
     pub fn get_name(&self) -> String { 
         return match self {
-            /** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) **/
+            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3A) 
             Task::Echo(x) => x.get_name(), 
             _ => { panic!("internal error"); },
         };
     }
+
+    // FIXME: REPEAT for remaining TaskProperty fields
 
 }
 

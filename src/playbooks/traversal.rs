@@ -27,7 +27,6 @@ use std::collections::HashMap;
 use crate::connection::factory::ConnectionFactory;
 use serde_yaml::Value;
 use crate::module_base::list::Task;
-use std::sync::Arc;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage

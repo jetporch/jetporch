@@ -16,9 +16,7 @@
 
 #[allow(unused_imports)]
 use serde::{Deserialize};
-use crate::playbooks::language::AsInteger;
-use crate::module_base::list::{IsTask};
-use crate::module_base::list::TaskProperties;
+use crate::module_base::list::{IsTask,TaskProperties,get_optional_string_property};
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -37,22 +35,14 @@ pub struct Echo {
 }
 
 impl TaskProperties for Echo {
-    fn get_name(&self) -> String { 
-        match &self.name { 
-            Some(x) => x.clone(), 
-            _ => String::from("") 
-        } 
-    }
-    fn get_when(&self) -> String { 
-        match &self.when { 
-            Some(x) => x.clone(), 
-            _ => String::from("") 
-       } 
-    } 
-    fn get_changed_when(&self) -> String  { match &self.changed_when { Some(x) => x.clone(), _ => String::from("") }}
-    fn get_retry(&self) -> String         { match &self.retry { Some(x) => x.clone(), _ => String::from("") }} 
-    fn get_delay(&self) -> String         { match &self.delay { Some(x) => x.clone(), _ => String::from("") }}
-    fn get_register(&self) -> String      { match &self.register { Some(x) => x.clone(), _ => String::from("") }}
+
+    // *** COMMON BOILERPLATE ****
+    fn get_name(&self) -> String          { get_optional_string_property(&self.name) }
+    fn get_when(&self) -> String          { get_optional_string_property(&self.when) } 
+    fn get_changed_when(&self) -> String  { get_optional_string_property(&self.changed_when) }
+    fn get_retry(&self) -> String         { get_optional_string_property(&self.retry) } 
+    fn get_delay(&self) -> String         { get_optional_string_property(&self.delay) }
+    fn get_register(&self) -> String      { get_optional_string_property(&self.register) }
 }
 
 impl IsTask for Echo {
