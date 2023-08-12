@@ -38,6 +38,6 @@ pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String>
     let visitor = SyntaxVisitor::new();
     let factory = NoFactory::new();
 
-    return playbook_traversal(&playbook_paths, &mut context, &visitor, &factory, None);
+    return playbook_traversal(&playbook_paths, &mut context, &visitor, &factory);
 
 }

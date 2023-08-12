@@ -42,6 +42,7 @@ pub struct Play {
     pub roles : Option<Vec<Role>>,
     pub force_vars : Option<HashMap<String,Value>>,
     pub defaults : Option<HashMap<String,Value>>,
+    pub batch_size : Option<usize>,
     pub remote_user : Option<String>,
     pub tasks : Option<Vec<Task>>,
     pub handlers : Option<Vec<Task>>

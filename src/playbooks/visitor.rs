@@ -47,7 +47,7 @@ pub trait PlaybookVisitor {
         println!("> role stop: {}", role);
     }
 
-    fn on_play_complete(&self, context: &PlaybookContext) {
+    fn on_play_stop(&self, context: &PlaybookContext) {
         let arc = context.play.lock().unwrap();
         let play = arc.as_ref().unwrap();
         println!("> play complete: {}", play);
@@ -60,7 +60,7 @@ pub trait PlaybookVisitor {
         println!("> task start: {}", task);
     }
 
-    fn on_task_complete(&self, context: &PlaybookContext) {
+    fn on_task_stop(&self, context: &PlaybookContext) {
         let arc = context.task.lock().unwrap();
         let task = arc.as_ref().unwrap();
         println!("> task complete: {}", task);

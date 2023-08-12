@@ -38,13 +38,9 @@ use std::sync::Arc;
 pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, 
     context: &mut PlaybookContext, 
     visitor: &dyn PlaybookVisitor,
-    connection_factory: &dyn ConnectionFactory,
-    batch_size: Option<usize>) -> Result<(), String> {
+    connection_factory: &dyn ConnectionFactory) -> Result<(), String> {
 
-    let batch_size_num: usize = match batch_size {
-        Some(x) => x,
-        None => 0
-    };
+    // perhaps this should not be a CLI option!
         
     for playbook_path in playbook_paths {
 
@@ -62,6 +58,8 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
 
+            let batch_size_num = play.batch_size.unwrap_or(0);
+
             context.set_play(&play);
             context.set_remote_user(&play);
 
@@ -77,8 +75,9 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
 
             let hosts = get_all_hosts(&context, &play.groups);
             let (batch_size, batches) = get_host_batches(batch_size_num, hosts);
+            println!("DEBUG: batch size: {}", batch_size);
 
-            for batch_num in 1..batch_size {
+            for batch_num in 0..batch_size {
 
                 let hosts = batches.get(&batch_num).unwrap();
 
@@ -87,7 +86,13 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
 
                 let force = Arc::new(&play.force_vars);
                 process_force_vars(&context, visitor, force);
+                // FIXME:
+                // process_default_vars(&context, visitor, force);
+                // FIXME:
+                //load_inventory_variables(&context, &play.groups, hosts)?;
                 register_external_modules(&context, visitor)?;
+                // FIXME: context.set_task_mode()
+                // FIXME: visitor.on_task_mode(&context)
 
                 if play.roles.is_some() {
                     let roles = play.roles.as_ref().unwrap();
@@ -95,10 +100,14 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                         let role_name = role.name.clone();
                         let role_path = find_role(&context, visitor, role_name.clone())?;
                         let pathbuf = role_path.to_path_buf();
+                        // FIXME: also set role.params in context
+                        // FIXME: blending logic in context
                         context.set_role(role.name.clone(), directory_as_string(&pathbuf));
+                        visitor.on_role_start(&context);
                         apply_defaults_directory(&context, visitor)?;
                         register_external_modules(&context, visitor)?;
                         traverse_tasks_directory(&context, visitor, connection_factory, false)?;
+                        visitor.on_role_stop(&context);
                     }
                 }
                 context.unset_role();
@@ -106,18 +115,25 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                 if play.tasks.is_some() {
                     let tasks = play.tasks.as_ref().unwrap();
                     for task in tasks.iter() { 
+                        visitor.on_task_start(&context);
                         process_task(&context, visitor, connection_factory, task, false)?; 
+                        visitor.on_task_stop(&context);
                     }
                 }
+
+                // FIXME: context.set_handler_mode()
+                // FIXME: visitor.on_handler_mode()
 
                 if play.roles.is_some() {
                     let roles = play.roles.as_ref().unwrap();
                     for role in roles.iter() {
+                        visitor.on_role_start(&context);
                         let role_name = role.name.clone();
                         let role_path = find_role(&context, visitor, role_name.clone())?;                        
                         let pathbuf = role_path.to_path_buf();
                         context.set_role(role.name.clone(), directory_as_string(&pathbuf));
                         traverse_tasks_directory(&context, visitor, connection_factory, true)?;
+                        visitor.on_role_stop(&context);
                     }
                 }     
                 context.unset_role();      
@@ -125,12 +141,14 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                 if play.handlers.is_some() {
                     let handlers = play.handlers.as_ref().unwrap();
                     for handler in handlers {  
+                        visitor.on_task_start(&context);
                         process_task(&context, visitor, connection_factory, handler, true)?; 
+                        visitor.on_task_stop(&context);
                     }
                 }
             }
             println!("version: {}", &play.jet.version);
-            visitor.on_play_complete(&context);
+            visitor.on_play_stop(&context);
         }
     }
     return Ok(())
@@ -193,6 +211,18 @@ fn validate_hosts(_context: &PlaybookContext, hosts: &Vec<String>) -> Result<(),
     }
     return Ok(());
 }
+
+fn load_inventory_variables(context: &PlaybookContext, 
+    groups: Vec<String>, 
+    hosts: Vec<String>) -> Result<(),String> {
+
+    // FIXME: using the current context for playbook dir, walk each group dir and host dir
+    // and load these into context.group_vars and context.host_vars
+
+    return Ok(());
+
+}
+
 
 fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename: String) -> Result<PathBuf, String> {
     // FIXME
