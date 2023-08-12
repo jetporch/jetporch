@@ -18,16 +18,14 @@ use crate::playbooks::language::{Play};
 use std::path::PathBuf;
 use crate::util::io::jet_file_open;
 use crate::util::yaml::show_yaml_error_in_context;
-//use crate::module_base::list::Task;
 use crate::inventory::groups::{has_group,get_group_descendant_hosts};
 use crate::util::data::{deduplicate};
-use crate::util::io::{directory_as_string,path_as_string};
+use crate::util::io::{directory_as_string};
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
 use std::collections::HashMap;
 use crate::connection::factory::ConnectionFactory;
 use serde_yaml::Value;
-use crate::module_base::common::IsTask;
 use crate::module_base::list::Task;
 use std::sync::Arc;
 
@@ -35,12 +33,15 @@ use std::sync::Arc;
 // PUBLIC API, see syntax.rs/etc for usage
 // ============================================================================
 
-pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>, 
+pub fn playbook_traversal(
+    playbook_paths: &Vec<PathBuf>, 
     context: &mut PlaybookContext, 
     visitor: &dyn PlaybookVisitor,
-    connection_factory: &dyn ConnectionFactory) -> Result<(), String> {
+    connection_factory: &dyn ConnectionFactory,
+    default_user: String) -> Result<(), String> {
 
     // perhaps this should not be a CLI option!
+    // FIXME: pass default_user to set_remote_user
         
     for playbook_path in playbook_paths {
 
@@ -61,15 +62,17 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
             let batch_size_num = play.batch_size.unwrap_or(0);
 
             context.set_play(&play);
-            context.set_remote_user(&play);
+            context.set_remote_user(&play, default_user.clone());
 
             context.unset_role();
             visitor.on_play_start(&context);
 
+            load_vars(&context, &play.vars);
+            load_vars_files(&context, &play.vars_files);
+
             // FIXME: add teh concept of host_sets here, and then loop over the sets
             // for use with batch... everything goes an indent level deeper, basically.
 
-            validate_jet_version(&context, &play.jet.version)?;
             validate_groups(&context, &play.groups)?;
             validate_hosts(&context, &play.groups)?;
 
@@ -77,22 +80,13 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
             let (batch_size, batches) = get_host_batches(batch_size_num, hosts);
             println!("DEBUG: batch size: {}", batch_size);
 
+
+            register_external_modules(&context, visitor)?;
+
             for batch_num in 0..batch_size {
 
                 let hosts = batches.get(&batch_num).unwrap();
 
-                // FIXME: does the context even need to know?
-                // context.set_hosts(hosts);
-
-                let force = Arc::new(&play.force_vars);
-                process_force_vars(&context, visitor, force);
-                // FIXME:
-                // process_default_vars(&context, visitor, force);
-                // FIXME:
-                //load_inventory_variables(&context, &play.groups, hosts)?;
-                register_external_modules(&context, visitor)?;
-                // FIXME: context.set_task_mode()
-                // FIXME: visitor.on_task_mode(&context)
 
                 if play.roles.is_some() {
                     let roles = play.roles.as_ref().unwrap();
@@ -106,7 +100,7 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                         visitor.on_role_start(&context);
                         apply_defaults_directory(&context, visitor)?;
                         register_external_modules(&context, visitor)?;
-                        traverse_tasks_directory(&context, visitor, connection_factory, false)?;
+                        load_tasks_directory(&context, visitor, connection_factory, false)?;
                         visitor.on_role_stop(&context);
                     }
                 }
@@ -114,16 +108,22 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
 
                 if play.tasks.is_some() {
                     let tasks = play.tasks.as_ref().unwrap();
-                    for task in tasks.iter() { 
+                    for task in tasks.iter() {
+                        //println!("NAME! {}", task.get_name());
+
+                        blip(task);
+
+
+                        /*
+                        context.set_task(task.get_name().clone());
                         visitor.on_task_start(&context);
                         process_task(&context, visitor, connection_factory, task, false)?; 
                         visitor.on_task_stop(&context);
+                        */
                     }
                 }
 
-                // FIXME: context.set_handler_mode()
-                // FIXME: visitor.on_handler_mode()
-
+                /*
                 if play.roles.is_some() {
                     let roles = play.roles.as_ref().unwrap();
                     for role in roles.iter() {
@@ -132,7 +132,7 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                         let role_path = find_role(&context, visitor, role_name.clone())?;                        
                         let pathbuf = role_path.to_path_buf();
                         context.set_role(role.name.clone(), directory_as_string(&pathbuf));
-                        traverse_tasks_directory(&context, visitor, connection_factory, true)?;
+                        load_tasks_directory(&context, visitor, connection_factory, true)?;
                         visitor.on_role_stop(&context);
                     }
                 }     
@@ -141,11 +141,13 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
                 if play.handlers.is_some() {
                     let handlers = play.handlers.as_ref().unwrap();
                     for handler in handlers {  
+                        context.set_task(handler.get_name().clone());
                         visitor.on_task_start(&context);
                         process_task(&context, visitor, connection_factory, handler, true)?; 
                         visitor.on_task_stop(&context);
                     }
                 }
+                */
             }
             println!("version: {}", &play.jet.version);
             visitor.on_play_stop(&context);
@@ -157,6 +159,10 @@ pub fn playbook_traversal(playbook_paths: &Vec<PathBuf>,
 // ============================================================================
 // PRIVATE
 // ============================================================================
+
+fn blip(task: &Task) {
+    println!("task name: {}", task.get_name());
+}
 
 fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<usize, String>) {
     
@@ -171,21 +177,6 @@ fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<us
     return (1, results);
 
 }
-                    /*
-                    let mut defaults_path = role_path.clone();
-                    let mut module_path = role_path.clone();
-                    let mut tasks_path = role_path.clone();
-                    defaults_path.push("defaults");
-                    module_path.push("jet_modules");
-                    */
-
-fn validate_jet_version(_context: &PlaybookContext, version: &String) -> Result<(), String> {
-    // FIXME
-    if version.eq("5000") {
-        return Err(format!("the version cannot be 5000, was: {}", version));
-    }
-    return Ok(());
-}
 
 fn get_all_hosts(_context: &PlaybookContext, groups: &Vec<String>) -> Vec<String> {
     let mut results: Vec<String> = Vec::new();
@@ -195,6 +186,7 @@ fn get_all_hosts(_context: &PlaybookContext, groups: &Vec<String>) -> Vec<String
     }
     return deduplicate(results);
 }
+
 
 fn validate_groups(_context: &PlaybookContext, groups: &Vec<String>) -> Result<(), String> {
     for group in groups.iter() {
@@ -211,18 +203,22 @@ fn validate_hosts(_context: &PlaybookContext, hosts: &Vec<String>) -> Result<(),
     }
     return Ok(());
 }
+                    /*
+                    let mut defaults_path = role_path.clone();
+                    let mut module_path = role_path.clone();
+                    let mut tasks_path = role_path.clone();
+                    defaults_path.push("defaults");
+                    module_path.push("jet_modules");
+                    */
 
-fn load_inventory_variables(context: &PlaybookContext, 
-    groups: Vec<String>, 
-    hosts: Vec<String>) -> Result<(),String> {
-
-    // FIXME: using the current context for playbook dir, walk each group dir and host dir
-    // and load these into context.group_vars and context.host_vars
-
-    return Ok(());
+fn load_vars(_context: &PlaybookContext, _map: &Option<HashMap<String,Value>>) -> Result<(), String> {
+    return Err(String::from("not implemented"));
 
 }
 
+fn load_vars_files(_context: &PlaybookContext, _list: &Option<Vec<String>>) -> Result<(), String> {
+    return Err(String::from("not implemented"));
+}
 
 fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename: String) -> Result<PathBuf, String> {
     // FIXME
@@ -265,7 +261,7 @@ fn register_external_modules(context: &PlaybookContext, visitor: &dyn PlaybookVi
     return Ok(());
 }
 
-fn traverse_tasks_directory(context: &PlaybookContext, 
+fn load_tasks_directory(context: &PlaybookContext, 
     visitor: &dyn PlaybookVisitor, 
     connection_factory: &dyn ConnectionFactory, 
     are_handlers: bool) -> Result<(), String> {
@@ -306,14 +302,3 @@ fn process_task(context: &PlaybookContext,
     return Ok(());
 
 }
-
-fn process_force_vars(context: &PlaybookContext, 
-    visitor: &dyn PlaybookVisitor, 
-    force_vars: Arc<&Option<HashMap<std::string::String, Value>>>) -> Result<(), String>  {
-    
-    // FIXME
-    visitor.debug(String::from("processing force_vars"));
-    return Ok(());
-
-}
-

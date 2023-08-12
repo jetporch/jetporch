@@ -55,6 +55,10 @@ impl PlaybookContext {
         *self.playbook_directory.lock().unwrap() = Some(directory_as_string(&path));
     }
 
+    pub fn set_task(&mut self, task_name: String) {
+        *self.task.lock().unwrap() = Some(task_name.clone());
+    }
+
     pub fn set_play(&mut self, play: &Play) {
         *self.play.lock().unwrap() = Some(play.name.clone());
     }
@@ -69,16 +73,15 @@ impl PlaybookContext {
         *self.role_path.lock().unwrap() = None;
     }
     
-    pub fn set_remote_user(&mut self, play: &Play) {
-        match &play.remote_user {
+    pub fn set_remote_user(&mut self, play: &Play, default_username: String) {
+        // FIXME: get current logged in username or update docs
+        match &play.ssh_user {
             Some(x) => { *self.remote_user.lock().unwrap() = Some(x.clone()) },
             None => { *self.remote_user.lock().unwrap() = Some(String::from("root")); }
         }
     }
 
     pub fn get_remote_user(&mut self, host: String) -> String {
-        // notice this doesn't really use the context.
-        // FIXME: check the variables + host variables and use those to override if set
         let default = self.remote_user.lock().unwrap();
         if default.is_some() {
             let x = default.as_ref().unwrap();

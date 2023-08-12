@@ -32,7 +32,9 @@ use crate::inventory::hosts::{has_host, store_host, store_host_variables};
 #[serde(deny_unknown_fields)]
 pub struct YamlGroup {
     hosts : Option<Vec<String>>,
-    subgroups : Option<Vec<String>>
+    subgroups : Option<Vec<String>>,
+    ssh_user : Option<String>,
+    ssh_port: Option<String>,
 }
 
 // ==============================================================================================================

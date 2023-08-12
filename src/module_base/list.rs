@@ -14,27 +14,63 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use serde::{Deserialize};
 
-// all internal modules here alphabetized here (and below)
-// unused imports warnings are disabled here because of macros - they are used
+use serde::Deserialize;
 
-#[allow(unused_imports)]
-use crate::module_library::external::{External};
-#[allow(unused_imports)]
-use crate::module_library::include::{Include};
-#[allow(unused_imports)]
-use crate::module_library::shell::{Shell};
+use crate::playbooks::language::{AsInteger};
 
-// all internal modules here alphabetized
-
-
-#[derive(Debug,Deserialize,PartialEq)]
-#[serde(tag="module", rename_all="lowercase")]
-//#[serde(untagged,deny_unknown_fields)]
-pub enum Task {
-    Echo,
-    External,
-    Include,
-    Shell,
+pub trait TaskProperties {
+    fn get_name(&self) -> String;
+    fn get_when(&self) -> String;
+    fn get_changed_when(&self) -> String;
+    fn get_retry(&self) -> String;
+    fn get_delay(&self) -> String;
+    fn get_register(&self) -> String;
 }
+
+/** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1) **/
+use crate::module_library::echo::Echo;
+
+pub trait IsTask: TaskProperties { 
+    /*
+    fn get_module(&self) -> String;
+    fn run(&self) -> Result<(), String>;
+    */
+}
+
+
+#[derive(Deserialize,Debug)]
+//#[serde(tag="module", rename_all="lowercase")]
+#[serde(rename_all="lowercase")]
+pub enum Task {
+    /** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2) **/
+    Echo(Echo),
+    /* Shell(Shell), */
+}
+
+// maybe macros later, but right now they are hurting things
+impl Task {
+
+    pub fn get_name(&self) -> String { 
+        return match self {
+            /** ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) **/
+            Task::Echo(x) => x.get_name(), 
+            _ => { panic!("internal error"); },
+        };
+    }
+
+}
+
+    //return self.name.clone() }
+    
+    /*
+    fn get_when(&self) -> Option<String> { return self.when.clone() } 
+        fn get_changed_when(&self) -> Option<String> { return self.changed_when.clone() }
+        fn get_retry(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
+        fn get_delay(&self) -> Option<AsInteger> { return Some(AsInteger::Integer(0)); }
+        fn get_register(&self) -> Option<String> { return self.register.clone(); }
+    } 
+    */ 
+
+
+

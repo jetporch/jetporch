@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+//use serde::{Serialize,Deserialize};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use Vec;
@@ -23,6 +24,7 @@ use crate::util::data::{deduplicate,recursive_descent};
 use crate::util::yaml::{blend_variables};
 
 // this implementation need not stay
+
 static GROUPS          : Lazy<Mutex<HashSet<String>>>                 = Lazy::new(||Mutex::new(HashSet::new()));
 static GROUP_SUBGROUPS : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));
 static GROUP_PARENTS   : Lazy<Mutex<HashMap<String,HashSet<String>>>> = Lazy::new(||Mutex::new(HashMap::new()));

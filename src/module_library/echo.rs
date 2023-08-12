@@ -16,22 +16,44 @@
 
 #[allow(unused_imports)]
 use serde::{Deserialize};
-
 use crate::playbooks::language::AsInteger;
-use crate::module_base::common::{IsTask};
-use crate::module_base::common::TaskProperties;
+use crate::module_base::list::{IsTask};
+use crate::module_base::list::TaskProperties;
 
-crate::module_base::common::define_task!(Echo { path: String });
-crate::module_base::common::add_task_properties!(Echo);
+#[derive(Deserialize,Debug)]
+#[serde(tag="echo",deny_unknown_fields)]
+pub struct Echo {
+
+    // ** MODULE SPECIFIC PARAMETERS ****
+    pub msg: String,
+
+    // *** COMMON BOILERPLATE ****
+    pub name: Option<String>,
+    pub when: Option<String>,
+    pub changed_when: Option<String>,
+    pub register: Option<String>,
+    pub delay: Option<String>,
+    pub retry: Option<String>,
+}
+
+impl TaskProperties for Echo {
+    fn get_name(&self) -> String { 
+        match &self.name { 
+            Some(x) => x.clone(), 
+            _ => String::from("") 
+        } 
+    }
+    fn get_when(&self) -> String { 
+        match &self.when { 
+            Some(x) => x.clone(), 
+            _ => String::from("") 
+       } 
+    } 
+    fn get_changed_when(&self) -> String  { match &self.changed_when { Some(x) => x.clone(), _ => String::from("") }}
+    fn get_retry(&self) -> String         { match &self.retry { Some(x) => x.clone(), _ => String::from("") }} 
+    fn get_delay(&self) -> String         { match &self.delay { Some(x) => x.clone(), _ => String::from("") }}
+    fn get_register(&self) -> String      { match &self.register { Some(x) => x.clone(), _ => String::from("") }}
+}
 
 impl IsTask for Echo {
-    
-    fn run(&self) -> Result<(), String> {
-        return Ok(());
-    }
-
-    fn get_module(&self) -> String {
-        return String::from("echo");
-    }
-
 }

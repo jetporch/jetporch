@@ -14,6 +14,5 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod external;
-pub mod include;
-pub mod shell;
+/** ADD MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (0) **/
+pub mod echo;

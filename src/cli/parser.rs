@@ -22,6 +22,8 @@ use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
 
+// FIXME: add --user and pass the value to various traversals in main (SSH only)
+
 // =============================================================================
 // PUBLIC API - for main.rs only
 // =============================================================================
@@ -34,7 +36,7 @@ pub struct CliParser {
     pub needs_help: bool,
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
-    pub batch_size: Option<u32>,
+    pub batch_size: Option<usize>,
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -139,8 +141,6 @@ fn show_help() {
                        | --- | --- | --- | --- | --- |\n\
                        | advanced: | | | |\n\
                        | | --threads tag1:tag2| how many threads to use in SSH operations| - | ssh |\n\
-                       | | | | |\n\
-                       | | --batch_size tag1:tag2| for canary deployments and rolling updates| - | most |\n\
                        |-|-|-|-|-";
 
     crate::util::terminal::markdown_print(&String::from(flags_table));

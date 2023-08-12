@@ -16,23 +16,34 @@
 
 #[allow(unused_imports)]
 use serde::{Deserialize};
-
 use crate::playbooks::language::AsInteger;
-use crate::module_base::common::{IsTask};
-use crate::module_base::common::TaskProperties;
+use crate::module_base::list::{IsTask};
+use crate::module_base::list::TaskProperties;
 
-crate::module_base::common::define_task!(Shell { cmd: String });
-crate::module_base::common::add_task_properties!(Shell);
+#[derive(Deserialize,Debug)]
+#[serde(tag="shell",deny_unknown_fields)]
+pub struct Shell {
 
-impl IsTask for Shell {
-    
-    fn run(&self) -> Result<(), String> {
-        return Ok(());
-    }
+    // ** MODULE SPECIFIC PARAMETERS ****
+    pub cmd: String,
 
-    fn get_module(&self) -> String {
-        return String::from("shell");
-    }
-
+    // *** COMMON BOILERPLATE ****
+    pub name: String,
+    pub when: Option<String>,
+    pub changed_when: Option<String>,
+    pub register: Option<String>,
+    pub delay: Option<AsInteger>,
+    pub retry: Option<AsInteger>,
 }
 
+impl TaskProperties for Shell {
+    fn get_name(&self) -> String       { return self.name.or_else("");                   }
+    fn get_when(&self) -> String       { return self.when.or_else("".to_string())        } 
+    fn get_changed_when(&self) String  { return self.changed_when.or_else("".to_string() }
+    fn get_retry(&self) -> usize       { return self.retry.or_else(0usize);              }
+    fn get_delay(&self) -> usize       { return self.delay_or_else(0usize);              }
+    fn get_register(&self) -> <String> { return self.register.or_else("".to_string());   }
+}
+
+impl IsTask for Shell {
+}

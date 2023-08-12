@@ -38,6 +38,8 @@ pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String>
     let visitor = SyntaxVisitor::new();
     let factory = NoFactory::new();
 
-    return playbook_traversal(&playbook_paths, &mut context, &visitor, &factory);
+    // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
+    // we don't really need it.
+    return playbook_traversal(&playbook_paths, &mut context, &visitor, &factory, String::from("root"));
 
 }
