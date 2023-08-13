@@ -22,71 +22,74 @@
 // particularly needed for SSH modes of the program
 // ===================================================================================
 
-use crate::module_base::common::*
-
-/*
-
-pub enum TaskRequestType {
-    Validate,Query,Create,Remove,Modify,
-}
-
-pub struct TaskRequest {
-    pub request_type: TaskRequestType,
-    pub changes: Option<HashMap<String, String>>
-}
-
-pub enum TaskStatus {
-    Validated,NeedsCreation,NeedsRemoval,NeedsModification,Done,Failed
-}
-
-pub struct TaskResponse {
-    pub is: TaskStatus,pub changes: Option<HashMap<String, String>>
-}
-
-*/
+use crate::module_base::common::{TaskRequestType,TaskStatus,TaskResponse};
+use crate::playbooks::visitor::PlaybookVisitor;
+use crate::playbooks::context::PlaybookContext;
+use crate::connection::factory::ConnectionFactory;
+use crate::module_base::list::Task;
+use crate::connection::no::NoConnection;
+use crate::connection::connection::Connection;
+use crate::runner::task_handle::TaskHandle;
+use crate::module_base::common::TaskRequest;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
-pub fn run_task(
+
+pub fn fsm_run_task(
     context: &PlaybookContext,
     visitor: &dyn PlaybookVisitor, 
     connection_factory: &dyn ConnectionFactory, 
     task: &Task) -> Result<(), String> {
 
-    let task_result = visitor.is_syntax_only();
+    let connection = NoConnection::new();
 
-
-    if syntax {
-        let sc = run_task_on_hosts(context, visitor, connection, task);
-        match sc.is {
-            TaskStatus::Validated => { return Ok(()) } 
-            _ => { Err(format!("resource defintion integrity check failed: {}", sc.msg )) }
-        }
+    let syntax_check_result = run_task_on_host(context, visitor, connection, task);
+    match syntax_check_result.is {
+        TaskStatus::Validated => { 
+            if visitor.is_syntax_only() { return Ok(); }
+        }, 
+        TaskStatus::Failed => { 
+            return Err(format!("parameters conflict: {}", syntax_check_result.msg.unwrap()));
+        },
+        _ => { panic!("module returned invalid response to syntax check") }
     }
 
-    hosts = context.get_all_hosts();
+    let hosts = context.get_all_hosts();
     for host in hosts {
         let connection = connection_factory.get_connection(host);
-        run_task_on_host(context, visitor, connection, task);
+        match connection.connect() {
+            Ok(_)  => {
+                let task_response = run_task_on_host(context, visitor, connection, task);
+                if task_response.is_failure() {
+                    visitor.on_host_task_failed(host, task_response);
+                }
+            },
+            Err(_) => { 
+                visitor.on_host_connect_failed(host);
+            }
+        }
     }
-
     return Ok(());
-
-    // FIXME: the results per host should be set on the context, and if any failures arise,
-    // we know to take them *out* of the all_hosts_pool and record the failures
-
-
 }
 
-fn task_dispatch(task &Task, 
+// a wrapper around task.dispatch that provides the module
+// with a TaskHandle object rather than direct access to all methods
+// in playbook visitor and context, so that modules mostly do
+// the right thing and stay standardized
+
+/*
+fn task_dispatch(task: &Task, 
     context: &PlaybookContext, 
     visitor: &PlaybookVisitor, 
     connection: &dyn Connection, 
     request_type: TaskRequestType) {
 
-    let task_handle = TaskHandle::new(context, visitor, connection, request_type)
+    let task_handle = TaskHandle::new(context, visitor, connection, request_type);
     return task.dispatch(task_handle, TaskRequest { request_type: request_type, changes: None });
 
 }
+*/
+
+// the "on this host" method body from fsm_run_task
 
 fn run_task_on_host(
     context: &PlaybookContext,
@@ -94,62 +97,61 @@ fn run_task_on_host(
     connection: &dyn Connection, 
     task: &Task) -> TaskResponse {
 
-    let syntax     = visitor.is_syntax_only();
-    let check_mode = visitor.is_check_mode();
+    let syntax      = visitor.is_syntax_only();
+    let modify_mode = ! visitor.is_check_mode();
 
-    let vrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Validate);
+    let handle = TaskHandle::new(Arc::new(context), Arc::new(visitor), Arc::new(connection));
+
+    let vrc = task.dispatch(&task, handle, TaskRequest::validate());
     match vrc.is {
-        TaskStatus::Validated => { vrc },
+        TaskStatus::IsValidated => { vrc },
         TaskStatus::Failed => { vrc },
-        _ => { panic!("module internal fsm state invalid (on verify)"); 
+        _ => { panic!("module internal fsm state invalid (on verify)") }
     }
 
-    if syntax_mode || vrc.is == TaskStatus::Failed {
+    if syntax || vrc.is == TaskStatus::Failed {
         return vrc;
     }
 
-    qrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Query);
-    let result = match vrc.is {
-        TaskStatus::NeedsCreation => {
-            match modify_mode {
-                true => {
-                    let crc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Create);
-                    match crc.is {
-                        TaskStatus::Created => { crc },
-                        TaskStatus::Failed  => { crc },
-                        _=> { panic!("module internal fsm state invalid (on create)"); }
-                    }
+    let query = TaskRequest::query();
+    let qrc = task.dispatch(handle, TaskRequest::query());
+    let result = match qrc.is {
+        TaskStatus::NeedsCreation => match modify_mode {
+            true => {
+                let crc = task.dispatch(handle, TaskRequest::create());
+                match crc.is {
+                    TaskStatus::IsCreated => { crc },
+                    TaskStatus::Failed  => { crc },
+                    _=> { panic!("module internal fsm state invalid (on create)") }
                 }
-                false => is_created();
-            }
-        }
-        TaskStatus::NeedsRemoval => {
-            match modify_mode {
-                true => {
-                    let rrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Remove);
-                    match rrc.is {
-                        TaskStatus::Removed => { rrc },
-                        TaskStatus::Failed  => { rrc },
-                        _=> { panic!("module internal fsm state invalid (on remove)"); }
-                }, 
-                false => is_removed(),
-            }
-        }
-        TaskStatus::NeedsModification => {
-            match modify_mode {
-                true => {
-                    let mrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Modify);
-                    match mrc.is {
-                        TaskStatus::Modified => { mrc },
-                        TaskStatus::Failed  => { mrc },
-                        _=> { panic!("module internal fsm state invalid (on modify)"); }
-                    }
-                }
-                false => is_modified()
-            }
+            },
+            false => handle.is_created(query)
         },
-        _ => { panic!("module internal fsm state invalid (on query)");  
-    }
+        TaskStatus::NeedsRemoval => match modify_mode {
+            true => {
+                let rrc = task.dispatch(handle, TaskRequest::remove());
+                match rrc.is {
+                    TaskStatus::IsRemoved => { rrc },
+                    TaskStatus::Failed  => { rrc },
+                    _=> { panic!("module internal fsm state invalid (on remove)") }
+                }
+            }, 
+            false => handle.is_removed(query),
+        },
+        TaskStatus::NeedsModification => match modify_mode {
+            true => {
+                let mrc = task.dispatch(handle, TaskRequest::modify(Arc::new(qrc.changes)));
+                match mrc.is {
+                    TaskStatus::IsModified => { mrc },
+                    TaskStatus::Failed  => { mrc },
+                    _=> { panic!("module internal fsm state invalid (on modify)") }
+                }
+            },
+            false => handle.is_modified(query)
+        },
+        TaskStatus::Failed => qrc,
+        _ => { panic!("module internal fsm state invalid (on query)"); }
+    };
     return result;
 
 }

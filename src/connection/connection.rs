@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: connection.rs
+// the connection represents an active connection to a node, whether local,
+// SSH, or otherwise.  It is fairly low level and modules do not get access to 
+// connections directly. Connections are returned by factory::ConnectionFactory trait
+// instances.
+// ===================================================================================
+
 pub struct ConnectionCommandResult {
     pub data: String,
     pub exit_status: i32

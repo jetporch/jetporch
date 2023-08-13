@@ -20,16 +20,13 @@ use crate::playbooks::context::{PlaybookContext};
 use std::path::PathBuf;
 use crate::playbooks::visitor::PlaybookVisitor;
 
-struct SyntaxVisitor {
-}
-
-impl PlaybookVisitor for SyntaxVisitor {
-}
-
+struct SyntaxVisitor {}
 impl SyntaxVisitor {
-    pub fn new() -> Self {
-        Self {}
-    }
+    pub fn new() -> Self { Self {} }
+}
+impl PlaybookVisitor for SyntaxVisitor {
+    fn is_syntax_only(&self) -> bool { return true; }
+    fn is_dry_run(&self)     -> bool { return true; }
 }
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {

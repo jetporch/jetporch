@@ -14,10 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: list.rs
+// this is the list of all module types and works by:
+// * adding the module to a list of deserializable YAML structs in task lists
+// * allowing querying of the properties of the (non-polymorphic) task objects
+// * allowing the module to respond to calls for task dispatch
+//
+// there is a small amount of boilerplate here, we have made a decision to avoid
+// macros as auto-generating symbols tends to degrade some compiler abilities. see
+// the online documentation for how to add modules in greater detail.
+// ===================================================================================
+
 use serde::Deserialize;
 use crate::module_base::common::*;
-use crate::playbooks::visitor::PlaybookVisitor;
-use crate::playbooks::context::PlaybookContext;
+use crate::runner::task_handle::TaskHandle;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
 use crate::module_library::echo::Echo;
@@ -34,17 +45,17 @@ impl Task {
     pub fn get_property(&self, property: TaskProperty) -> String { 
         return match self {
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
-            Task::Echo(x) => x.get_proprerty(property), 
-            _ => { panic!("internal error"); },
+            Task::Echo(x) => x.get_property(property), 
+            _ => { panic!("module properties not registered"); },
         };
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
-    fn dispatch(&self, context: &PlaybookContext, visitor: &dyn PlaybookVisitor, connection: &dyn Connection, request: TaskRequest) -> TaskResponse {
+    pub fn dispatch(&self, handle: TaskHandle, request: TaskRequest) -> TaskResponse {
         return match self {
-            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
-            Task::Echo(x) => self.dispatch(context, visitor, connection, request), 
-            _ => { panic!("internal error"); },
+            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
+            Task::Echo(x) => self.dispatch(handle, request), 
+            _ => { panic!("module dispatch not registered"); },
         };
     }
 

@@ -14,10 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: common.rs
+// common types and interfaces (mostly) for implementing modules.  A module will
+// not need to import most of these because it interacts a lot through 
+// runner::task_handle which abstracts away some of these details
+// ===================================================================================
 
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
+//use crate::playbooks::context::PlaybookContext;
+//use crate::playbooks::visitor::PlaybookVisitor;
 use std::collections::HashMap;
+//use crate::connection::connection::Connection;
+use crate::runner::task_handle::TaskHandle;
+use std::sync::Arc;
+
+//==========================================================
+// dispatch
 
 pub enum TaskProperty {
     ChangedWhen,
@@ -28,6 +40,10 @@ pub enum TaskProperty {
     When,
 }
 
+//==========================================================
+// request
+
+#[derive(PartialEq)]
 pub enum TaskRequestType {
     Validate,
     Query,
@@ -38,73 +54,62 @@ pub enum TaskRequestType {
 
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
-    pub changes: Option<HashMap<String, String>>
+    pub changes: Arc<HashMap<String, String>>>
 }
 
+impl TaskRequest {
+    pub fn validate() -> Self {
+        Self { request_type: TaskRequestType::Validate, changes: Arc::new(HashMap::new()) }
+    }
+    pub fn query() -> Self {
+        Self { request_type: TaskRequestType::Query, changes: Arc::new(HashMap::new() }
+    }
+    pub fn create() -> Self {
+        Self { request_type: TaskRequestType::Create, changes: Arc::new(HashMap::new() }
+    }
+    pub fn remove() -> Self {
+        Self { request_type: TaskRequestType::Remove, changes: Arc::new(HashMap::new()) }
+    }
+    pub fn modify(changes: Arc<HashMap<String, String>>) -> Self {
+        Self { request_type: TaskRequestType::Modify, changes: Arc::clone(changes) }
+    }
+}
+
+//==========================================================
+// response
+
 pub enum TaskStatus {
-    Validated,
+    IsCreated,
+    IsRemoved,
+    IsModified,
+    IsValidated,
+    IsChanged,
     NeedsCreation,
     NeedsRemoval,
     NeedsModification,
-    Done,
     Failed
 }
 
 pub struct TaskResponse {
     pub is: TaskStatus,
-    pub changes: Option<HashMap<String, String>>
-    pub msg: Option(String),
+    pub changes: Arc<HashMap<String, String>>,
+    pub msg: Option<String>,
 }
+
+//==========================================================
+// interfaces & helper functions
 
 pub trait IsTask { 
     fn get_property(&self, property: TaskProperty) -> String;
 
     fn dispatch(&self, 
-        context: &PlaybookContext, 
-        visitor: &dyn PlaybookVisitor, 
-        connection: &dyn Connection, 
+        handle: &TaskHandle, 
         request: TaskRequest) -> TaskResponse;
 }
 
-pub fn get_optional_string_property(property: &Option<String>) -> String {
+pub fn get_property(property: &Option<String>) -> String {
     return match property { 
         Some(x) => x.clone(), 
         _ => String::from("") 
     }
-}
-
-// ==============================================================================================
-// RETURN HELPERS FOR MODULE DISPATCH METHODS
-// ==============================================================================================
-
-pub fn is_validated() -> TaskResponse {
-    return TaskResponse { is: TaskStatus::Validated, changes: None, msg: None };
-}
-
-pub fn needs_creation() -> TaskResponse {
-    return TaskRespones { is: TaskStatus::NeedsCreation, changes: None, msg: None };
-}
-
-pub fn needs_modification(changes: &HashMap<String,String>) -> TaskResponse {
-    return TaskResponse { is: TaskStatus::NeedsModification, changes: Some(changes) };
-}
-
-pub fn needs_removal() -> TaskResponse {
-    return TaskResponse { is: TaskStatus::NeedsRemoval, changes: None, msg: None };
-}
-
-pub fn failed(msg: String) -> TaskResponse() {
-    return TaskResponse { is: TaskStatus::Failed, changes: None, msg: msg.clone() };
-}
-
-pub fn is_created() -> TaskResponse {
-    return TaskResponse { is: TaskStatus::Created, changes: None, msg: None };
-}
-
-pub fn is_removed() -> TaskResponse {
-    return TaskResponse { is: TaskStatus::Removed, changes: None, msg: None };
-}
-
-pub fn is_modified(changes: &HashMap<String,String>) -> TaskResponse() {
-    return TaskResponse { is: TaskStatus::IsModified: changes: Some(changes) };
 }

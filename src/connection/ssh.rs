@@ -102,6 +102,7 @@ impl Connection for SshConnection {
         // Try to authenticate with the first identity in the agent.
         sess.userauth_agent(&self.username).unwrap();
     
+        // FIXME: should return somehow instead and handle it
         assert!(sess.authenticated());
 
         self.session = Some(sess);

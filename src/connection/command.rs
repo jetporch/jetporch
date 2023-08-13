@@ -14,13 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: commands.rs
+// the Command struct wraps commands as executed by // runner::task_handle::TaskHandle 
+// to ensure proper usage and status in playbook context. For usage, see many
+// modules in modules/
+// ===================================================================================
+
 pub struct Command {
     cmd: String,
 }
 
 impl Command {
 
-    pub fn new(cmd: message) -> Self {
+    pub fn new(cmd: String) -> Self {
         Self { 
             cmd: cmd.clone(),
         }

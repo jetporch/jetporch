@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::module_base::common::{TaskRequest,TaskRequestType,TaskResponse,TaskProperty,get_property};
+use crate::runner::task_handle::TaskHandle;
+use crate::module_base::common::IsTask;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
-use crate::module_base::common::*;
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -33,7 +33,7 @@ pub struct Echo {
     pub name: Option<String>,
     pub register: Option<String>,
     pub retry: Option<String>,
-    pub when: Option<String>,
+    pub when: Option<String>
 }
 
 impl IsTask for Echo {
@@ -41,45 +41,43 @@ impl IsTask for Echo {
     /** COMMON MODULE BOILERPLATE **/
     fn get_property(&self, property: TaskProperty) -> String { 
         return match property {
-            TaskProperty::ChangedWhen => get_optional_string_property(&self.changed_when),
-            TaskProperty::Delay => get_optional_string_property(&self.delay),
-            TaskProperty::Register => get_optional_string_property(&self.register),
-            TaskProperty::Retry => get_optional_string_property(&self.retry),
-            TaskProperty::Name => get_optional_string_property(&self.name),
-            TaskProperty::When => get_optional_string_property(&self.when), 
+            TaskProperty::ChangedWhen => get_property(&self.changed_when),
+            TaskProperty::Delay => get_property(&self.delay),
+            TaskProperty::Register => get_property(&self.register),
+            TaskProperty::Retry => get_property(&self.retry),
+            TaskProperty::Name => get_property(&self.name),
+            TaskProperty::When => get_property(&self.when), 
         }
     }
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, 
-        handle: TaskHandle,
-        request: TaskRequest) -> TaskResponse {
+    fn dispatch(&self, handle: TaskHandle, request: TaskRequest) -> TaskResponse {
     
         match request.request_type {
 
             TaskRequestType::Validate => {
-                // the echo module has nothing to validate
-                return handle.is_validated();
+                return handle.is_validated(request);
             },
-    
+
             TaskRequestType::Query => {
-                // can also return a hashmap of changes in request.changes we could conditionally consider 
-                return handle.needs_creation();
+                return handle.needs_creation(request)
             },
     
             TaskRequestType::Create => {
-                handle.debug(self.msg);
-                return handle.is_created();
+                handle.debug(request, self.msg);
+                return handle.is_created(request)
             },
     
             TaskRequestType::Remove => {
-                panic!("impossible");
+                panic!("this module does not remove resources");
             },
 
             TaskRequestType::Modify => {
-                panic!("impossible");
+                panic!("this module does not modify resources");
             },
+            _ => { panic!("invalid request type") }
     
         }
     }
+
 }

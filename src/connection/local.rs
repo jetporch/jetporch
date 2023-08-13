@@ -14,6 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: local.rs
+// the local connection factory always returns a local connection for a host
+// and is used by 'local' and 'check-local' CLI invocations.
+// ===================================================================================
+
 use crate::connection::connection::{Connection,ConnectionCommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;

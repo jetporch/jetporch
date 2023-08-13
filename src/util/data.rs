@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// data.rs: various functions to simplify datastructure handling
+
+// ===================================================================================
+// ABOUT: data.rs
+// various functions to simplify datastructure handling
+// ===================================================================================
+
 
 use std::collections::HashSet;
 

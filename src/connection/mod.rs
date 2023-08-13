@@ -15,12 +15,11 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod connection;
-
+pub mod factory;
+pub mod command;
 pub mod ssh;
 pub mod local;
 pub mod no;
 
-pub mod factory;
 
-pub mod command;
 

@@ -14,6 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: factory.rs
+// the connection factory trait represents logic that can return a connnection for
+// a given host record in inventory.  The types of connections per host can be
+// heterogenous.
+// ===================================================================================
+
 use crate::connection::connection::{Connection};
 use crate::playbooks::context::PlaybookContext;
 use std::sync::Arc;

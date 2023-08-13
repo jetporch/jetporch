@@ -15,7 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: visitor.rs
+// these functions may be thought of as callbacks that report what is going on
+// with playbook code.  Eventually these themselves may take a vector of additional
+// functions, but the plan for now is that they would be overriden in the cli/*.rs
+// commands when custom behavior was needed.
+// ===================================================================================
+
+
 use crate::playbooks::context::PlaybookContext;
+use crate::module_base::common::TaskResponse;
 
 pub trait PlaybookVisitor {
 
@@ -66,8 +76,18 @@ pub trait PlaybookVisitor {
         println!("> task complete: {}", task);
     }
 
-    
+    fn on_host_task_failed(&self, context: &PlaybookContext, task_response: TaskResponse, host: String) {
+        println!("> task failed on host: {}", host);
+        context.fail_host(host);
+    }
 
-    // TODO: functions for loading in variables and such.
+    fn on_host_connect_failed(&self, context: &PlaybookContext, host: String) {
+        println!("> connection failed to host: {}", host);
+        context.fail_host(host);
+    }
+
+    fn is_syntax_only(&self) -> bool;
+
+    fn is_dry_run(&self) -> bool;
 
 }

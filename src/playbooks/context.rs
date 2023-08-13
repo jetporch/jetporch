@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: context.rs
+// the playbook context is a struct of status that remains available to all objects
+// while walking the playbook tree, it, for instance, allows any task to know the
+// current role, what the current path root is, and so on. While parts of the context
+// are mutable, they should not be adjusted outside of playbook traversal code.
+// ===================================================================================
+
 use std::sync::Mutex;
 use std::sync::Arc;
 use crate::util::io::{path_as_string,directory_as_string};
@@ -96,6 +104,11 @@ impl PlaybookContext {
         // FIXME: check the variables + host variables
         return 22usize;
 
+    }
+
+    pub fn fail_host(&mut self, host: String){
+        // FIXME
+        panic!("fail_host is not implemented yet");
     }
 
 
