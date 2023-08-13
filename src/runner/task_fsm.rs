@@ -1,3 +1,27 @@
+// Jetporch
+// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// long with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+// ===================================================================================
+// ABOUT: task_fsm.rs
+// the task FSM is mostly about proveable correctness in executing modules - ensuring
+// that modules are implemented to be able to ask what they want to do, and to make
+// sure they respond correctly. It will also be used to loop over hosts in parallel
+// particularly needed for SSH modes of the program
+// ===================================================================================
+
 use crate::module_base::common::*
 
 /*
@@ -22,7 +46,8 @@ pub struct TaskResponse {
 */
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
-pub fn run_task(context: &PlaybookContext,
+pub fn run_task(
+    context: &PlaybookContext,
     visitor: &dyn PlaybookVisitor, 
     connection_factory: &dyn ConnectionFactory, 
     task: &Task) -> Result<(), String> {
@@ -52,6 +77,17 @@ pub fn run_task(context: &PlaybookContext,
 
 }
 
+fn task_dispatch(task &Task, 
+    context: &PlaybookContext, 
+    visitor: &PlaybookVisitor, 
+    connection: &dyn Connection, 
+    request_type: TaskRequestType) {
+
+    let task_handle = TaskHandle::new(context, visitor, connection, request_type)
+    return task.dispatch(task_handle, TaskRequest { request_type: request_type, changes: None });
+
+}
+
 fn run_task_on_host(
     context: &PlaybookContext,
     visitor: &dyn PlaybookVisitor, 
@@ -61,7 +97,7 @@ fn run_task_on_host(
     let syntax     = visitor.is_syntax_only();
     let check_mode = visitor.is_check_mode();
 
-    let vrc = task.dispatch(context, visitor, connection, TaskRequest { request_type: TaskRequestType::Validate, changes: None });
+    let vrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Validate);
     match vrc.is {
         TaskStatus::Validated => { vrc },
         TaskStatus::Failed => { vrc },
@@ -72,15 +108,12 @@ fn run_task_on_host(
         return vrc;
     }
 
-    qrc = task.dispatch(context, visitor, connection, TaskRequest { request_type: TaskRequestType::Query, changes: None });
+    qrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Query);
     let result = match vrc.is {
         TaskStatus::NeedsCreation => {
             match modify_mode {
                 true => {
-                    let crc = task.dispatch(context, visitor, connection, TaskRequest { 
-                        request_type: TaskRequestType::Create, 
-                        changes: None 
-                    });
+                    let crc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Create);
                     match crc.is {
                         TaskStatus::Created => { crc },
                         TaskStatus::Failed  => { crc },
@@ -93,10 +126,7 @@ fn run_task_on_host(
         TaskStatus::NeedsRemoval => {
             match modify_mode {
                 true => {
-                    let rrc = task.dispatch(context, visitor, connection, TaskRequest { 
-                        request_type: TaskRequestType::Remove, 
-                        changes: None 
-                    };
+                    let rrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Remove);
                     match rrc.is {
                         TaskStatus::Removed => { rrc },
                         TaskStatus::Failed  => { rrc },
@@ -108,10 +138,7 @@ fn run_task_on_host(
         TaskStatus::NeedsModification => {
             match modify_mode {
                 true => {
-                    let mrc = task.dispatch(context, visitor, connection, TaskRequest { 
-                        request_type: TaskRequestType::Modify, 
-                        changes: qrc.changes 
-                    });
+                    let mrc = task_dispatch(&task, context, visitor, connection, TaskRequestType::Modify);
                     match mrc.is {
                         TaskStatus::Modified => { mrc },
                         TaskStatus::Failed  => { mrc },

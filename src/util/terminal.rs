@@ -14,7 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// terminal.rs: useful functions for nice terminal output
+// ===================================================================================
+// ABOUT: terminal.rs
+// nice terminal output
+// ===================================================================================
+
 
 // ==============================================================================================================
 // PUBLIC API

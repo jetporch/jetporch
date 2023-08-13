@@ -22,4 +22,5 @@ pub mod no;
 
 pub mod factory;
 
+pub mod command;
 

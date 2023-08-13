@@ -52,26 +52,24 @@ impl IsTask for Echo {
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
     fn dispatch(&self, 
-        context: &PlaybookContext, 
-        visitor: &dyn PlaybookVisitor, 
-        connection: &dyn Connection, 
+        handle: TaskHandle,
         request: TaskRequest) -> TaskResponse {
     
         match request.request_type {
 
             TaskRequestType::Validate => {
                 // the echo module has nothing to validate
-                return is_validated();
+                return handle.is_validated();
             },
     
             TaskRequestType::Query => {
                 // can also return a hashmap of changes in request.changes we could conditionally consider 
-                return needs_creation();
+                return handle.needs_creation();
             },
     
             TaskRequestType::Create => {
-                context.debug(self.msg);
-                return done();
+                handle.debug(self.msg);
+                return handle.is_created();
             },
     
             TaskRequestType::Remove => {
@@ -81,8 +79,6 @@ impl IsTask for Echo {
             TaskRequestType::Modify => {
                 panic!("impossible");
             },
-    
-
     
         }
     }

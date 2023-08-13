@@ -14,6 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// ===================================================================================
+// ABOUT: ssh.rs
+// everything about SSH connections.  Note that the factory is programmed to return
+// a local (non-SSH) connection for nodes named "localhost", this is *NOT* true
+// for nodes named 127.0.0.* so we can still connect to the loopback for testing
+// ===================================================================================
+
 use crate::connection::connection::{Connection,ConnectionCommandResult};
 use ssh2::Session;
 use std::io::{Read,Write};
