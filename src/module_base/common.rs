@@ -78,6 +78,7 @@ impl TaskRequest {
 //==========================================================
 // response
 
+#[derive(PartialEq)]
 pub enum TaskStatus {
     IsCreated,
     IsRemoved,

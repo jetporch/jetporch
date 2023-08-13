@@ -31,8 +31,8 @@ use std::sync::Arc;
 
 pub struct TaskHandle {
     context: Arc<PlaybookContext>,
-    visitor: Arc<dyn PlaybookVisitor>, 
-    connection: Arc<dyn Connection>,
+    visitor: Arc<&dyn PlaybookVisitor>, 
+    connection: Arc<&dyn Connection>,
     pub changes: Vec<String>,
     pub commands: Vec<Command>
 }

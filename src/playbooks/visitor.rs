@@ -88,6 +88,6 @@ pub trait PlaybookVisitor {
 
     fn is_syntax_only(&self) -> bool;
 
-    fn is_dry_run(&self) -> bool;
+    fn is_check_mode(&self) -> bool;
 
 }

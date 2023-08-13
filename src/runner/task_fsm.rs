@@ -102,16 +102,17 @@ fn run_task_on_host(
 
     let handle = TaskHandle::new(Arc::new(context), Arc::new(visitor), Arc::new(connection));
 
-    let vrc = task.dispatch(&task, handle, TaskRequest::validate());
+    let vrc = task.dispatch(handle, TaskRequest::validate());
     match vrc.is {
-        TaskStatus::IsValidated => { vrc },
-        TaskStatus::Failed => { vrc },
+        TaskStatus::IsValidated => { 
+            if syntax {
+                return vrc;
+            }
+        },
+        TaskStatus::Failed => { return vrc; },
         _ => { panic!("module internal fsm state invalid (on verify)") }
     }
 
-    if syntax || vrc.is == TaskStatus::Failed {
-        return vrc;
-    }
 
     let query = TaskRequest::query();
     let qrc = task.dispatch(handle, TaskRequest::query());
@@ -147,7 +148,7 @@ fn run_task_on_host(
                     _=> { panic!("module internal fsm state invalid (on modify)") }
                 }
             },
-            false => handle.is_modified(query)
+            false => handle.is_modified(query, Arc::clone(qrc.changes))
         },
         TaskStatus::Failed => qrc,
         _ => { panic!("module internal fsm state invalid (on query)"); }
