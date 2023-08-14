@@ -27,6 +27,7 @@ use std::sync::Arc;
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use std::path::PathBuf;
+use std::collections::HashSet;
 
 pub struct PlaybookContext {
     pub playbook_path: Arc<Mutex<Option<String>>>,
@@ -35,7 +36,7 @@ pub struct PlaybookContext {
     pub role: Arc<Mutex<Option<String>>>,
     pub task: Arc<Mutex<Option<String>>>,
     pub host: Arc<Mutex<Option<String>>>,
-    pub all_hosts: Arc<Mutex<Option<Vec<String>>>>,
+    pub all_hosts: Arc<Mutex<HashSet<String>>>,
     pub role_path: Arc<Mutex<Option<String>>>,
     pub role_name: Arc<Mutex<Option<String>>>,
     pub remote_user: Arc<Mutex<Option<String>>>
@@ -51,12 +52,25 @@ impl PlaybookContext {
             role: Arc::new(Mutex::new(None)),
             task: Arc::new(Mutex::new(None)),
             host: Arc::new(Mutex::new(None)),
-            all_hosts: Arc::new(Mutex::new(None)),
+            all_hosts: Arc::new(Mutex::new(HashSet::new())),
             role_path: Arc::new(Mutex::new(None)),
             role_name: Arc::new(Mutex::new(None)),
             remote_user: Arc::new(Mutex::new(None))
         }
     }
+
+    // get all selected hosts in the play
+    // FIXME: need a method for non-failed hosts
+    pub fn get_all_hosts(&self) -> HashSet<String> {
+        let hosts = self.all_hosts.lock().unwrap();
+        let mut results : HashSet<String> = HashSet::new();
+        for host in hosts.iter() {
+            results.insert(host.clone());
+        }
+        return results;
+    }
+
+    // FIXME: we need a method set_hosts that clears all_hosts
 
     pub fn set_playbook_path(&mut self, path: &PathBuf) {
         *self.playbook_path.lock().unwrap() = Some(path_as_string(&path));
@@ -107,7 +121,7 @@ impl PlaybookContext {
     }
 
     pub fn fail_host(&mut self, host: String){
-        // FIXME
+        // FIXME - we should really keep all_hosts seperate from unfailed_hosts
         panic!("fail_host is not implemented yet");
     }
 

@@ -122,7 +122,7 @@ pub fn playbook_traversal(
                         //context.set_task(task.get_name().clone());
                         visitor.on_task_start(&context);
                         
-                        process_task(&context, visitor, connection_factory, task, false)?; 
+                        process_task(context, visitor, connection_factory, task, false)?; 
                         //visitor.on_task_stop(&context);
                         
                     }
@@ -284,7 +284,7 @@ fn load_tasks_directory(context: &PlaybookContext,
 
 }
 
-fn process_task(context: &PlaybookContext, 
+fn process_task(context: &mut PlaybookContext, 
     visitor: &dyn PlaybookVisitor, 
     connection_factory: &dyn ConnectionFactory, 
     task: &Task,

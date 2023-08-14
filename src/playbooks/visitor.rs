@@ -76,12 +76,12 @@ pub trait PlaybookVisitor {
         println!("> task complete: {}", task);
     }
 
-    fn on_host_task_failed(&self, context: &PlaybookContext, task_response: TaskResponse, host: String) {
+    fn on_host_task_failed(&self, context: &mut PlaybookContext, task_response: TaskResponse, host: String) {
         println!("> task failed on host: {}", host);
         context.fail_host(host);
     }
 
-    fn on_host_connect_failed(&self, context: &PlaybookContext, host: String) {
+    fn on_host_connect_failed(&self, context: &mut PlaybookContext, host: String) {
         println!("> connection failed to host: {}", host);
         context.fail_host(host);
     }

@@ -36,7 +36,7 @@ use std::sync::Arc;
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
 pub fn fsm_run_task(
-    context: &PlaybookContext,
+    context: &mut PlaybookContext,
     visitor: &dyn PlaybookVisitor, 
     connection_factory: &dyn ConnectionFactory, 
     task: &Task) -> Result<(), String> {
@@ -55,7 +55,7 @@ pub fn fsm_run_task(
 
     let hosts = context.get_all_hosts();
     for host in hosts {
-        let connection_result = connection_factory.get_connection(&mut context, host);
+        let connection_result = connection_factory.get_connection(context, host);
         match connection.connect() {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
