@@ -29,20 +29,20 @@ use crate::connection::command::Command;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct TaskHandle {
-    context: Arc<PlaybookContext>,
-    visitor: Arc<&dyn PlaybookVisitor>, 
-    connection: Arc<&dyn Connection>,
+pub struct TaskHandle<'a> {
+    context: &'a PlaybookContext,
+    visitor: &'a dyn PlaybookVisitor, 
+    connection: Arc<dyn Connection>,
     pub changes: Vec<String>,
     pub commands: Vec<Command>
 }
 
-impl TaskHandle {
+impl TaskHandle<'_> {
 
-    pub fn new(context: Arc<PlaybookContext>, visitor: Arc<&dyn PlaybookVisitor>, connection: Arc<&dyn Connection>) -> Self {
+    pub fn new(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, connection: Arc<dyn Connection>) -> Self {
         Self {
-            context: Arc::clone(&context),
-            visitor: Arc::clone(&visitor),
+            context: context,
+            visitor: visitor,
             connection: Arc::clone(&connection),
             changes: Vec::new(),
             commands: Vec::new(),
@@ -75,21 +75,15 @@ impl TaskHandle {
     }
 
     // ================================================================================
-    // RETURN WRAPPERS FOR ANY TASK REQUEST TYPE
+    // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
     pub fn is_failed(&self, _request: TaskRequest,  msg: String) -> TaskResponse {
         return TaskResponse { is: TaskStatus::Failed, changes: Arc::new(HashMap::new()), msg: Some(msg.clone()) };
     }
 
-    // ================================================================================
-    // RETURN WRAPPERS FOR TASK DISPATCH (VALIDATION)
-
     pub fn is_validated(&self, request: TaskRequest, ) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsValidated, changes: Arc::new(HashMap::new()), msg: None };
     }
-
-    // ================================================================================
-    // RETURN WRAPPERS FOR TASK DISPATCH (ACTION MODES)
     
     pub fn is_created(&self, request: TaskRequest) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsCreated, changes: Arc::new(HashMap::new()), msg: None };
@@ -102,9 +96,6 @@ impl TaskHandle {
     pub fn is_modified(&self, request: TaskRequest, changes: Arc<HashMap<String,String>>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsModified, changes: Arc::clone(&changes), msg: None };
     }
-
-    // ================================================================================
-    // RETURN WRAPPERS FOR TASK DISPATCH (QUERY)
 
     pub fn needs_creation(&self, request: TaskRequest) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsCreation, changes: Arc::new(HashMap::new()), msg: None };

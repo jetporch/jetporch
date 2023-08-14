@@ -29,7 +29,7 @@ pub struct ConnectionCommandResult {
 
 pub trait Connection {
 
-    fn connect(&mut self);  
+    fn connect(&mut self) -> Result<(),String>;  
 
     // FIXME: add error return objects
     

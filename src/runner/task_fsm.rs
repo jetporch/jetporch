@@ -22,7 +22,7 @@
 // particularly needed for SSH modes of the program
 // ===================================================================================
 
-use crate::module_base::common::{TaskRequestType,TaskStatus,TaskResponse};
+use crate::module_base::common::{TaskStatus,TaskResponse};
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
@@ -31,6 +31,7 @@ use crate::connection::no::NoConnection;
 use crate::connection::connection::Connection;
 use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::TaskRequest;
+use std::sync::Arc;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
@@ -40,12 +41,11 @@ pub fn fsm_run_task(
     connection_factory: &dyn ConnectionFactory, 
     task: &Task) -> Result<(), String> {
 
-    let connection = NoConnection::new();
-
+    let connection = Arc::new(NoConnection::new());
     let syntax_check_result = run_task_on_host(context, visitor, connection, task);
     match syntax_check_result.is {
-        TaskStatus::Validated => { 
-            if visitor.is_syntax_only() { return Ok(); }
+        TaskStatus::IsValidated => { 
+            if visitor.is_syntax_only() { return Ok(()); }
         }, 
         TaskStatus::Failed => { 
             return Err(format!("parameters conflict: {}", syntax_check_result.msg.unwrap()));
@@ -55,16 +55,17 @@ pub fn fsm_run_task(
 
     let hosts = context.get_all_hosts();
     for host in hosts {
-        let connection = connection_factory.get_connection(host);
+        let connection_result = connection_factory.get_connection(&mut context, host);
         match connection.connect() {
             Ok(_)  => {
+                let connection = connection_result.unwrap();
                 let task_response = run_task_on_host(context, visitor, connection, task);
-                if task_response.is_failure() {
-                    visitor.on_host_task_failed(host, task_response);
+                if task_response.is_failed() {
+                    visitor.on_host_task_failed(context, task_response, host);
                 }
             },
             Err(_) => { 
-                visitor.on_host_connect_failed(host);
+                visitor.on_host_connect_failed(context, host);
             }
         }
     }
@@ -94,13 +95,13 @@ fn task_dispatch(task: &Task,
 fn run_task_on_host(
     context: &PlaybookContext,
     visitor: &dyn PlaybookVisitor, 
-    connection: &dyn Connection, 
+    connection: Arc<dyn Connection>, 
     task: &Task) -> TaskResponse {
 
     let syntax      = visitor.is_syntax_only();
     let modify_mode = ! visitor.is_check_mode();
 
-    let handle = TaskHandle::new(Arc::new(context), Arc::new(visitor), Arc::new(connection));
+    let handle = TaskHandle::new(context, visitor, connection);
 
     let vrc = task.dispatch(handle, TaskRequest::validate());
     match vrc.is {
@@ -141,14 +142,14 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsModification => match modify_mode {
             true => {
-                let mrc = task.dispatch(handle, TaskRequest::modify(Arc::new(qrc.changes)));
+                let mrc = task.dispatch(handle, TaskRequest::modify(Arc::clone(&qrc.changes)));
                 match mrc.is {
                     TaskStatus::IsModified => { mrc },
                     TaskStatus::Failed  => { mrc },
                     _=> { panic!("module internal fsm state invalid (on modify)") }
                 }
             },
-            false => handle.is_modified(query, Arc::clone(qrc.changes))
+            false => handle.is_modified(query, Arc::clone(&qrc.changes))
         },
         TaskStatus::Failed => qrc,
         _ => { panic!("module internal fsm state invalid (on query)"); }

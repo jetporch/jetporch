@@ -25,8 +25,8 @@ impl SyntaxVisitor {
     pub fn new() -> Self { Self {} }
 }
 impl PlaybookVisitor for SyntaxVisitor {
-    fn is_syntax_only(&self) -> bool { return true; }
-    fn is_dry_run(&self)     -> bool { return true; }
+    fn is_syntax_only(&self)    -> bool { return true; }
+    fn is_check_mode(&self)     -> bool { return true; }
 }
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {

@@ -51,7 +51,7 @@ impl IsTask for Echo {
     }
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, handle: TaskHandle, request: TaskRequest) -> TaskResponse {
+    fn dispatch(&self, handle: &TaskHandle<'_>, request: TaskRequest) -> TaskResponse {
     
         match request.request_type {
 

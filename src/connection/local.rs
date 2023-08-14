@@ -34,8 +34,8 @@ impl LocalFactory {
 }
 
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection> {
-        return Arc::new(LocalConnection::new());
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Result<Arc<dyn Connection>,String> {
+        return Ok(Arc::new(LocalConnection::new()));
     }
 }
 
@@ -51,8 +51,9 @@ impl LocalConnection {
 
 impl Connection for LocalConnection {
 
-   fn connect(&mut self) {
-   }
+    fn connect(&mut self) -> Result<(),String> {
+        return Ok(());
+    }
 
    fn run_command(&self, command: String) -> ConnectionCommandResult {
        ConnectionCommandResult {

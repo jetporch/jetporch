@@ -40,16 +40,20 @@ impl SshFactory {
 }
 
 impl ConnectionFactory for SshFactory {
-    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection> {
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Result<Arc<dyn Connection>, String> {
         if host.eq("localhost") {
-            return Arc::new(LocalConnection::new());
+            return Ok(Arc::new(LocalConnection::new()));
         } else {
             let host2 = host.clone();
-            return Arc::new(SshConnection::new(
+            let conn = SshConnection::new(
                 host2.clone(),
                 context.get_remote_port(host2.clone()),
                 context.get_remote_user(host2.clone()),
-            ));
+            );
+            return match conn.connect() {
+                Ok(_)  => { Ok(Arc::new(conn)) },
+                Err(x) => { Err(x) } 
+            }
         }
     }
 }
@@ -69,7 +73,7 @@ impl SshConnection {
 
 impl Connection for SshConnection {
 
-   fn connect(&mut self) {
+   fn connect(&mut self) -> Result<(), String> {
 
        // derived from docs at https://docs.rs/ssh2/latest/ssh2/
     
@@ -103,9 +107,12 @@ impl Connection for SshConnection {
         sess.userauth_agent(&self.username).unwrap();
     
         // FIXME: should return somehow instead and handle it
-        assert!(sess.authenticated());
+        if !(sess.authenticated()) {
+            return Err("failed to authenticate".to_string());
+        }
 
         self.session = Some(sess);
+        return Ok(());
 
     }
 

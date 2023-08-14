@@ -35,8 +35,8 @@ impl NoFactory {
 }
 
 impl ConnectionFactory for NoFactory {
-    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Arc<dyn Connection> {
-        return Arc::new(NoConnection::new());
+    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Result<Arc<dyn Connection>,String> {
+        return Ok(Arc::new(NoConnection::new()));
     }
 }
 
@@ -51,7 +51,8 @@ impl NoConnection {
 
 impl Connection for NoConnection {
 
-   fn connect(&mut self) {
+   fn connect(&mut self) -> Result<(),String> {
+       return Ok(());
    }
 
    fn run_command(&self, command: String) -> ConnectionCommandResult {

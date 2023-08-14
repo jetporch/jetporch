@@ -54,7 +54,7 @@ pub enum TaskRequestType {
 
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
-    pub changes: Arc<HashMap<String, String>>>
+    pub changes: Arc<HashMap<String, String>>
 }
 
 impl TaskRequest {
@@ -62,16 +62,16 @@ impl TaskRequest {
         Self { request_type: TaskRequestType::Validate, changes: Arc::new(HashMap::new()) }
     }
     pub fn query() -> Self {
-        Self { request_type: TaskRequestType::Query, changes: Arc::new(HashMap::new() }
+        Self { request_type: TaskRequestType::Query, changes: Arc::new(HashMap::new()) }
     }
     pub fn create() -> Self {
-        Self { request_type: TaskRequestType::Create, changes: Arc::new(HashMap::new() }
+        Self { request_type: TaskRequestType::Create, changes: Arc::new(HashMap::new()) }
     }
     pub fn remove() -> Self {
         Self { request_type: TaskRequestType::Remove, changes: Arc::new(HashMap::new()) }
     }
     pub fn modify(changes: Arc<HashMap<String, String>>) -> Self {
-        Self { request_type: TaskRequestType::Modify, changes: Arc::clone(changes) }
+        Self { request_type: TaskRequestType::Modify, changes: Arc::clone(&changes) }
     }
 }
 
@@ -95,6 +95,11 @@ pub struct TaskResponse {
     pub is: TaskStatus,
     pub changes: Arc<HashMap<String, String>>,
     pub msg: Option<String>,
+}
+impl TaskResponse {
+    pub fn is_failed(&self) -> bool {
+        return self.is == TaskStatus::Failed;
+    }
 }
 
 //==========================================================
