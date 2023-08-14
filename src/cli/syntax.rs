@@ -34,7 +34,7 @@ impl PlaybookVisitor for SyntaxVisitor {
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    let mut context : Arc<Mutex<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
+    let context : Arc<Mutex<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
     let visitor : Arc<Mutex<dyn PlaybookVisitor>> = Arc::new(Mutex::new(SyntaxVisitor::new()));
     let factory : Arc<Mutex<dyn ConnectionFactory>> = Arc::new(Mutex::new(NoFactory::new()));
 

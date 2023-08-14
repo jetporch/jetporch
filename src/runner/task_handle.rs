@@ -40,11 +40,11 @@ pub struct TaskHandle {
 
 impl TaskHandle {
 
-    pub fn new(c: Arc<Mutex<PlaybookContext>>, v: Arc<Mutex<dyn PlaybookVisitor>>, conn: Arc<Mutex<dyn Connection>>) -> Self {
+    pub fn new(c: &Arc<Mutex<PlaybookContext>>, v: &Arc<Mutex<dyn PlaybookVisitor>>, conn: &Arc<Mutex<dyn Connection>>) -> Self {
         Self {
-            context: Arc::clone(&c),
-            visitor: Arc::clone(&v),
-            connection: Arc::clone(&conn),
+            context: Arc::clone(c),
+            visitor: Arc::clone(v),
+            connection: Arc::clone(conn),
             changes: Vec::new(),
             commands: Vec::new(),
         }

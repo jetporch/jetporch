@@ -35,7 +35,7 @@ impl LocalFactory {
 }
 
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, context: Arc<Mutex<PlaybookContext>>, host: String) -> Result<Arc<Mutex<dyn Connection>>,String> {
+    fn get_connection(&self, context: &Arc<Mutex<PlaybookContext>>, host: String) -> Result<Arc<Mutex<dyn Connection>>,String> {
         return Ok(Arc::new(Mutex::new(LocalConnection::new())));
     }
 }
