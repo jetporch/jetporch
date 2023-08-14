@@ -53,7 +53,7 @@ impl TaskHandle {
     // ================================================================================
     // CHANGE MANAGEMENT
 
-    pub fn suggest_change(&self, request: Arc<TaskRequest>, change: String) {
+    pub fn suggest_change(&mut self, request: &Arc<TaskRequest>, change: String) {
         assert!(request.request_type == TaskRequestType::Query, "changes can only be suggested in query stage");
         self.changes.push(change.clone());
     }
@@ -63,7 +63,7 @@ impl TaskHandle {
 
     // FIXME: things like running commands go here, details are TBD.
 
-    pub fn run(&mut self, request: Arc<TaskRequest>, command: Arc<Command>) {
+    pub fn run(&mut self, request: &Arc<TaskRequest>, command: Arc<Command>) {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         self.commands.push(Arc::clone(&command));
     }
@@ -71,42 +71,42 @@ impl TaskHandle {
     // ================================================================================
     // PLAYBOOK INTERACTION
 
-    pub fn debug(&self, _request: Arc<TaskRequest>, message: String) {
+    pub fn debug(&self, _request: &Arc<TaskRequest>, message: String) {
         self.visitor.lock().unwrap().debug(message);
     }
 
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
-    pub fn is_failed(&self, _request: Arc<TaskRequest>,  msg: String) -> TaskResponse {
+    pub fn is_failed(&self, _request: &Arc<TaskRequest>,  msg: String) -> TaskResponse {
         return TaskResponse { is: TaskStatus::Failed, changes: Arc::new(HashMap::new()), msg: Some(msg.clone()) };
     }
 
-    pub fn is_validated(&self, request: Arc<TaskRequest>, ) -> TaskResponse {
+    pub fn is_validated(&self, request: &Arc<TaskRequest>, ) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsValidated, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_created(&self, request: Arc<TaskRequest>) -> TaskResponse {
+    pub fn is_created(&self, request: &Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsCreated, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_removed(&self, request: Arc<TaskRequest>) -> TaskResponse {
+    pub fn is_removed(&self, request: &Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsRemoved, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_modified(&self, request: Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
+    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsModified, changes: Arc::clone(&changes), msg: None };
     }
 
-    pub fn needs_creation(&self, request: Arc<TaskRequest>) -> TaskResponse {
+    pub fn needs_creation(&self, request: &Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsCreation, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn needs_modification(&self, request: Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
+    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsModification, changes: Arc::clone(&changes), msg: None };
     }
     
-    pub fn needs_removal(&self, request: Arc<TaskRequest>) -> TaskResponse {
+    pub fn needs_removal(&self, request: &Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsRemoval, changes: Arc::new(HashMap::new()), msg: None };
     }
 

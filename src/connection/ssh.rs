@@ -46,7 +46,7 @@ impl ConnectionFactory for SshFactory {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
             let host2 = host.clone();
-            let conn = SshConnection::new(
+            let mut conn = SshConnection::new(
                 host2.clone(),
                 context.lock().unwrap().get_remote_port(host2.clone()),
                 context.lock().unwrap().get_remote_user(host2.clone()),

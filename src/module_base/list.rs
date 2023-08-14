@@ -55,7 +55,7 @@ impl Task {
     pub fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> TaskResponse {
         return match self {
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
-            Task::Echo(x) => self.dispatch(handle, request), 
+            Task::Echo(x) => x.dispatch(handle, request), 
             _ => { panic!("module dispatch not registered"); },
         };
     }

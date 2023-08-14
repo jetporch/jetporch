@@ -117,6 +117,7 @@ pub fn playbook_traversal(
 
                 if play.tasks.is_some() {
                     let tasks = play.tasks.as_ref().unwrap();
+
                     for task in tasks.iter() {
                         //println!("NAME! {}", task.get_name());
 
@@ -125,7 +126,7 @@ pub fn playbook_traversal(
                         //context.set_task(task.get_name().clone());
                         visitor.lock().unwrap().on_task_start(&context);
                         
-                        process_task(&context, &visitor, &connection_factory, &Arc::new(*task), false)?; 
+                        process_task(&context, &visitor, &connection_factory, task, false)?; 
                         //visitor.on_task_stop(&context);
                         
                     }
@@ -290,7 +291,7 @@ fn load_tasks_directory(context: &Arc<Mutex<PlaybookContext>>,
 fn process_task(context: &Arc<Mutex<PlaybookContext>>, 
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection_factory: &Arc<Mutex<dyn ConnectionFactory>>, 
-    task: &Arc<Task>,
+    task: &Task,
     are_handlers: bool) -> Result<(), String> {
 
     

@@ -57,16 +57,16 @@ impl IsTask for Echo {
         match request.request_type {
 
             TaskRequestType::Validate => {
-                return handle.is_validated(request);
+                return handle.is_validated(&request);
             },
 
             TaskRequestType::Query => {
-                return handle.needs_creation(request)
+                return handle.needs_creation(&request)
             },
     
             TaskRequestType::Create => {
-                handle.debug(request, self.msg.clone());
-                return handle.is_created(request)
+                handle.debug(&request, self.msg.clone());
+                return handle.is_created(&request)
             },
     
             TaskRequestType::Remove => {
