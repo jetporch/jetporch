@@ -58,20 +58,20 @@ pub struct TaskRequest {
 }
 
 impl TaskRequest {
-    pub fn validate() -> Self {
-        Self { request_type: TaskRequestType::Validate, changes: Arc::new(HashMap::new()) }
+    pub fn validate() -> Arc<Self> {
+        return Arc::new(Self { request_type: TaskRequestType::Validate, changes: Arc::new(HashMap::new()) })
     }
-    pub fn query() -> Self {
-        Self { request_type: TaskRequestType::Query, changes: Arc::new(HashMap::new()) }
+    pub fn query() -> Arc<Self> {
+        return Arc::new(Self { request_type: TaskRequestType::Query, changes: Arc::new(HashMap::new()) })
     }
-    pub fn create() -> Self {
-        Self { request_type: TaskRequestType::Create, changes: Arc::new(HashMap::new()) }
+    pub fn create() -> Arc<Self> {
+        return Arc::new(Self { request_type: TaskRequestType::Create, changes: Arc::new(HashMap::new()) })
     }
-    pub fn remove() -> Self {
-        Self { request_type: TaskRequestType::Remove, changes: Arc::new(HashMap::new()) }
+    pub fn remove() -> Arc<Self> {
+        return Arc::new(Self { request_type: TaskRequestType::Remove, changes: Arc::new(HashMap::new()) })
     }
-    pub fn modify(changes: Arc<HashMap<String, String>>) -> Self {
-        Self { request_type: TaskRequestType::Modify, changes: Arc::clone(&changes) }
+    pub fn modify(changes: Arc<HashMap<String, String>>) -> Arc<Self> {
+        return Arc::new(Self { request_type: TaskRequestType::Modify, changes: Arc::clone(&changes) })
     }
 }
 
@@ -109,8 +109,8 @@ pub trait IsTask {
     fn get_property(&self, property: TaskProperty) -> String;
 
     fn dispatch(&self, 
-        handle: &TaskHandle, 
-        request: TaskRequest) -> TaskResponse;
+        handle: Arc<TaskHandle>, 
+        request: Arc<TaskRequest>) -> TaskResponse;
 }
 
 pub fn get_property(property: &Option<String>) -> String {

@@ -34,6 +34,8 @@ use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
 use crate::module_base::list::Task;
 use crate::runner::task_fsm::fsm_run_task;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
@@ -41,9 +43,9 @@ use crate::runner::task_fsm::fsm_run_task;
 
 pub fn playbook_traversal(
     playbook_paths: &Vec<PathBuf>, 
-    context: &mut PlaybookContext, 
-    visitor: &dyn PlaybookVisitor,
-    connection_factory: &dyn ConnectionFactory,
+    context: Arc<Mutex<PlaybookContext>>, 
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>,
+    connection_factory: Arc<Mutex<dyn ConnectionFactory>>,
     default_user: String) -> Result<(), String> {
 
     // perhaps this should not be a CLI option!
@@ -51,8 +53,8 @@ pub fn playbook_traversal(
         
     for playbook_path in playbook_paths {
 
-        context.set_playbook_path(playbook_path);
-        visitor.on_playbook_start(&context);
+        context.lock().unwrap().set_playbook_path(playbook_path);
+        visitor.lock().unwrap().on_playbook_start(context);
 
         let playbook_file = jet_file_open(&playbook_path)?;
         let parsed: Result<Vec<Play>, serde_yaml::Error> = serde_yaml::from_reader(playbook_file);
@@ -67,27 +69,28 @@ pub fn playbook_traversal(
 
             let batch_size_num = play.batch_size.unwrap_or(0);
 
-            context.set_play(&play);
-            context.set_remote_user(&play, default_user.clone());
+            // FIXME: make a function?
+            context.lock().unwrap().set_play(&play);
+            context.lock().unwrap().set_remote_user(&play, default_user.clone());
+            context.lock().unwrap().unset_role();
 
-            context.unset_role();
-            visitor.on_play_start(&context);
+            visitor.lock().unwrap().on_play_start(context);
 
-            load_vars(&context, &play.vars);
-            load_vars_files(&context, &play.vars_files);
+            load_vars(context, &play.vars);
+            load_vars_files(context, &play.vars_files);
 
             // FIXME: add teh concept of host_sets here, and then loop over the sets
             // for use with batch... everything goes an indent level deeper, basically.
 
-            validate_groups(&context, &play.groups)?;
-            validate_hosts(&context, &play.groups)?;
+            validate_groups(context, &play.groups)?;
+            validate_hosts(context, &play.groups)?;
 
-            let hosts = get_all_hosts(&context, &play.groups);
+            let hosts = get_all_hosts(context, &play.groups);
             let (batch_size, batches) = get_host_batches(batch_size_num, hosts);
             println!("DEBUG: batch size: {}", batch_size);
 
 
-            register_external_modules(&context, visitor)?;
+            register_external_modules(context, visitor)?;
 
             for batch_num in 0..batch_size {
 
@@ -98,19 +101,19 @@ pub fn playbook_traversal(
                     let roles = play.roles.as_ref().unwrap();
                     for role in roles.iter() {
                         let role_name = role.name.clone();
-                        let role_path = find_role(&context, visitor, role_name.clone())?;
+                        let role_path = find_role(context, visitor, role_name.clone())?;
                         let pathbuf = role_path.to_path_buf();
                         // FIXME: also set role.params in context
                         // FIXME: blending logic in context
-                        context.set_role(role.name.clone(), directory_as_string(&pathbuf));
-                        visitor.on_role_start(&context);
-                        apply_defaults_directory(&context, visitor)?;
-                        register_external_modules(&context, visitor)?;
-                        load_tasks_directory(&context, visitor, connection_factory, false)?;
-                        visitor.on_role_stop(&context);
+                        context.lock().unwrap().set_role(role.name.clone(), directory_as_string(&pathbuf));
+                        visitor.lock().unwrap().on_role_start(context);
+                        apply_defaults_directory(context, visitor)?;
+                        register_external_modules(context, visitor)?;
+                        load_tasks_directory(context, visitor, connection_factory, false)?;
+                        visitor.lock().unwrap().on_role_stop(context);
                     }
                 }
-                context.unset_role();
+                context.lock().unwrap().unset_role();
 
                 if play.tasks.is_some() {
                     let tasks = play.tasks.as_ref().unwrap();
@@ -120,9 +123,9 @@ pub fn playbook_traversal(
                         //blip(task);
 
                         //context.set_task(task.get_name().clone());
-                        visitor.on_task_start(&context);
+                        visitor.lock().unwrap().on_task_start(context);
                         
-                        process_task(context, visitor, connection_factory, task, false)?; 
+                        process_task(context, visitor, connection_factory, Arc::new(*task), false)?; 
                         //visitor.on_task_stop(&context);
                         
                     }
@@ -155,7 +158,7 @@ pub fn playbook_traversal(
                 */
             }
             println!("version: {}", &play.jet.version);
-            visitor.on_play_stop(&context);
+            visitor.lock().unwrap().on_play_stop(context);
         }
     }
     return Ok(())
@@ -180,7 +183,7 @@ fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<us
 
 }
 
-fn get_all_hosts(_context: &PlaybookContext, groups: &Vec<String>) -> Vec<String> {
+fn get_all_hosts(_context: Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Vec<String> {
     let mut results: Vec<String> = Vec::new();
     for group in groups.iter() {
         let mut hosts = get_group_descendant_hosts(group.clone());
@@ -190,7 +193,7 @@ fn get_all_hosts(_context: &PlaybookContext, groups: &Vec<String>) -> Vec<String
 }
 
 
-fn validate_groups(_context: &PlaybookContext, groups: &Vec<String>) -> Result<(), String> {
+fn validate_groups(_context: Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Result<(), String> {
     for group in groups.iter() {
         if !has_group(group.clone()) {
             return Err(format!("referenced group ({}) not found in inventory", group));
@@ -199,7 +202,7 @@ fn validate_groups(_context: &PlaybookContext, groups: &Vec<String>) -> Result<(
     return Ok(());
 }
 
-fn validate_hosts(_context: &PlaybookContext, hosts: &Vec<String>) -> Result<(), String> {
+fn validate_hosts(_context: Arc<Mutex<PlaybookContext>>, hosts: &Vec<String>) -> Result<(), String> {
     if hosts.is_empty() {
         return Err(String::from("no hosts selected by groups in play"));
     }
@@ -213,18 +216,18 @@ fn validate_hosts(_context: &PlaybookContext, hosts: &Vec<String>) -> Result<(),
                     module_path.push("jet_modules");
                     */
 
-fn load_vars(_context: &PlaybookContext, _map: &Option<HashMap<String,Value>>) -> Result<(), String> {
+fn load_vars(_context: Arc<Mutex<PlaybookContext>>, _map: &Option<HashMap<String,Value>>) -> Result<(), String> {
     return Err(String::from("not implemented"));
 
 }
 
-fn load_vars_files(_context: &PlaybookContext, _list: &Option<Vec<String>>) -> Result<(), String> {
+fn load_vars_files(_context: Arc<Mutex<PlaybookContext>>, _list: &Option<Vec<String>>) -> Result<(), String> {
     return Err(String::from("not implemented"));
 }
 
-fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename: String) -> Result<PathBuf, String> {
+fn find_role(context: Arc<Mutex<PlaybookContext>>, visitor: Arc<Mutex<dyn PlaybookVisitor>>, rolename: String) -> Result<PathBuf, String> {
     // FIXME
-    visitor.debug(String::from("finding role..."));
+    visitor.lock().unwrap().debug(String::from("finding role..."));
 
     // look in context.get_roles_paths() and also in "./roles" (that first) for a role with the right name.
     // if not found, raise an error
@@ -243,15 +246,15 @@ fn find_role(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, rolename:
 }  
 
 
-fn apply_defaults_directory(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+fn apply_defaults_directory(context: Arc<Mutex<PlaybookContext>>, visitor: Arc<Mutex<dyn PlaybookVisitor>>) -> Result<(), String> {
     // FIXME
     // all the files in the defaults directory should be loaded as YAML files and then send to the context
     // easiest if we just use the blend functions
-    visitor.debug(String::from("loading defaults directory"));
+    visitor.lock().unwrap().debug(String::from("loading defaults directory"));
     return Ok(());
 }
 
-fn register_external_modules(context: &PlaybookContext, visitor: &dyn PlaybookVisitor) -> Result<(), String> {
+fn register_external_modules(context: Arc<Mutex<PlaybookContext>>, visitor: Arc<Mutex<dyn PlaybookVisitor>>) -> Result<(), String> {
     // FIXME
     // if there are any files found in the modules directory add their module names to the modules registry in the context
     // object.  We should look in context.role_paths directories as well as if there is a module path parameter
@@ -259,13 +262,13 @@ fn register_external_modules(context: &PlaybookContext, visitor: &dyn PlaybookVi
     // then the "External" module code can  use this to find the actual module.  What we should register is the full
     // path
 
-    visitor.debug(String::from("loading modules directory"));
+    visitor.lock().unwrap().debug(String::from("loading modules directory"));
     return Ok(());
 }
 
-fn load_tasks_directory(context: &PlaybookContext, 
-    visitor: &dyn PlaybookVisitor, 
-    connection_factory: &dyn ConnectionFactory, 
+fn load_tasks_directory(context: Arc<Mutex<PlaybookContext>>, 
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
+    connection_factory: Arc<Mutex<dyn ConnectionFactory>>, 
     are_handlers: bool) -> Result<(), String> {
 
         // FIXME:
@@ -279,15 +282,15 @@ fn load_tasks_directory(context: &PlaybookContext,
         // use context.get_hosts for what hosts to talk to.
 
     // FIXME
-    visitor.debug(String::from("loading tasks directory"));
+    visitor.lock().unwrap().debug(String::from("loading tasks directory"));
     return Ok(());
 
 }
 
-fn process_task(context: &mut PlaybookContext, 
-    visitor: &dyn PlaybookVisitor, 
-    connection_factory: &dyn ConnectionFactory, 
-    task: &Task,
+fn process_task(context: Arc<Mutex<PlaybookContext>>, 
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
+    connection_factory: Arc<Mutex<dyn ConnectionFactory>>, 
+    task: Arc<Task>,
     are_handlers: bool) -> Result<(), String> {
 
     
@@ -297,7 +300,7 @@ fn process_task(context: &mut PlaybookContext,
     // as this function needs access to the task list.
 
 
-    visitor.debug(String::from("processing task"));
+    visitor.lock().unwrap().debug(String::from("processing task"));
 
     // FIXME: we need some logic to say if are_handlers = true only run the task if
     // the task is modified.

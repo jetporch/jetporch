@@ -25,6 +25,7 @@ use crate::connection::connection::{Connection,ConnectionCommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 pub struct NoFactory {}
 
@@ -35,8 +36,8 @@ impl NoFactory {
 }
 
 impl ConnectionFactory for NoFactory {
-    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Result<Arc<dyn Connection>,String> {
-        return Ok(Arc::new(NoConnection::new()));
+    fn get_connection(&self, context: Arc<Mutex<PlaybookContext>>, host: String) -> Result<Arc<Mutex<dyn Connection>>,String> {
+        return Ok(Arc::new(Mutex::new(NoConnection::new())));
     }
 }
 

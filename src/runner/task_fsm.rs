@@ -32,20 +32,21 @@ use crate::connection::connection::Connection;
 use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::TaskRequest;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
 pub fn fsm_run_task(
-    context: &mut PlaybookContext,
-    visitor: &dyn PlaybookVisitor, 
-    connection_factory: &dyn ConnectionFactory, 
-    task: &Task) -> Result<(), String> {
+    context: Arc<Mutex<PlaybookContext>>,
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
+    connection_factory: Arc<Mutex<dyn ConnectionFactory>>, 
+    task: Arc<Task>) -> Result<(), String> {
 
-    let connection = Arc::new(NoConnection::new());
-    let syntax_check_result = run_task_on_host(context, visitor, connection, task);
+    let no_connection = Arc::new(Mutex::new(NoConnection::new()));
+    let syntax_check_result = run_task_on_host(context, visitor, no_connection, task);
     match syntax_check_result.is {
         TaskStatus::IsValidated => { 
-            if visitor.is_syntax_only() { return Ok(()); }
+            if visitor.lock().unwrap().is_syntax_only() { return Ok(()); }
         }, 
         TaskStatus::Failed => { 
             return Err(format!("parameters conflict: {}", syntax_check_result.msg.unwrap()));
@@ -53,19 +54,19 @@ pub fn fsm_run_task(
         _ => { panic!("module returned invalid response to syntax check") }
     }
 
-    let hosts = context.get_all_hosts();
+    let hosts = context.lock().unwrap().get_all_hosts();
     for host in hosts {
-        let connection_result = connection_factory.get_connection(context, host);
-        match connection.connect() {
+        let connection_result = connection_factory.lock().unwrap().get_connection(context, host);
+        match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 let task_response = run_task_on_host(context, visitor, connection, task);
                 if task_response.is_failed() {
-                    visitor.on_host_task_failed(context, task_response, host);
+                    visitor.lock().unwrap().on_host_task_failed(context, Arc::new(task_response), host);
                 }
             },
             Err(_) => { 
-                visitor.on_host_connect_failed(context, host);
+                visitor.lock().unwrap().on_host_connect_failed(context, host);
             }
         }
     }
@@ -93,15 +94,15 @@ fn task_dispatch(task: &Task,
 // the "on this host" method body from fsm_run_task
 
 fn run_task_on_host(
-    context: &PlaybookContext,
-    visitor: &dyn PlaybookVisitor, 
-    connection: Arc<dyn Connection>, 
-    task: &Task) -> TaskResponse {
+    context: Arc<Mutex<PlaybookContext>>,
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
+    connection: Arc<Mutex<dyn Connection>>, 
+    task: Arc<Task>) -> TaskResponse {
 
-    let syntax      = visitor.is_syntax_only();
-    let modify_mode = ! visitor.is_check_mode();
+    let syntax      = visitor.lock().unwrap().is_syntax_only();
+    let modify_mode = ! visitor.lock().unwrap().is_check_mode();
 
-    let handle = TaskHandle::new(context, visitor, connection);
+    let handle = Arc::new(TaskHandle::new(context, visitor, connection));
 
     let vrc = task.dispatch(handle, TaskRequest::validate());
     match vrc.is {

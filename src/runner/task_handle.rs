@@ -28,22 +28,23 @@ use crate::module_base::common::{TaskRequest, TaskRequestType, TaskResponse, Tas
 use crate::connection::command::Command;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 
-pub struct TaskHandle<'a> {
-    context: &'a PlaybookContext,
-    visitor: &'a dyn PlaybookVisitor, 
-    connection: Arc<dyn Connection>,
+pub struct TaskHandle {
+    context: Arc<Mutex<PlaybookContext>>,
+    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
+    connection: Arc<Mutex<dyn Connection>>,
     pub changes: Vec<String>,
-    pub commands: Vec<Command>
+    pub commands: Vec<Arc<Command>>,
 }
 
-impl TaskHandle<'_> {
+impl TaskHandle {
 
-    pub fn new(context: &PlaybookContext, visitor: &dyn PlaybookVisitor, connection: Arc<dyn Connection>) -> Self {
+    pub fn new(c: Arc<Mutex<PlaybookContext>>, v: Arc<Mutex<dyn PlaybookVisitor>>, conn: Arc<Mutex<dyn Connection>>) -> Self {
         Self {
-            context: context,
-            visitor: visitor,
-            connection: Arc::clone(&connection),
+            context: Arc::clone(&c),
+            visitor: Arc::clone(&v),
+            connection: Arc::clone(&conn),
             changes: Vec::new(),
             commands: Vec::new(),
         }
@@ -52,7 +53,7 @@ impl TaskHandle<'_> {
     // ================================================================================
     // CHANGE MANAGEMENT
 
-    pub fn suggest_change(&self, request:TaskRequest, change: String) {
+    pub fn suggest_change(&self, request: Arc<TaskRequest>, change: String) {
         assert!(request.request_type == TaskRequestType::Query, "changes can only be suggested in query stage");
         self.changes.push(change.clone());
     }
@@ -62,50 +63,50 @@ impl TaskHandle<'_> {
 
     // FIXME: things like running commands go here, details are TBD.
 
-    pub fn run(&mut self, request: TaskRequest, command: Command) {
+    pub fn run(&mut self, request: Arc<TaskRequest>, command: Arc<Command>) {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
-        self.commands.push(command);
+        self.commands.push(Arc::clone(&command));
     }
 
     // ================================================================================
     // PLAYBOOK INTERACTION
 
-    pub fn debug(&self, _request: TaskRequest, message: String) {
-        self.visitor.debug(message);
+    pub fn debug(&self, _request: Arc<TaskRequest>, message: String) {
+        self.visitor.lock().unwrap().debug(message);
     }
 
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
-    pub fn is_failed(&self, _request: TaskRequest,  msg: String) -> TaskResponse {
+    pub fn is_failed(&self, _request: Arc<TaskRequest>,  msg: String) -> TaskResponse {
         return TaskResponse { is: TaskStatus::Failed, changes: Arc::new(HashMap::new()), msg: Some(msg.clone()) };
     }
 
-    pub fn is_validated(&self, request: TaskRequest, ) -> TaskResponse {
+    pub fn is_validated(&self, request: Arc<TaskRequest>, ) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsValidated, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_created(&self, request: TaskRequest) -> TaskResponse {
+    pub fn is_created(&self, request: Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsCreated, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_removed(&self, request: TaskRequest) -> TaskResponse {
+    pub fn is_removed(&self, request: Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsRemoved, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn is_modified(&self, request: TaskRequest, changes: Arc<HashMap<String,String>>) -> TaskResponse {
+    pub fn is_modified(&self, request: Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::IsModified, changes: Arc::clone(&changes), msg: None };
     }
 
-    pub fn needs_creation(&self, request: TaskRequest) -> TaskResponse {
+    pub fn needs_creation(&self, request: Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsCreation, changes: Arc::new(HashMap::new()), msg: None };
     }
     
-    pub fn needs_modification(&self, request: TaskRequest, changes: Arc<HashMap<String,String>>) -> TaskResponse {
+    pub fn needs_modification(&self, request: Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsModification, changes: Arc::clone(&changes), msg: None };
     }
     
-    pub fn needs_removal(&self, request: TaskRequest) -> TaskResponse {
+    pub fn needs_removal(&self, request: Arc<TaskRequest>) -> TaskResponse {
         return TaskResponse { is: TaskStatus::NeedsRemoval, changes: Arc::new(HashMap::new()), msg: None };
     }
 

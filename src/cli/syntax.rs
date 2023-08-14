@@ -19,6 +19,9 @@ use crate::connection::no::{NoFactory};
 use crate::playbooks::context::{PlaybookContext};
 use std::path::PathBuf;
 use crate::playbooks::visitor::PlaybookVisitor;
+use std::sync::Arc;
+use crate::connection::factory::ConnectionFactory;
+use std::sync::Mutex;
 
 struct SyntaxVisitor {}
 impl SyntaxVisitor {
@@ -31,12 +34,12 @@ impl PlaybookVisitor for SyntaxVisitor {
 
 pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    let mut context = PlaybookContext::new();
-    let visitor = SyntaxVisitor::new();
-    let factory = NoFactory::new();
+    let mut context : Arc<Mutex<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
+    let visitor : Arc<Mutex<dyn PlaybookVisitor>> = Arc::new(Mutex::new(SyntaxVisitor::new()));
+    let factory : Arc<Mutex<dyn ConnectionFactory>> = Arc::new(Mutex::new(NoFactory::new()));
 
     // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
     // we don't really need it.
-    return playbook_traversal(&playbook_paths, &mut context, &visitor, &factory, String::from("root"));
+    return playbook_traversal(&playbook_paths, context, visitor, factory, String::from("root"));
 
 }

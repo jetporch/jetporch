@@ -29,6 +29,7 @@
 use serde::Deserialize;
 use crate::module_base::common::*;
 use crate::runner::task_handle::TaskHandle;
+use std::sync::Arc;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
 use crate::module_library::echo::Echo;
@@ -51,7 +52,7 @@ impl Task {
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
-    pub fn dispatch(&self, handle: TaskHandle, request: TaskRequest) -> TaskResponse {
+    pub fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> TaskResponse {
         return match self {
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
             Task::Echo(x) => self.dispatch(handle, request), 

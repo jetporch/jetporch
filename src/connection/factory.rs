@@ -24,8 +24,9 @@
 use crate::connection::connection::{Connection};
 use crate::playbooks::context::PlaybookContext;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 pub trait ConnectionFactory {
-    fn get_connection(&self, context: &mut PlaybookContext, host: String) -> Result<Arc<dyn Connection>, String>;
+    fn get_connection(&self, context: Arc<Mutex<PlaybookContext>>, host: String) -> Result<Arc<Mutex<dyn Connection>>, String>;
 }
 

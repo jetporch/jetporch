@@ -19,6 +19,7 @@ use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::IsTask;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
+use std::sync::Arc;
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -51,7 +52,7 @@ impl IsTask for Echo {
     }
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, handle: &TaskHandle<'_>, request: TaskRequest) -> TaskResponse {
+    fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> TaskResponse {
     
         match request.request_type {
 
