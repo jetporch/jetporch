@@ -24,8 +24,11 @@ mod connection;
 mod runner;
 
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::sync::Arc;
 use crate::util::io::{quit};
-use crate::inventory::inventory::{load_inventory};
+use crate::inventory::inventory::Inventory;
+use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
 use crate::cli::syntax::{playbook_syntax_scan};
@@ -45,18 +48,15 @@ fn liftoff() -> Result<(),String> {
         return Ok(());
     }
 
-    // at this point, a valid subcommand is assured because we didn't hit an error.
-    // FIXME: add a vector clone function in data.rs
+    let inventory : Arc<Mutex<Inventory>> = Arc::new(Mutex::new(Inventory::new()));
     let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
-
-    // parse the inventory files specified with --inventory
-    load_inventory(inventory_paths)?;
+    load_inventory(&inventory, inventory_paths)?;
 
     // now split off into various logic based on the CLI subcommand
     return match cli_parser.mode {
         // FIXME: REFACTOR: move this "show" logic into this file, and out of cli.rs
-        cli::parser::CLI_MODE_SHOW => handle_show(&cli_parser),
-        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&cli_parser),
+        cli::parser::CLI_MODE_SHOW => handle_show(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&inventory, &cli_parser),
 
         // FIXME: add playbook run commands here, etc
         _ => Err(String::from("invalid CLI mode"))
@@ -64,26 +64,26 @@ fn liftoff() -> Result<(),String> {
 
 }
 
-pub fn handle_show(parser: &CliParser) -> Result<(), String> {
+pub fn handle_show(inventory: &Arc<Mutex<Inventory>>, parser: &CliParser) -> Result<(), String> {
     // jetp show -i inventory
     // jetp show -i inventory --groups g1:g2
     // jetp show -i inventory --hosts h1:h2
     if parser.groups.is_empty() && parser.hosts.is_empty() {
-        return show_inventory_group(String::from("all"));
+        return show_inventory_group(inventory, &String::from("all"));
     }
     for group_name in parser.groups.iter() {
-        return show_inventory_group(group_name.clone());
+        return show_inventory_group(inventory, &group_name.clone());
     }
     for host_name in parser.hosts.iter() {
-        return show_inventory_host(host_name.clone());
+        return show_inventory_host(inventory, &host_name.clone());
     }
     return Ok(());
 }
 
 // FIXME: look at anyhow crate
 
-pub fn handle_syntax(parser: &CliParser) -> Result<(), String> {
-    return playbook_syntax_scan(&parser.playbook_paths);
+pub fn handle_syntax(inventory: &Arc<Mutex<Inventory>>, parser: &CliParser) -> Result<(), String> {
+    return playbook_syntax_scan(inventory, &parser.playbook_paths);
 }
 
 

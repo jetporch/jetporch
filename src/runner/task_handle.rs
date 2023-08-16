@@ -26,11 +26,13 @@ use crate::playbooks::visitor::PlaybookVisitor;
 use crate::connection::connection::Connection;
 use crate::module_base::common::{TaskRequest, TaskRequestType, TaskResponse, TaskStatus};
 use crate::connection::command::Command;
+use crate::inventory::inventory::Inventory;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 pub struct TaskHandle {
+    inventory: Arc<Mutex<Inventory>>, 
     context: Arc<Mutex<PlaybookContext>>,
     visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
     connection: Arc<Mutex<dyn Connection>>,
@@ -40,8 +42,13 @@ pub struct TaskHandle {
 
 impl TaskHandle {
 
-    pub fn new(c: &Arc<Mutex<PlaybookContext>>, v: &Arc<Mutex<dyn PlaybookVisitor>>, conn: &Arc<Mutex<dyn Connection>>) -> Self {
+    pub fn new(i: &Arc<Mutex<Inventory>>, 
+        c: &Arc<Mutex<PlaybookContext>>, 
+        v: &Arc<Mutex<dyn PlaybookVisitor>>, 
+        conn: &Arc<Mutex<dyn Connection>>) -> Self {
+
         Self {
+            inventory: Arc::clone(i),
             context: Arc::clone(c),
             visitor: Arc::clone(v),
             connection: Arc::clone(conn),

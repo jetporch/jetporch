@@ -16,4 +16,5 @@
 
 pub mod groups;
 pub mod hosts;
+pub mod loading;
 pub mod inventory;

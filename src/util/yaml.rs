@@ -91,7 +91,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 }
 
 // left takes on values from right
-pub fn blend_variables(left_shark: String, right_shark: String) -> String {
+pub fn blend_variables(left_shark: &String, right_shark: &String) -> String {
     let l = left_shark.clone();
     let r = right_shark.clone();
     let mut left: serde_yaml::Value = serde_yaml::from_str(&l).unwrap();

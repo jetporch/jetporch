@@ -33,17 +33,19 @@ use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::TaskRequest;
 use std::sync::Arc;
 use std::sync::Mutex;
+use crate::inventory::inventory::Inventory;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
 pub fn fsm_run_task(
+    inventory: &Arc<Mutex<Inventory>>, 
     context: &Arc<Mutex<PlaybookContext>>,
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection_factory: &Arc<Mutex<dyn ConnectionFactory>>, 
     task: &Task) -> Result<(), String> {
 
     let no_connection = NoFactory::new().get_connection(context, String::from("localhost")).unwrap();
-    let syntax_check_result = run_task_on_host(context, visitor, &no_connection, task);
+    let syntax_check_result = run_task_on_host(inventory, context, visitor, &no_connection, task);
     match syntax_check_result.is {
         TaskStatus::IsValidated => { 
             if visitor.lock().unwrap().is_syntax_only() { return Ok(()); }
@@ -60,7 +62,7 @@ pub fn fsm_run_task(
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
-                let task_response = run_task_on_host(context, visitor, &connection, task);
+                let task_response = run_task_on_host(inventory, context, visitor, &connection, task);
                 if task_response.is_failed() {
                     visitor.lock().unwrap().on_host_task_failed(context, Arc::new(task_response), host.clone());
                 }
@@ -73,27 +75,11 @@ pub fn fsm_run_task(
     return Ok(());
 }
 
-// a wrapper around task.dispatch that provides the module
-// with a TaskHandle object rather than direct access to all methods
-// in playbook visitor and context, so that modules mostly do
-// the right thing and stay standardized
-
-/*
-fn task_dispatch(task: &Task, 
-    context: &PlaybookContext, 
-    visitor: &PlaybookVisitor, 
-    connection: &dyn Connection, 
-    request_type: TaskRequestType) {
-
-    let task_handle = TaskHandle::new(context, visitor, connection, request_type);
-    return task.dispatch(task_handle, TaskRequest { request_type: request_type, changes: None });
-
-}
-*/
 
 // the "on this host" method body from fsm_run_task
 
 fn run_task_on_host(
+    inventory: &Arc<Mutex<Inventory>>, 
     context: &Arc<Mutex<PlaybookContext>>,
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection: &Arc<Mutex<dyn Connection>>, 
@@ -102,7 +88,7 @@ fn run_task_on_host(
     let syntax      = visitor.lock().unwrap().is_syntax_only();
     let modify_mode = ! visitor.lock().unwrap().is_check_mode();
 
-    let handle = Arc::new(TaskHandle::new(context, visitor, connection));
+    let handle = Arc::new(TaskHandle::new(inventory, context, visitor, connection));
 
     let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate());
     match vrc.is {

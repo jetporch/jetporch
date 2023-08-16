@@ -21,8 +21,7 @@
 // ===================================================================================
 
 
-use std::collections::HashSet;
-
+/*
 // return a vector without duplicate entries
 pub fn deduplicate(with_duplicates: Vec<String>) -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
@@ -30,6 +29,7 @@ pub fn deduplicate(with_duplicates: Vec<String>) -> Vec<String> {
     copy.retain(|x| {  let found = seen.contains(x); seen.insert(x.clone()); !found });
     return copy
 }
+*/
 
 // this keeps calling a function on results returned by a given function
 // the function in question should know when to return empty vectors when
@@ -43,25 +43,3 @@ pub fn deduplicate(with_duplicates: Vec<String>) -> Vec<String> {
     );
 */
 
-pub fn recursive_descent(
-    root: String,
-    related_func: &dyn Fn(String) -> Vec<String>,
-    depth: usize) -> Vec<String> {
-
-    if depth > 1000 {
-        panic!("maximum depth (1000) exceeded: {}", depth);
-    }
-     
-    let sibling_names = related_func(root);
-    let mut results: Vec<String> = Vec::new();
-    for node in sibling_names.iter() {
-        let descended = recursive_descent(node.clone(), related_func, depth + 1);
-        for desc in descended.iter() {
-            results.push(desc.clone());
-        }
-        results.push(node.clone());
-    }
-
-    // FIXME: doesn't work?
-    return deduplicate(results);
-}

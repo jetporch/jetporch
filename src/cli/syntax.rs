@@ -22,6 +22,7 @@ use crate::playbooks::visitor::PlaybookVisitor;
 use std::sync::Arc;
 use crate::connection::factory::ConnectionFactory;
 use std::sync::Mutex;
+use crate::inventory::inventory::Inventory;
 
 struct SyntaxVisitor {}
 impl SyntaxVisitor {
@@ -32,7 +33,7 @@ impl PlaybookVisitor for SyntaxVisitor {
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
-pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
+pub fn playbook_syntax_scan(inventory: &Arc<Mutex<Inventory>>, playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
     let context : Arc<Mutex<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
     let visitor : Arc<Mutex<dyn PlaybookVisitor>> = Arc::new(Mutex::new(SyntaxVisitor::new()));
@@ -40,6 +41,6 @@ pub fn playbook_syntax_scan(playbook_paths: &Vec<PathBuf>) -> Result<(), String>
 
     // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
     // we don't really need it.
-    return playbook_traversal(&playbook_paths, context, visitor, factory, String::from("root"));
+    return playbook_traversal(inventory, &playbook_paths, &context, &visitor, &factory, String::from("root"));
 
 }

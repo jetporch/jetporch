@@ -168,7 +168,6 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 name = "jetp"
 version = "0.1.0"
 dependencies = [
- "once_cell",
  "serde",
  "serde_yaml",
  "ssh2",

@@ -26,9 +26,7 @@ use std::collections::HashMap;
 use crate::playbooks::language::{Play};
 use crate::util::io::jet_file_open;
 use crate::util::io::{directory_as_string};
-use crate::util::data::{deduplicate};
 use crate::util::yaml::show_yaml_error_in_context;
-use crate::inventory::groups::{has_group,get_group_descendant_hosts};
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
@@ -36,16 +34,19 @@ use crate::module_base::list::Task;
 use crate::runner::task_fsm::fsm_run_task;
 use std::sync::Arc;
 use std::sync::Mutex;
+use crate::inventory::inventory::Inventory;
+use std::collections::HashSet;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
 // ============================================================================
 
 pub fn playbook_traversal(
+    inventory: &Arc<Mutex<Inventory>>,
     playbook_paths: &Vec<PathBuf>, 
-    context: Arc<Mutex<PlaybookContext>>, 
-    visitor: Arc<Mutex<dyn PlaybookVisitor>>,
-    connection_factory: Arc<Mutex<dyn ConnectionFactory>>,
+    context: &Arc<Mutex<PlaybookContext>>, 
+    visitor: &Arc<Mutex<dyn PlaybookVisitor>>,
+    connection_factory: &Arc<Mutex<dyn ConnectionFactory>>,
     default_user: String) -> Result<(), String> {
 
     // perhaps this should not be a CLI option!
@@ -70,22 +71,23 @@ pub fn playbook_traversal(
             let batch_size_num = play.batch_size.unwrap_or(0);
 
             // FIXME: make a function?
-            context.lock().unwrap().set_play(&play);
-            context.lock().unwrap().set_remote_user(&play, default_user.clone());
-            context.lock().unwrap().unset_role();
+            let context_unlocked = context.lock().unwrap();
+            context_unlocked.set_play(&play);
+            context_unlocked.set_remote_user(&play, default_user.clone());
+            context_unlocked.unset_role();
 
             visitor.lock().unwrap().on_play_start(&context);
 
-            load_vars(&context, &play.vars);
-            load_vars_files(&context, &play.vars_files);
+            load_vars(inventory, &context, &play.vars);
+            load_vars_files(inventory, &context, &play.vars_files);
 
             // FIXME: add teh concept of host_sets here, and then loop over the sets
             // for use with batch... everything goes an indent level deeper, basically.
 
-            validate_groups(&context, &play.groups)?;
-            validate_hosts(&context, &play.groups)?;
+            validate_groups(inventory, &context, &play.groups)?;
+            validate_hosts(inventory, &context, &play.groups)?;
 
-            let hosts = get_all_hosts(&context, &play.groups);
+            let hosts = get_all_hosts(inventory, &context, &play.groups);
             let (batch_size, batches) = get_host_batches(batch_size_num, hosts);
             println!("DEBUG: batch size: {}", batch_size);
 
@@ -126,7 +128,7 @@ pub fn playbook_traversal(
                         //context.set_task(task.get_name().clone());
                         visitor.lock().unwrap().on_task_start(&context);
                         
-                        process_task(&context, &visitor, &connection_factory, task, false)?; 
+                        process_task(&inventory, &context, &visitor, &connection_factory, task, false)?; 
                         //visitor.on_task_stop(&context);
                         
                     }
@@ -184,26 +186,31 @@ fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<us
 
 }
 
-fn get_all_hosts(_context: &Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Vec<String> {
-    let mut results: Vec<String> = Vec::new();
+fn get_all_hosts(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Vec<String> {
+    let inventory = inventory.lock().unwrap();
+    let mut results : HashSet<String> = HashSet::new();
     for group in groups.iter() {
-        let mut hosts = get_group_descendant_hosts(group.clone());
-        results.append(&mut hosts);
+        let group_object = inventory.get_group(&group.clone());
+        let hosts = group_object.get_descendant_hosts();
+        for h in hosts.iter() {
+            results.insert(h.name.clone());
+        }
     }
-    return deduplicate(results);
+    return results.iter().map(|x| x.clone()).collect();
 }
 
 
-fn validate_groups(_context: &Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Result<(), String> {
-    for group in groups.iter() {
-        if !has_group(group.clone()) {
-            return Err(format!("referenced group ({}) not found in inventory", group));
+fn validate_groups(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Result<(), String> {
+    let inv = inventory.lock().unwrap();
+    for group_name in groups.iter() {
+        if !inv.has_group(&group_name.clone()) {
+            return Err(format!("at least one referenced group ({}) is not found in inventory", group_name));
         }
     }
     return Ok(());
 }
 
-fn validate_hosts(_context: &Arc<Mutex<PlaybookContext>>, hosts: &Vec<String>) -> Result<(), String> {
+fn validate_hosts(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, hosts: &Vec<String>) -> Result<(), String> {
     if hosts.is_empty() {
         return Err(String::from("no hosts selected by groups in play"));
     }
@@ -217,12 +224,12 @@ fn validate_hosts(_context: &Arc<Mutex<PlaybookContext>>, hosts: &Vec<String>) -
                     module_path.push("jet_modules");
                     */
 
-fn load_vars(_context: &Arc<Mutex<PlaybookContext>>, _map: &Option<HashMap<String,Value>>) -> Result<(), String> {
+fn load_vars(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, _map: &Option<HashMap<String,Value>>) -> Result<(), String> {
     return Err(String::from("not implemented"));
 
 }
 
-fn load_vars_files(_context: &Arc<Mutex<PlaybookContext>>, _list: &Option<Vec<String>>) -> Result<(), String> {
+fn load_vars_files(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, _list: &Option<Vec<String>>) -> Result<(), String> {
     return Err(String::from("not implemented"));
 }
 
@@ -288,7 +295,9 @@ fn load_tasks_directory(context: &Arc<Mutex<PlaybookContext>>,
 
 }
 
-fn process_task(context: &Arc<Mutex<PlaybookContext>>, 
+fn process_task(
+    inventory: &Arc<Mutex<Inventory>>, 
+    context: &Arc<Mutex<PlaybookContext>>, 
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection_factory: &Arc<Mutex<dyn ConnectionFactory>>, 
     task: &Task,
@@ -306,7 +315,7 @@ fn process_task(context: &Arc<Mutex<PlaybookContext>>,
     // FIXME: we need some logic to say if are_handlers = true only run the task if
     // the task is modified.
 
-    fsm_run_task(context, visitor, connection_factory, task)?; 
+    fsm_run_task(inventory, context, visitor, connection_factory, task)?; 
 
 
     // use context.get_hosts for what hosts to talk to.
