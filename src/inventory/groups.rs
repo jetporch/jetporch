@@ -97,7 +97,7 @@ impl Group {
     }
 
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
-        return self.get_ancestor_groups(20).iter().map(|(k,v)| k.clone()).collect();
+        return self.get_ancestor_groups(10usize).iter().map(|(k,v)| k.clone()).collect();
     }
 
     pub fn get_descendant_groups(&self, depth_limit: usize) -> HashMap<String, Arc<RwLock<Group>>> {
@@ -124,7 +124,7 @@ impl Group {
     }
 
     pub fn get_descendant_group_names(&self) -> Vec<String> {
-        return self.get_descendant_groups(20).iter().map(|(k,v)| k.clone()).collect();
+        return self.get_descendant_groups(10usize).iter().map(|(k,v)| k.clone()).collect();
     }
 
     pub fn get_parent_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {

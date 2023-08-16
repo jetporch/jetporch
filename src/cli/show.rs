@@ -102,6 +102,9 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
     let descendant_hosts_string = descendant_hosts.join(", ");
     let child_hosts_string = child_hosts.join(", ");
 
+
+
+
     let group_elements : Vec<(String,String)> = vec![
         (String::from("All Descendants"), descendants_string),
         (String::from("Children"), children_string),
@@ -109,13 +112,21 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
         (String::from("Parents"), parents_string)
     ];
 
-    let host_elements : Vec<(String, String)> = vec![
-        (String::from(format!("All Ancestors ({})",descendant_hosts_count)), descendant_hosts_string),
-        (String::from(format!("Children ({})", child_hosts_count)), child_hosts_string),
-    ];
+    // FIXME: print child hosts without termimad, as there are too many in very large inventories
+    // just print the first 100 or so and add ...
+
+    //let host_elements : Vec<(String, String)> = vec![
+    //    (String::from(format!("All Ancestors ({})",descendant_hosts_count)), descendant_hosts_string),
+    //    (String::from(format!("Children ({})", child_hosts_count)), child_hosts_string),
+    //];
+
 
     two_column_table(String::from("Group Report:"), String::from(""), group_elements);
     println!("");
+
+    //println!("{}", descendant_hosts_string);
+    //println!("{}", child_hosts_string);
+    
     two_column_table(String::from("Host Report:"), String::from(""), host_elements);
     println!("");
     captioned_display(String::from("Configured Variables"), group_variables);

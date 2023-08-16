@@ -63,7 +63,7 @@ impl Host {
         for (k,v) in self.get_groups().into_iter() {
             results.insert(k, Arc::clone(&v));
             for (k2,v2) in v.read().unwrap().get_ancestor_groups(depth_limit).into_iter() { 
-                results.insert(k2.clone(), Arc::clone(&v2)); 
+                results.insert(k2, Arc::clone(&v2)); 
             }
         }
         return results;
@@ -84,12 +84,12 @@ impl Host {
 
     pub fn get_blended_variables(&self) -> String {
         let mut blended = String::from("");
-        for (_k,ancestor) in self.get_ancestor_groups(20usize).into_iter() {
+        for (_k,ancestor) in self.get_ancestor_groups(10usize).into_iter() {
             let theirs = ancestor.read().unwrap().get_variables();
-            blended = blend_variables(&theirs.clone(), &blended.clone());
+            blended = blend_variables(&theirs, &blended);
         }
         let mine = self.get_variables();
-        return blend_variables(&mine.clone(), &blended.clone());
+        return blend_variables(&mine, &blended);
     }
 
 }
