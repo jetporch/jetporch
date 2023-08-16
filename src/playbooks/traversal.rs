@@ -36,6 +36,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use crate::inventory::inventory::Inventory;
 use std::collections::HashSet;
+use std::sync::RwLock;
+use crate::inventory::hosts::Host;
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
@@ -70,11 +72,13 @@ pub fn playbook_traversal(
 
             let batch_size_num = play.batch_size.unwrap_or(0);
 
-            // FIXME: make a function?
-            let context_unlocked = context.lock().unwrap();
-            context_unlocked.set_play(&play);
-            context_unlocked.set_remote_user(&play, default_user.clone());
-            context_unlocked.unset_role();
+            {
+                // FIXME: move to RwLock?
+                let mut context_unlocked = context.lock().unwrap();
+                context_unlocked.set_play(&play);
+                context_unlocked.set_remote_user(&play, default_user.clone());
+                context_unlocked.unset_role();
+            }
 
             visitor.lock().unwrap().on_play_start(&context);
 
@@ -188,15 +192,15 @@ fn get_host_batches(batch_size: usize, hosts: Vec<String>) -> (usize, HashMap<us
 
 fn get_all_hosts(inventory: &Arc<Mutex<Inventory>>, _context: &Arc<Mutex<PlaybookContext>>, groups: &Vec<String>) -> Vec<String> {
     let inventory = inventory.lock().unwrap();
-    let mut results : HashSet<String> = HashSet::new();
+    let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
     for group in groups.iter() {
         let group_object = inventory.get_group(&group.clone());
-        let hosts = group_object.get_descendant_hosts();
-        for h in hosts.iter() {
-            results.insert(h.name.clone());
+        let hosts = group_object.read().unwrap().get_descendant_hosts();
+        for (k,v) in hosts.iter() {
+            results.insert(k.clone(), Arc::clone(&v));
         }
     }
-    return results.iter().map(|x| x.clone()).collect();
+    return results.iter().map(|(k,v)| k.clone()).collect();
 }
 
 

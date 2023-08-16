@@ -45,7 +45,7 @@ pub struct YamlGroup {
 pub fn load_inventory(inventory: &Arc<Mutex<Inventory>>, inventory_paths: Vec<PathBuf>) -> Result<(), String> {
 
     {
-        let inv_obj = inventory.lock().unwrap();
+        let mut inv_obj = inventory.lock().unwrap();
         inv_obj.store_group(&String::from("all"));
     }
 
@@ -115,7 +115,7 @@ fn load_groups_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path) -> Resu
 
 // for inventory/groups/* files
 fn add_group_file_contents_to_inventory(inventory: &Arc<Mutex<Inventory>>, group_name: String, yaml_group: &YamlGroup) {
-    let inventory = inventory.lock().unwrap();
+    let mut inventory = inventory.lock().unwrap();
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
@@ -124,7 +124,12 @@ fn add_group_file_contents_to_inventory(inventory: &Arc<Mutex<Inventory>>, group
     let subgroups = &yaml_group.subgroups;
     if subgroups.is_some() {
         let subgroups = subgroups.as_ref().unwrap();
-        for subgroupname in subgroups { inventory.store_subgroup(&group_name.clone(), &subgroupname.clone()); }
+        for subgroupname in subgroups {
+            // FIXME: we should not panic here, but do something better
+            if !group_name.eq(subgroupname) {
+                inventory.store_subgroup(&group_name.clone(), &subgroupname.clone()); 
+            }
+        }
     }
 
 }
@@ -161,11 +166,11 @@ fn load_vars_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path, is_group:
         match is_group {
             true  => {
                 let group = inv.get_group(&base_name.clone());
-                group.set_variables(&yaml_string.clone())
+                group.write().unwrap().set_variables(&yaml_string.clone());
             }
             false => {
                 let host = inv.get_host(&base_name.clone());
-                host.set_variables(&yaml_string.clone())
+                host.write().unwrap().set_variables(&yaml_string.clone());
             }
         }
         Ok(())

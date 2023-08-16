@@ -29,19 +29,19 @@ use crate::inventory::inventory::Inventory;
 
 pub fn show_inventory_host(inventory: &Arc<Mutex<Inventory>>, host_name: &String) -> Result<(),String> {
 
-    let mut inventory = inventory.get_mut().unwrap();
-
+    let inventory = inventory.lock().unwrap();
 
     if !inventory.has_host(&host_name.clone()) {
         return Err(format!("no such host: {}", host_name.clone()));
     }
-    let host = inventory.get_host(&host_name.clone());
+    let binding = inventory.get_host(&host_name.clone());
+    let host = binding.read().unwrap();
     
     println!("Host: {}", host_name);
     println!("");
 
-    let parents               : Vec<String> = host.get_groups().iter().map(|x| x.name.clone()).collect();
-    let ancestors             : Vec<String> = host.get_ancestor_groups().iter().map(|x| x.name.clone()).collect();
+    let parents               : Vec<String> = host.get_group_names();
+    let ancestors             : Vec<String> = host.get_ancestor_group_names();
     let host_variables        = host.get_variables();
     let blended_variables     = host.get_blended_variables();
     
@@ -75,17 +75,19 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
     if !inventory.has_group(&group_name.clone()) {
         return Err(format!("no such group: {}", group_name));
     }
-    let group = inventory.get_group(&group_name.clone());
+    let binding = inventory.get_group(&group_name.clone());
+    let group = binding.read().unwrap();
     
     println!("Group: {}", group_name);
     println!("");
 
-    let descendants          : Vec<String>  = group.get_descendant_groups().iter().map(|x| x.name.clone()).collect();
-    let children             : Vec<String>  = group.get_subgroups().iter().map(|x| x.name.clone()).collect();
-    let ancestors            : Vec<String>  = group.get_ancestor_groups().iter().map(|x| x.name.clone()).collect();
-    let parents              : Vec<String>  = group.get_parent_groups().iter().map(|x| x.name.clone()).collect();
-    let descendant_hosts     : Vec<String>  = group.get_descendant_hosts().iter().map(|x| x.name.clone()).collect();
-    let child_hosts          : Vec<String>  = group.get_direct_hosts().iter().map(|x| x.name.clone()).collect();
+    let descendants          : Vec<String>  = group.get_descendant_group_names();
+    let children             : Vec<String>  = group.get_subgroup_names();
+    let ancestors            : Vec<String>  = group.get_ancestor_group_names();
+    let parents              : Vec<String>  = group.get_parent_group_names();
+    let descendant_hosts     : Vec<String>  = group.get_descendant_group_names();
+    let child_hosts          : Vec<String>  = group.get_direct_host_names();
+
     let group_variables        = group.get_variables();
     let blended_variables      = group.get_blended_variables();
     let descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));

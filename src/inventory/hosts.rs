@@ -19,11 +19,12 @@ use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
 use std::sync::Mutex;
 use crate::inventory::groups::Group;
+use std::sync::RwLock;
 
 pub struct Host {
     pub name : String,
     pub variables : String,
-    pub groups : Mutex<HashMap<String,Arc<Group>>>
+    pub groups : HashMap<String,Arc<RwLock<Group>>>
 }
 
 impl Host {
@@ -32,7 +33,7 @@ impl Host {
         Self {
             name: name.clone(),
             variables: String::new(),
-            groups: Mutex::new(HashMap::new())
+            groups: HashMap::new()
         }
     }
 
@@ -40,21 +41,36 @@ impl Host {
     // PUBLIC API - most code can use this
     // ==============================================================================================================
   
-    pub fn get_groups(&self) -> Vec<Arc<Group>> {
-        return self.groups.lock().unwrap().iter().map(|(k,v)| Arc::clone(&v)).collect();
-    }
-
-    pub fn add_group(&mut self, group: Arc<Group>) {
-        self.groups.lock().unwrap().insert(group.name.clone(), Arc::clone(&group));
-    }
-
-    pub fn get_ancestor_groups(&self) -> Vec<Arc<Group>> {
-        let mut results : HashMap<String, Arc<Group>> = HashMap::new();
-        for g in self.get_groups().iter() {
-            results.insert(g.name.clone(), Arc::clone(&g));
-            for gp in g.get_ancestor_groups() { results.insert(gp.name.clone(), Arc::clone(&gp)); }
+    pub fn get_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.groups.iter() {
+            results.insert(k.clone(), Arc::clone(&v));
         }
-        return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
+        return results;
+    }
+
+    pub fn get_group_names(&self) -> Vec<String> {
+        return self.get_groups().iter().map(|(k,v)| k.clone()).collect();
+    }
+
+    pub fn add_group(&mut self, name: &String, group: Arc<RwLock<Group>>) {
+        self.groups.insert(name.clone(), Arc::clone(&group));
+    }
+
+    pub fn get_ancestor_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.get_groups().into_iter() {
+            results.insert(k, Arc::clone(&v));
+            for (k2,v2) in v.read().unwrap().get_ancestor_groups().into_iter() { 
+                results.insert(k2.clone(), Arc::clone(&v2)); 
+            }
+        }
+        return results;
+    }
+
+    pub fn get_ancestor_group_names(&self) -> Vec<String> {
+        return self.get_ancestor_groups().iter().map(|(k,v)| k.clone()).collect();
     }
 
     pub fn get_variables(&self) -> String {
@@ -68,8 +84,8 @@ impl Host {
 
     pub fn get_blended_variables(&self) -> String {
         let mut blended = String::from("");
-        for ancestor in self.get_ancestor_groups().iter() {
-            let theirs = ancestor.get_variables();
+        for (_k,ancestor) in self.get_ancestor_groups().into_iter() {
+            let theirs = ancestor.read().unwrap().get_variables();
             blended = blend_variables(&theirs.clone(), &blended.clone());
         }
         let mine = self.get_variables();

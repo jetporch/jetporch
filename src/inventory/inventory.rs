@@ -1,43 +1,43 @@
 
-use std::sync::Mutex;
 use std::collections::{HashMap};
 use std::sync::Arc;
 use crate::inventory::hosts::Host;
 use crate::inventory::groups::Group;
+use std::sync::RwLock;
+
+// THINGS TO TRY, SLOWLY.... remove the mutex around the hashmap
+// the inventory already has mutex
+// (FIXME)
 
 pub struct Inventory {
-    pub groups : Mutex<HashMap<String, Arc<Group>>>,
-    pub hosts  : Mutex<HashMap<String, Arc<Host>>>
+    pub groups : HashMap<String, Arc<RwLock<Group>>>,
+    pub hosts  : HashMap<String, Arc<RwLock<Host>>>
 }
 
 impl Inventory {
 
     pub fn new() -> Self {
         Self {
-            groups : Mutex::new(HashMap::new()),
-            hosts  : Mutex::new(HashMap::new())
+            groups : HashMap::new(),
+            hosts  : HashMap::new()
         }
     }
     
     pub fn has_group(&self, group_name: &String) -> bool {
-        let guard = self.groups.lock().unwrap();
-        return guard.contains_key(&group_name.clone());
+        return self.groups.contains_key(&group_name.clone());
     }
 
-    pub fn get_group(&self, group_name: &String) -> Arc<Group> {
-        let guard = self.groups.lock().unwrap();
-        let arc = guard.get(&group_name.clone()).unwrap();
+    pub fn get_group(&self, group_name: &String) -> Arc<RwLock<Group>> {
+        let arc = self.groups.get(&group_name.clone()).unwrap();
         return Arc::clone(&arc); 
     }
 
     pub fn has_host(&self, host_name: &String) -> bool {
-        let guard = self.hosts.lock().unwrap();
-        return guard.contains_key(&host_name.clone());
+        return self.hosts.contains_key(&host_name.clone());
     }
 
-    pub fn get_host(&self, host_name: &String) -> Arc<Host> {
-        let guard = self.hosts.lock().unwrap();
-        return Arc::clone(guard.get(&host_name.clone()).unwrap());
+    pub fn get_host(&self, host_name: &String) -> Arc<RwLock<Host>> {
+        return Arc::clone(self.hosts.get(&host_name.clone()).unwrap());
     }
 
     // ==============================================================================================================
@@ -52,36 +52,37 @@ impl Inventory {
 
     pub fn store_group_variables(&mut self, group_name: &String, yaml_string: &String) {
         let group = self.get_group(&group_name.clone());
-        group.set_variables(&yaml_string.clone());
+        group.write().unwrap().set_variables(&yaml_string.clone());
     }
 
     pub fn store_group(&mut self, group: &String) {
         self.create_group(&group.clone()); 
     }
 
-    pub fn associate_host(&mut self, group_name: &String, host: Arc<Host>) {
-        if !self.has_host(&host.name.clone()) { panic!("host does not exist"); }
+    pub fn associate_host(&mut self, group_name: &String, host_name: &String, host: Arc<RwLock<Host>>) {
+        if !self.has_host(&host_name.clone()) { panic!("host does not exist"); }
         if !self.has_group(&group_name.clone()) { self.create_group(&group_name.clone()); }
         let group_obj = self.get_group(&group_name.clone());
-        group_obj.hosts.get_mut().unwrap().insert(host.name.clone(), Arc::clone(&host));
-        self.associate_host_to_group(&group_name.clone(), &host.name.clone());
+        // FIXME: these add method should all take strings, not all are consistent yet?
+        group_obj.write().unwrap().add_host(&host_name.clone(), host);
+        self.associate_host_to_group(&group_name.clone(), &host_name.clone());
     }
 
     pub fn associate_host_to_group(&self, group_name: &String, host_name: &String) {
         let host = self.get_host(&host_name.clone());
         let group = self.get_group(&group_name.clone());
-        host.add_group(Arc::clone(&group));
-        group.add_host(Arc::clone(&host));
+        host.write().unwrap().add_group(&group_name.clone(), Arc::clone(&group));
+        group.write().unwrap().add_host(&host_name.clone(), Arc::clone(&host));
     }
 
-    pub fn store_host_variables(&self, host_name: &String, yaml_string: &String) {
+    pub fn store_host_variables(&mut self, host_name: &String, yaml_string: &String) {
         let host = self.get_host(&host_name.clone());
-        host.set_variables(&yaml_string.clone());
+        host.write().unwrap().set_variables(&yaml_string.clone());
     }
 
     pub fn create_host(&mut self, host_name: &String) {
         assert!(!self.has_host(&host_name.clone()));
-        self.hosts.get_mut().unwrap().insert(host_name.clone(), Arc::new(Host::new(&host_name.clone())));
+        self.hosts.insert(host_name.clone(), Arc::new(RwLock::new(Host::new(&host_name.clone()))));
     }
 
     pub fn store_host(&mut self, group_name: &String, host_name: &String) {
@@ -89,7 +90,7 @@ impl Inventory {
             self.create_host(&host_name.clone());
         }
         let host = self.get_host(host_name);
-        self.associate_host(&group_name.clone(), Arc::clone(&host));
+        self.associate_host(&group_name.clone(), &host_name.clone(), Arc::clone(&host));
     }
 
     // ==============================================================================================================
@@ -97,21 +98,29 @@ impl Inventory {
     // ==============================================================================================================
 
     fn create_group(&mut self, group_name: &String) {
-        assert!(!self.has_group(&group_name.clone()));
-        self.groups.get_mut().unwrap().insert(group_name.clone(), Arc::new(Group::new(&group_name.clone())));
+        println!("double checking we don't already have a group named: {}", group_name);
+        if self.has_group(&group_name.clone()) {
+            return;
+        }
+        self.groups.insert(group_name.clone(), Arc::new(RwLock::new(Group::new(&group_name.clone()))));
         if !group_name.eq(&String::from("all")) {
             self.associate_subgroup(&String::from("all"), &group_name);
         }
     }
 
-    fn associate_subgroup(&self, group_name: &String, subgroup_name: &String) {
+    fn associate_subgroup(&mut self, group_name: &String, subgroup_name: &String) {
         if !self.has_group(&group_name.clone()) { self.create_group(&group_name.clone()); }
         if !self.has_group(&subgroup_name.clone()) { self.create_group(&subgroup_name.clone()); }
-        let group = self.get_group(&group_name);
-        let subgroup = self.get_group(&subgroup_name);
-        group.add_subgroup(Arc::clone(&subgroup));
-        subgroup.add_parent(Arc::clone(&group));
-
+        {
+            let group = self.get_group(&group_name);
+            let subgroup = self.get_group(&subgroup_name);
+            group.write().unwrap().add_subgroup(&subgroup_name.clone(), Arc::clone(&subgroup));
+        }
+        {
+            let group = self.get_group(&group_name);
+            let subgroup = self.get_group(&subgroup_name);
+            subgroup.write().unwrap().add_parent(&group_name.clone(), Arc::clone(&group));
+        }
     }
 
 

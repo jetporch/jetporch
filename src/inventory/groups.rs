@@ -14,28 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::Mutex;
 use std::collections::{HashMap};
 use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
 use crate::inventory::hosts::Host;
+use std::sync::RwLock;
 
 pub struct Group {
     pub name : String,
-    pub subgroups : Mutex<HashMap<String, Arc<Self>>>,
-    pub parents : Mutex<HashMap<String, Arc<Self>>>,
-    pub hosts : Mutex<HashMap<String, Arc<Host>>>,
+    pub subgroups : HashMap<String, Arc<RwLock<Self>>>,
+    pub parents : HashMap<String, Arc<RwLock<Self>>>,
+    pub hosts : HashMap<String, Arc<RwLock<Host>>>,
     pub variables : String
 }
 
 impl Group {
 
     pub fn new(name: &String) -> Self {
+        println!("NEW GRP: {}", name.clone());
         Self {
             name : name.clone(),
-            subgroups : Mutex::new(HashMap::new()),
-            parents : Mutex::new(HashMap::new()),
-            hosts : Mutex::new(HashMap::new()),
+            subgroups : HashMap::new(),
+            parents : HashMap::new(),
+            hosts : HashMap::new(),
             variables :String::new()
         }
     }
@@ -53,58 +54,144 @@ impl Group {
     }
     */
 
-    pub fn add_subgroup(&mut self, subgroup: Arc<Group>) {
-        self.subgroups.lock().unwrap().insert(subgroup.name.clone(), Arc::clone(&subgroup));
+    pub fn add_subgroup(&mut self, name: &String, subgroup: Arc<RwLock<Group>>) {
+        assert!(!name.eq(&self.name));
+        self.subgroups.insert(
+            name.clone(), 
+            Arc::clone(&subgroup)
+        );
+        println!("ASG DONE...")
     }
 
-    pub fn add_host(&mut self, host: Arc<Host>) {
-        self.hosts.lock().unwrap().insert(host.name.clone(), Arc::clone(&host));
+    pub fn add_host(&mut self, name: &String, host: Arc<RwLock<Host>>) {
+        self.hosts.insert(
+            name.clone(), 
+            Arc::clone(&host)
+        );
     }
 
-    pub fn add_parent(&mut self, parent: Arc<Group>) {
-        self.parents.lock().unwrap().insert(parent.name.clone(), Arc::clone(&parent));
+    pub fn add_parent(&mut self, name: &String, parent: Arc<RwLock<Group>>) {
+        assert!(!name.eq(&self.name));
+        self.parents.insert(
+            name.clone(), 
+            Arc::clone(&parent)
+        );
     }
 
-    pub fn get_ancestor_groups(&self) -> Vec<Arc<Group>> {
-        let mut results : HashMap<String, Arc<Group>> = HashMap::new();
-        for (k,v) in self.parents.lock().unwrap().iter() {
-            results.insert(k.clone(), Arc::clone(&v));
-            for recursed in v.get_ancestor_groups() { results.insert(recursed.name.clone(), Arc::clone(&recursed)); }
+    pub fn get_ancestor_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+        println!("GAG!");
+
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.parents.iter() {
+            results.insert(
+                k.clone(), 
+                Arc::clone(v)
+            );
+            for (k2,v2) in v.read().unwrap().get_ancestor_groups() { 
+                results.insert(
+                    k2.clone(), 
+                    Arc::clone(&v2)
+                );
+             }
         }
-        return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
+        return results;
     }
 
-    pub fn get_descendant_groups(&self) -> Vec<Arc<Group>> {
-        let mut results : HashMap<String, Arc<Group>> = HashMap::new();
-        for (k,v) in self.subgroups.lock().unwrap().iter() {
-            results.insert(k.clone(), Arc::clone(&v));
-            for recursed in v.get_descendant_groups().iter() { results.insert(recursed.name.clone(), Arc::clone(&recursed)); }
+    pub fn get_ancestor_group_names(&self) -> Vec<String> {
+        return self.get_ancestor_groups().iter().map(|(k,v)| k.clone()).collect();
+    }
+
+    pub fn get_descendant_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+        println!("GDG! {}", self.name);
+
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.subgroups.iter() {
+            println!("!on k {}", k);
+            if results.contains_key(&k.clone()) {
+                continue;
+            }
+            for (k2,v2) in v.read().unwrap().get_descendant_groups().iter() { 
+                println!("!descending down {}", k2);
+                results.insert(
+                    k2.clone(), 
+                    Arc::clone(&v2)
+                ); 
+            }
+            results.insert(
+                k.clone(), 
+                Arc::clone(&v)
+            );
         }
-        return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
+        return results;
     }
 
-    pub fn get_parent_groups(&self) -> Vec<Arc<Group>> {
-        return self.parents.lock().unwrap().iter().map(|(k,v)| Arc::clone(&v)).collect()
+    pub fn get_descendant_group_names(&self) -> Vec<String> {
+        return self.get_descendant_groups().iter().map(|(k,v)| k.clone()).collect();
     }
 
-    pub fn get_subgroups(&self) -> Vec<Arc<Group>> {
-        return self.subgroups.lock().unwrap().iter().map(|(k,v)| Arc::clone(&v)).collect();
+    pub fn get_parent_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+        println!("GPG!");
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.parents.iter() {
+            results.insert(
+                k.clone(), 
+                Arc::clone(&v)
+            );
+        }
+        return results;
     }
 
-    pub fn get_direct_hosts(&self) -> Vec<Arc<Host>> {
-        return self.hosts.lock().unwrap().iter().map(|(k,v)| Arc::clone(&v)).collect();
+    pub fn get_parent_group_names(&self) -> Vec<String> {
+        return self.get_parent_groups().iter().map(|(k,v)| k.clone()).collect();
     }
 
-    pub fn get_descendant_hosts(&self) -> Vec<Arc<Host>> {
-        let mut results : HashMap<String, Arc<Host>> = HashMap::new();
+    pub fn get_subgroups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+        println!("GSG!");
+        let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
+        for (k,v) in self.subgroups.iter() {
+            results.insert(
+                k.clone(), 
+                Arc::clone(&v)
+            );
+        }
+        return results;
+    }
+
+    pub fn get_subgroup_names(&self) -> Vec<String> {
+        return self.get_subgroups().iter().map(|(k,v)| k.clone()).collect();
+    }
+
+    pub fn get_direct_hosts(&self) -> HashMap<String, Arc<RwLock<Host>>> {
+        println!("GDH!");
+        let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
+        for (k,v) in self.hosts.iter() {
+            results.insert(
+                k.clone(), 
+                Arc::clone(&v)
+            );
+        }
+        return results;
+    }
+
+    pub fn get_direct_host_names(&self) -> Vec<String> {
+        return self.get_direct_hosts().iter().map(|(k,v)| k.clone()).collect();
+    }
+
+    pub fn get_descendant_hosts(&self) -> HashMap<String, Arc<RwLock<Host>>> {
+        println!("GDH2!");
+        let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
         let children = self.get_direct_hosts();
-        for ch in children { results.insert(ch.name.clone(), Arc::clone(&ch));  }
+        for (k,v) in children { results.insert(k.clone(), Arc::clone(&v));  }
         let groups = self.get_descendant_groups();
-        for group in groups.iter() {
-            let hosts = group.get_direct_hosts();
-            for host in hosts.iter() { results.insert(host.name.clone(), Arc::clone(&host));  }
+        for (k,v) in groups.iter() {
+            let hosts = v.read().unwrap().get_direct_hosts();
+            for (k2,v2) in hosts.iter() { results.insert(k2.clone(), Arc::clone(&v2));  }
         }   
-        return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
+        return results;
+    }
+
+    pub fn get_descendant_host_names(&self) -> Vec<String> {
+        return self.get_descendant_hosts().iter().map(|(k,v)| k.clone()).collect();
     }
 
     pub fn get_variables(&self) -> String {
@@ -119,8 +206,8 @@ impl Group {
     pub fn get_blended_variables(&self) -> String {
         let mut blended = String::from("");
         let ancestors = self.get_ancestor_groups();
-        for ancestor in ancestors.iter() {
-            let theirs = ancestor.get_variables();
+        for (k,v) in ancestors.iter() {
+            let theirs = v.read().unwrap().get_variables();
             blended = blend_variables(&theirs.clone(), &blended.clone());
         }
         let mine = self.get_variables();
