@@ -98,7 +98,6 @@ impl Inventory {
     // ==============================================================================================================
 
     fn create_group(&mut self, group_name: &String) {
-        println!("double checking we don't already have a group named: {}", group_name);
         if self.has_group(&group_name.clone()) {
             return;
         }

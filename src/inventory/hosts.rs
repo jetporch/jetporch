@@ -57,12 +57,12 @@ impl Host {
         self.groups.insert(name.clone(), Arc::clone(&group));
     }
 
-    pub fn get_ancestor_groups(&self) -> HashMap<String, Arc<RwLock<Group>>> {
+    pub fn get_ancestor_groups(&self, depth_limit: usize) -> HashMap<String, Arc<RwLock<Group>>> {
 
         let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
         for (k,v) in self.get_groups().into_iter() {
             results.insert(k, Arc::clone(&v));
-            for (k2,v2) in v.read().unwrap().get_ancestor_groups().into_iter() { 
+            for (k2,v2) in v.read().unwrap().get_ancestor_groups(depth_limit).into_iter() { 
                 results.insert(k2.clone(), Arc::clone(&v2)); 
             }
         }
@@ -70,7 +70,7 @@ impl Host {
     }
 
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
-        return self.get_ancestor_groups().iter().map(|(k,v)| k.clone()).collect();
+        return self.get_ancestor_groups(20usize).iter().map(|(k,v)| k.clone()).collect();
     }
 
     pub fn get_variables(&self) -> String {
@@ -84,7 +84,7 @@ impl Host {
 
     pub fn get_blended_variables(&self) -> String {
         let mut blended = String::from("");
-        for (_k,ancestor) in self.get_ancestor_groups().into_iter() {
+        for (_k,ancestor) in self.get_ancestor_groups(20usize).into_iter() {
             let theirs = ancestor.read().unwrap().get_variables();
             blended = blend_variables(&theirs.clone(), &blended.clone());
         }

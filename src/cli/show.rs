@@ -85,7 +85,7 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
     let children             : Vec<String>  = group.get_subgroup_names();
     let ancestors            : Vec<String>  = group.get_ancestor_group_names();
     let parents              : Vec<String>  = group.get_parent_group_names();
-    let descendant_hosts     : Vec<String>  = group.get_descendant_group_names();
+    let descendant_hosts     : Vec<String>  = group.get_descendant_host_names();
     let child_hosts          : Vec<String>  = group.get_direct_host_names();
 
     let group_variables        = group.get_variables();
