@@ -102,7 +102,7 @@ impl PlaybookContext {
         }
     }
 
-    pub fn get_remote_user(&mut self, host: String) -> String {
+    pub fn get_remote_user(&mut self, host: &String) -> String {
         let default = self.remote_user.read().unwrap();
         if default.is_some() {
             let x = default.as_ref().unwrap();
@@ -112,14 +112,14 @@ impl PlaybookContext {
         }
     }
 
-    pub fn get_remote_port(&mut self, host: String) -> usize {
+    pub fn get_remote_port(&mut self, host: &String) -> usize {
         // notice this doesn't really use the context.
         // FIXME: check the variables + host variables
         return 22usize;
 
     }
 
-    pub fn fail_host(&mut self, host: String){
+    pub fn fail_host(&mut self, host: &String){
         // FIXME - we should really keep all_hosts seperate from unfailed_hosts
         panic!("fail_host is not implemented yet");
     }

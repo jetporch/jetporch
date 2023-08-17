@@ -19,13 +19,14 @@ use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
+use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 
 pub struct Host {
     pub name : String,
     pub variables : String,
     pub groups : HashMap<String,Arc<RwLock<Group>>>,
-    pub task_responses: Vec<Arc<TaskResponse>>,
+    pub history: Vec<(Arc<TaskRequest>,Arc<TaskResponse>)>,
 }
 
 impl Host {
@@ -35,7 +36,7 @@ impl Host {
             name: name.clone(),
             variables: String::new(),
             groups: HashMap::new(),
-            task_responses: Vec::new(),
+            history: Vec::new(),
         }
     }
 
@@ -94,8 +95,8 @@ impl Host {
         return blend_variables(&mine, &blended);
     }
 
-    pub fn record_task_response(&self, task_response: Arc<TaskResponse>) {
-        self.task_responses.push(Arc::clone(&task_response));
+    pub fn record_task_response(&mut self, task_request: Arc<TaskRequest>, task_response: Arc<TaskResponse>) {
+        self.history.push((Arc::clone(&task_request), Arc::clone(&task_response)));
     }
 
 }

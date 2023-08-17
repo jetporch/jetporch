@@ -30,6 +30,7 @@ use crate::connection::no::NoFactory;
 use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::tasks::handle::TaskHandle;
+
 use crate::tasks::request::TaskRequest;
 use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
@@ -40,15 +41,25 @@ use std::sync::{Arc,Mutex,RwLock};
 pub fn fsm_run_task(
     inventory: &Arc<RwLock<Inventory>>, 
     context: &Arc<RwLock<PlaybookContext>>,
-    visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
+    visitor: &Arc<RwLock<dyn PlaybookVisitor>>, 
     connection_factory: &Arc<RwLock<dyn ConnectionFactory>>, 
     task: &Task) -> Result<(), String> {
 
-    let no_connection = NoFactory::new().get_connection(context, String::from("localhost")).unwrap();
-    let syntax_check_result = run_task_on_host(inventory, context, visitor, &no_connection, task);
-    match syntax_check_result.is {
+    let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
+    let no_connection = NoFactory::new().get_connection(context, &String::from("localhost")).unwrap();
+
+    let syntax_check_result = run_task_on_host(
+        inventory, 
+        context, 
+        visitor, 
+        &no_connection, 
+        &tmp_localhost, 
+        task
+    );
+
+    match syntax_check_result.status {
         TaskStatus::IsValidated => { 
-            if visitor.lock().unwrap().is_syntax_only() { return Ok(()); }
+            if visitor.read().unwrap().is_syntax_only() { return Ok(()); }
         }, 
         TaskStatus::Failed => { 
             return Err(format!("parameters conflict: {}", syntax_check_result.msg.unwrap()));
@@ -56,19 +67,30 @@ pub fn fsm_run_task(
         _ => { panic!("module returned invalid response to syntax check") }
     }
 
-    let hosts = context.lock().unwrap().get_all_hosts();
+    let hosts = context.read().unwrap().get_all_hosts();
     for host in hosts {
-        let connection_result = connection_factory.read().unwrap().get_connection(context, host.clone());
+        let connection_result = connection_factory.read().unwrap().get_connection(context, &host.clone());
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
-                let task_response = run_task_on_host(inventory, context, visitor, &connection, task);
+                let host_object = inventory.read().unwrap().get_host(&host);
+
+                let task_response = run_task_on_host(
+                    inventory, 
+                    context, 
+                    visitor, 
+                    &connection, 
+                    &host_object, 
+                    task
+                );
+
                 if task_response.is_failed() {
-                    visitor.lock().unwrap().on_host_task_failed(context, Arc::new(task_response), host.clone());
+                    // FIXME: visitor does not need locks around it!
+                    visitor.read().unwrap().on_host_task_failed(context, task_response, host.clone());
                 }
             },
             Err(_) => { 
-                visitor.lock().unwrap().on_host_connect_failed(&context, host.clone());
+                visitor.read().unwrap().on_host_connect_failed(context, host.clone());
             }
         }
     }
@@ -81,20 +103,25 @@ pub fn fsm_run_task(
 fn run_task_on_host(
     inventory: &Arc<RwLock<Inventory>>, 
     context: &Arc<RwLock<PlaybookContext>>,
-    visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
+    visitor: &Arc<RwLock<dyn PlaybookVisitor>>, 
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>, 
-    task: &Task) -> TaskResponse {
+    task: &Task) -> Arc<TaskResponse> {
 
-    let syntax      = visitor.lock().unwrap().is_syntax_only();
-    let modify_mode = ! visitor.lock().unwrap().is_check_mode();
+    let syntax      = visitor.read().unwrap().is_syntax_only();
+    let modify_mode = ! visitor.read().unwrap().is_check_mode();
 
-    let handle = Arc::new(TaskHandle::new(inventory, context, visitor, connection, host));
+    let handle = Arc::new(TaskHandle::new(Arc::clone(inventory), 
+        Arc::clone(context), 
+        Arc::clone(visitor), 
+        Arc::clone(connection), 
+        Arc::clone(host))
+    );
 
     let task_ptr = Arc::new(task);
 
-    let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate());
-    match vrc.is {
+    let vrc = task.dispatch(&handle, &TaskRequest::validate());
+    match vrc.status {
         TaskStatus::IsValidated => { 
             if syntax {
                 return vrc;
@@ -106,11 +133,11 @@ fn run_task_on_host(
 
 
     let query = TaskRequest::query();
-    let qrc = task.dispatch(Arc::clone(&handle), TaskRequest::query());
+    let qrc = task.dispatch(&handle, &TaskRequest::query());
     let result = match qrc.status {
         TaskStatus::NeedsCreation => match modify_mode {
             true => {
-                let crc = task.dispatch(Arc::clone(&handle), TaskRequest::create());
+                let crc = task.dispatch(&handle, &TaskRequest::create());
                 match crc.status {
                     TaskStatus::IsCreated => { crc },
                     TaskStatus::Failed  => { crc },
@@ -121,7 +148,7 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsRemoval => match modify_mode {
             true => {
-                let rrc = task.dispatch(Arc::clone(&handle), TaskRequest::remove());
+                let rrc = task.dispatch(&handle, &TaskRequest::remove());
                 match rrc.status {
                     TaskStatus::IsRemoved => { rrc },
                     TaskStatus::Failed  => { rrc },
@@ -132,7 +159,7 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsModification => match modify_mode {
             true => {
-                let mrc = task.dispatch(Arc::clone(&handle), TaskRequest::modify(Arc::clone(&qrc.changes)));
+                let mrc = task.dispatch(&handle, &TaskRequest::modify(Arc::clone(&qrc.changes)));
                 match mrc.status {
                     TaskStatus::IsModified => { mrc },
                     TaskStatus::Failed  => { mrc },

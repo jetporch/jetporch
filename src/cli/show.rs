@@ -17,8 +17,8 @@
 // code for the CLI subcommand 'show'.
 
 use crate::util::terminal::{two_column_table, captioned_display};
-use std::sync::Mutex;
 use std::sync::Arc;
+use std::sync::RwLock;
 use crate::inventory::inventory::Inventory;
 
 // ==============================================================================================================
@@ -27,9 +27,9 @@ use crate::inventory::inventory::Inventory;
 
 // jetp show --inventory <path> --hosts host1:host2
 
-pub fn show_inventory_host(inventory: &Arc<Mutex<Inventory>>, host_name: &String) -> Result<(),String> {
+pub fn show_inventory_host(inventory: Arc<RwLock<Inventory>>, host_name: &String) -> Result<(),String> {
 
-    let inventory = inventory.lock().unwrap();
+    let inventory = inventory.read().unwrap();
 
     if !inventory.has_host(&host_name.clone()) {
         return Err(format!("no such host: {}", host_name.clone()));
@@ -68,9 +68,9 @@ pub fn show_inventory_host(inventory: &Arc<Mutex<Inventory>>, host_name: &String
 // jetp show --inventory <path> # implicit --group all
 // jetp show --inventory <path> --groups group1:group2
 
-pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &String) -> Result<(),String> {
+pub fn show_inventory_group(inventory: Arc<RwLock<Inventory>>, group_name: &String) -> Result<(),String> {
 
-    let inventory = inventory.lock().unwrap();
+    let inventory = inventory.read().unwrap();
 
     if !inventory.has_group(&group_name.clone()) {
         return Err(format!("no such group: {}", group_name));

@@ -35,26 +35,26 @@ use std::sync::{Arc,Mutex,RwLock};
 pub struct TaskHandle {
     inventory: Arc<RwLock<Inventory>>, 
     context: Arc<RwLock<PlaybookContext>>,
-    visitor: Arc<Mutex<dyn PlaybookVisitor>>, 
-    connection: Arc<RwLock<dyn Connection>>,
+    visitor: Arc<RwLock<dyn PlaybookVisitor>>, 
+    connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
 }
 
 impl TaskHandle {
 
     pub fn new(
-        inventory_handle: &Arc<RwLock<Inventory>>, 
-        context_handle: &Arc<Mutex<PlaybookContext>>, 
-        visitor_handle: &Arc<RwLock<dyn PlaybookVisitor>>, 
-        connection_handle: &Arc<RwLock<dyn Connection>>,
-        host_handle: &Arc<RwLock<Host>>) -> Self {
+        inventory_handle: Arc<RwLock<Inventory>>, 
+        context_handle: Arc<RwLock<PlaybookContext>>, 
+        visitor_handle: Arc<RwLock<dyn PlaybookVisitor>>, 
+        connection_handle: Arc<Mutex<dyn Connection>>,
+        host_handle: Arc<RwLock<Host>>) -> Self {
 
         Self {
-            inventory: Arc::clone(inventory_handle),
-            context: Arc::clone(context_handle),
-            visitor: Arc::clone(visitor_handle),
-            connection: Arc::clone(connection_handle),
-            host: Arc::clone(host_handle),
+            inventory: inventory_handle,
+            context: context_handle,
+            visitor: visitor_handle,
+            connection: connection_handle,
+            host: host_handle,
         }
     }
 
@@ -68,6 +68,7 @@ impl TaskHandle {
         // FIXME: use the connection to run the command
         // TODO: FIXME: think about how we want to work with command results
         // FIXME: push commands history to host?
+        return Err(format!("not implemented"));
     }
 
     // ================================================================================
@@ -75,7 +76,7 @@ impl TaskHandle {
     // to make module code nicer.
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: String) {
-        self.visitor.lock().unwrap().debug(message);
+        self.visitor.read().unwrap().debug(message);
     }
 
     // ================================================================================
@@ -83,95 +84,89 @@ impl TaskHandle {
 
     pub fn is_failed(&self, request: &Arc<TaskRequest>,  msg: String) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::Failed, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None),
             msg: Some(msg.clone()) 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
 
     pub fn is_validated(&self, request: &Arc<TaskRequest>, ) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Validate, "is_validated response can only be returned for a validation request");
+        assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::IsValidated, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
     
     pub fn is_created(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Create, "is_created response can only be returned for a creation request");
+        assert!(request.request_type == TaskRequestType::Create, "is_created response can only be returned for a creation request");
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::IsCreated, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
     
     pub fn is_removed(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Remove, "is_removed response can only be returned for a remove request");
+        assert!(request.request_type == TaskRequestType::Remove, "is_removed response can only be returned for a remove request");
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::IsRemoved, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
     
-    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Modify, "is_modified response can only be returned for a modification request");
+    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Modify, "is_modified response can only be returned for a modification request");
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::IsModified, 
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(response);
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
 
     pub fn needs_creation(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Query, "needs_creation response can only be returned for a query request");
+        assert!(request.request_type == TaskRequestType::Query, "needs_creation response can only be returned for a query request");
 
         let response = Arc::new(TaskResponse { 
-            request: Arc::clone(request), 
             status: TaskStatus::NeedsCreation, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(response);
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
     
-    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: Arc<HashMap<String,String>>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Query, "needs_modification response can only be returned for a query request");
+    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Query, "needs_modification response can only be returned for a query request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsModification, 
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(response);
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
     
     pub fn needs_removal(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequest::Query, "needs_removal response can only be returned for a query request");
+        assert!(request.request_type == TaskRequestType::Query, "needs_removal response can only be returned for a query request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
-            changes: Arc::new(HashMap::new()), 
+            changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(response);
+        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
         return response;
     }
 

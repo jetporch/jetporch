@@ -27,7 +27,7 @@
 use crate::playbooks::context::PlaybookContext;
 use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 pub trait PlaybookVisitor {
 
@@ -35,14 +35,14 @@ pub trait PlaybookVisitor {
         println!("> debug: {}", message.clone());
     }
 
-    fn on_playbook_start(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.playbook_path.lock().unwrap();
         //let path = arc.as_ref().unwrap();
         let path = "FIXME".to_string();
         println!("> playbook start: {}", path)
     }
 
-    fn on_play_start(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
         let play = "FIXME".to_string();
@@ -50,27 +50,27 @@ pub trait PlaybookVisitor {
         println!("> play start: {}", play);
     }
     
-    fn on_role_start(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         //let role = arc.as_ref().unwrap();
         let role = "FIXME".to_string();
         println!("> role start: {}", role);
     }
 
-    fn on_role_stop(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_role_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         let role = "FIXME".to_string();
         println!("> role stop: {}", role);
     }
 
-    fn on_play_stop(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
         let play = "FIXME".to_string();
         println!("> play complete: {}", play);
     }
 
-    fn on_task_start(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
         //let module = task.get_module();
@@ -78,22 +78,22 @@ pub trait PlaybookVisitor {
         println!("> task start: {}", task);
     }
 
-    fn on_task_stop(&self, context: &Arc<Mutex<PlaybookContext>>) {
+    fn on_task_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
         let task = "FIXME".to_string();
         println!("> task complete: {}", task);
     }
 
-    fn on_host_task_failed(&self, context: &Arc<Mutex<PlaybookContext>>, task_response: Arc<TaskResponse>, host: String) {
+    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: Arc<TaskResponse>, host: String) {
         println!("> host task failed: {}", host.clone());
         //println!("> task failed on host: {}", host);
-        context.lock().unwrap().fail_host(host);
+        context.write().unwrap().fail_host(&host);
     }
 
-    fn on_host_connect_failed(&self, context: &Arc<Mutex<PlaybookContext>>, host: String) {
+    fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: String) {
         println!("> connection failed to host: {}", host.clone());
-        context.lock().unwrap().fail_host(host);
+        context.write().unwrap().fail_host(&host);
     }
 
     fn is_syntax_only(&self) -> bool;

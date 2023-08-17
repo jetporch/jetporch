@@ -31,6 +31,7 @@ use crate::tasks::common::TaskProperty;
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::request::TaskRequest;
+use crate::tasks::common::IsTask;
 use std::sync::Arc;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
@@ -59,7 +60,7 @@ impl Task {
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
-    pub fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> Arc<TaskResponse> {
+    pub fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         return match self {
             
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 

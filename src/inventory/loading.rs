@@ -21,7 +21,7 @@ use crate::util::io::{path_walk,jet_file_open,path_basename_as_string,is_executa
 use crate::util::yaml::{show_yaml_error_in_context};
 use crate::inventory::inventory::Inventory;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 // ==============================================================================================================
 // YAML SPEC
@@ -42,10 +42,10 @@ pub struct YamlGroup {
 // PUBLIC API
 // ==============================================================================================================
 
-pub fn load_inventory(inventory: &Arc<Mutex<Inventory>>, inventory_paths: Vec<PathBuf>) -> Result<(), String> {
+pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Vec<PathBuf>) -> Result<(), String> {
 
     {
-        let mut inv_obj = inventory.lock().unwrap();
+        let mut inv_obj = inventory.write().unwrap();
         inv_obj.store_group(&String::from("all"));
     }
 
@@ -75,7 +75,7 @@ pub fn load_inventory(inventory: &Arc<Mutex<Inventory>>, inventory_paths: Vec<Pa
 // ==============================================================================================================
 
 // loads an entire on-disk inventory tree structure (groups/, group_vars/, host_vars/)
-fn load_on_disk_inventory_tree(inventory: &Arc<Mutex<Inventory>>, include_groups: bool, path: &Path) -> Result<(), String> {
+fn load_on_disk_inventory_tree(inventory: &Arc<RwLock<Inventory>>, include_groups: bool, path: &Path) -> Result<(), String> {
     let path_buf           = PathBuf::from(path);
     let group_vars_pathbuf = path_buf.join("group_vars");
     let host_vars_pathbuf  = path_buf.join("host_vars");
@@ -96,7 +96,7 @@ fn load_on_disk_inventory_tree(inventory: &Arc<Mutex<Inventory>>, include_groups
 }
 
 // for inventory/groups/* files
-fn load_groups_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path) -> Result<(), String> {
+fn load_groups_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(), String> {
     path_walk(path, |groups_file_path| {
         let group_name = path_basename_as_string(&groups_file_path).clone();
         let groups_file = jet_file_open(&groups_file_path)?;
@@ -114,8 +114,8 @@ fn load_groups_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path) -> Resu
 
 
 // for inventory/groups/* files
-fn add_group_file_contents_to_inventory(inventory: &Arc<Mutex<Inventory>>, group_name: String, yaml_group: &YamlGroup) {
-    let mut inventory = inventory.lock().unwrap();
+fn add_group_file_contents_to_inventory(inventory: &Arc<RwLock<Inventory>>, group_name: String, yaml_group: &YamlGroup) {
+    let mut inventory = inventory.write().unwrap();
     let hosts = &yaml_group.hosts;
     if hosts.is_some() {
         let hosts = hosts.as_ref().unwrap();
@@ -135,9 +135,9 @@ fn add_group_file_contents_to_inventory(inventory: &Arc<Mutex<Inventory>>, group
 }
             
 // this is used by both on-disk and dynamic inventory sources to load group/ and vars/ directories
-fn load_vars_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path, is_group: bool) -> Result<(), String> {
+fn load_vars_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path, is_group: bool) -> Result<(), String> {
 
-    let inv = inventory.lock().unwrap();
+    let inv = inventory.write().unwrap();
 
     path_walk(path, |vars_path| {
 
@@ -179,7 +179,7 @@ fn load_vars_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path, is_group:
 }
 
 // TODO: implement
-fn load_dynamic_inventory(inventory: &Arc<Mutex<Inventory>>, path: &Path) -> Result<(), String> {
+fn load_dynamic_inventory(inventory: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(), String> {
      println!("load_dynamic_inventory: NOT IMPLEMENTED");
     // FIXME: implement the script execution/parsing parts on top
     load_on_disk_inventory_tree(inventory, false, &path)?;

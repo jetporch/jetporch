@@ -25,7 +25,6 @@ mod runner;
 mod tasks;
 
 use std::path::PathBuf;
-use std::sync::Mutex;
 use std::sync::Arc;
 use crate::util::io::{quit};
 use crate::inventory::inventory::Inventory;
@@ -33,6 +32,7 @@ use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
 use crate::cli::syntax::{playbook_syntax_scan};
+use std::sync::RwLock;
 
 fn main() {
     match liftoff() { Err(e) => quit(&e), _ => {} }
@@ -49,20 +49,20 @@ fn liftoff() -> Result<(),String> {
         return Ok(());
     }
 
-    let inventory : Arc<Mutex<Inventory>> = Arc::new(Mutex::new(Inventory::new()));
+    let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
     let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
     load_inventory(&inventory, inventory_paths)?;
 
     return match cli_parser.mode {
-        cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
-        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SHOW   => handle_show(inventory, &cli_parser),
+        cli::parser::CLI_MODE_SYNTAX => handle_syntax(inventory, &cli_parser),
 
         _ => Err(String::from("invalid CLI mode"))
     }
 
 }
 
-pub fn handle_show(inventory: &Arc<Mutex<Inventory>>, parser: &CliParser) -> Result<(), String> {
+pub fn handle_show(inventory: Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
     // jetp show -i inventory
     // jetp show -i inventory --groups g1:g2
     // jetp show -i inventory --hosts h1:h2
@@ -80,7 +80,7 @@ pub fn handle_show(inventory: &Arc<Mutex<Inventory>>, parser: &CliParser) -> Res
 
 // FIXME: look at anyhow crate
 
-pub fn handle_syntax(inventory: &Arc<Mutex<Inventory>>, parser: &CliParser) -> Result<(), String> {
+pub fn handle_syntax(inventory: Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
     return playbook_syntax_scan(inventory, &parser.playbook_paths);
 }
 

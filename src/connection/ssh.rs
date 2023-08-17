@@ -31,6 +31,7 @@ use crate::playbooks::context::PlaybookContext;
 use crate::connection::local::LocalConnection;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::RwLock;
 
 pub struct SshFactory {}
 
@@ -41,15 +42,16 @@ impl SshFactory {
 }
 
 impl ConnectionFactory for SshFactory {
-    fn get_connection(&self, context: &Arc<Mutex<PlaybookContext>>, host: String) -> Result<Arc<Mutex<dyn Connection>>, String> {
+    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &String) -> Result<Arc<Mutex<dyn Connection>>, String> {
         if host.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
             let host2 = host.clone();
+            let ctx = context.read().unwrap();
             let mut conn = SshConnection::new(
-                host2.clone(),
-                context.lock().unwrap().get_remote_port(host2.clone()),
-                context.lock().unwrap().get_remote_user(host2.clone()),
+                &host2,
+                ctx.get_remote_port(&host2),
+                &ctx.get_remote_user(&host2),
             );
             return match conn.connect() {
                 Ok(_)  => { Ok(Arc::new(Mutex::new(conn))) },
@@ -67,8 +69,8 @@ pub struct SshConnection {
 }
 
 impl SshConnection {
-    pub fn new(host: String, port: usize, username: String) -> Self {
-        Self { host: host, port: port, username: username, session: None }
+    pub fn new(host: &String, port: usize, username: &String) -> Self {
+        Self { host: host.clone(), port: port, username: username.clone(), session: None }
     }
 }
 

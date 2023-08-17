@@ -67,7 +67,7 @@ impl TaskRequest {
             }
         )
     }
-    pub fn modify(changes: Arc<HashMap<String, String>>) -> Arc<Self> {
+    pub fn modify(changes: Arc<Option<HashMap<String, String>>>) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Modify, 
@@ -78,6 +78,6 @@ impl TaskRequest {
 
     pub fn get_requested_changes(&self) -> Arc<Option<HashMap<String, String>>>  {
         assert!(self.request_type == TaskRequestType::Modify, "accessing change request parameters outside of TaskRequestType::Modify");
-        return Arc::clone(&changes);
+        return Arc::clone(&self.changes);
     }
 }

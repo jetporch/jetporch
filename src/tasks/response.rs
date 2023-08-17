@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 use std::collections::HashMap;
-use crate::tasks::request::TaskRequest;
 
 #[derive(PartialEq)]
 pub enum TaskStatus {
@@ -32,9 +31,8 @@ pub enum TaskStatus {
 }
 
 pub struct TaskResponse {
-    pub request: Arc<TaskRequest>,
     pub status: TaskStatus,
-    pub changes: Arc<HashMap<String, String>>,
+    pub changes: Arc<Option<HashMap<String, String>>>,
     pub msg: Option<String>,
 }
 

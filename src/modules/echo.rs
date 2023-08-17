@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::common::{TaskProperty,IsTask,get_task_property};
+use crate::tasks::common::{TaskProperty,IsTask,get_property};
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::request::{TaskRequestType,TaskRequest};
@@ -64,7 +64,7 @@ impl IsTask for Echo {
     // =======================================================================
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> Arc<TaskResponse> {
+    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
     
         match request.request_type {
 
