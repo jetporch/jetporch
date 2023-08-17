@@ -17,14 +17,14 @@
 use std::collections::{HashMap};
 use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
-use std::sync::Mutex;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
-
+use crate::tasks::response::TaskResponse;
+   |
 pub struct Host {
     pub name : String,
     pub variables : String,
-    pub groups : HashMap<String,Arc<RwLock<Group>>>
+    pub groups : HashMap<String,Arc<RwLock<Group>>>,
     pub task_responses: Vec<Arc<TaskResponse>>,
 }
 
@@ -94,7 +94,7 @@ impl Host {
         return blend_variables(&mine, &blended);
     }
 
-    pub record_task_response(&self, task_response: Arc<TaskResponse>) {
+    pub fn record_task_response(&self, task_response: Arc<TaskResponse>) {
         self.task_responses.push(Arc::clone(&task_response));
     }
 

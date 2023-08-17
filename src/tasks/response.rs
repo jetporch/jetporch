@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::sync::Arc;
+use std::collections::HashMap;
+use crate::tasks::request::TaskRequest;
+
 #[derive(PartialEq)]
 pub enum TaskStatus {
     IsCreated,

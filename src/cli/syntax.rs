@@ -17,12 +17,11 @@
 use crate::playbooks::traversal::{playbook_traversal};
 use crate::connection::no::{NoFactory};
 use crate::playbooks::context::{PlaybookContext};
-use std::path::PathBuf;
 use crate::playbooks::visitor::PlaybookVisitor;
-use std::sync::Arc;
 use crate::connection::factory::ConnectionFactory;
-use std::sync::Mutex;
 use crate::inventory::inventory::Inventory;
+use std::path::PathBuf;
+use std::sync::{Arc,Mutex,RwLock};
 
 struct SyntaxVisitor {}
 impl SyntaxVisitor {
@@ -33,11 +32,11 @@ impl PlaybookVisitor for SyntaxVisitor {
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
-pub fn playbook_syntax_scan(inventory: &Arc<Mutex<Inventory>>, playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    let context : Arc<RwLock<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
+    let context : Arc<RwLock<PlaybookContext>> = Arc::new(RwLock::new(PlaybookContext::new()));
     let visitor : Arc<Mutex<dyn PlaybookVisitor>> = Arc::new(Mutex::new(SyntaxVisitor::new()));
-    let factory : Arc<RwLock<dyn ConnectionFactory>> = Arc::new(Mutex::new(NoFactory::new()));
+    let factory : Arc<RwLock<dyn ConnectionFactory>> = Arc::new(RwLock::new(NoFactory::new()));
 
     // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
     // we don't really need it.

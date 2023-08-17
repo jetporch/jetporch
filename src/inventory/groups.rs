@@ -80,7 +80,7 @@ impl Group {
         let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
         for (k,v) in self.parents.iter() {
             results.insert(k.clone(), Arc::clone(v));
-            if (depth_limit > 0) {
+            if depth_limit > 0 {
                 for (k2,v2) in v.read().unwrap().get_ancestor_groups(depth_limit-1) { 
                     results.insert(k2.clone(),Arc::clone(&v2));
                 }
@@ -100,7 +100,7 @@ impl Group {
             if results.contains_key(&k.clone()) {
                 continue;
             }
-            if (depth_limit > 0) {
+            if depth_limit > 0 {
                 for (k2,v2) in v.read().unwrap().get_descendant_groups(depth_limit-1).iter() { 
                     results.insert(
                         k2.clone(), 

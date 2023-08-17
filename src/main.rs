@@ -18,10 +18,10 @@ mod cli;
 mod inventory;
 mod util;
 mod playbooks;
-mod module_library;
-mod module_base;
+mod registry;
 mod connection;
 mod runner;
+mod tasks;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -52,13 +52,10 @@ fn liftoff() -> Result<(),String> {
     let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
     load_inventory(&inventory, inventory_paths)?;
 
-    // now split off into various logic based on the CLI subcommand
     return match cli_parser.mode {
-        // FIXME: REFACTOR: move this "show" logic into this file, and out of cli.rs
-        cli::parser::CLI_MODE_SHOW => handle_show(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
         cli::parser::CLI_MODE_SYNTAX => handle_syntax(&inventory, &cli_parser),
 
-        // FIXME: add playbook run commands here, etc
         _ => Err(String::from("invalid CLI mode"))
     }
 

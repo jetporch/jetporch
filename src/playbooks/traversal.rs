@@ -20,9 +20,6 @@
 // like cli/show.rs
 // ===================================================================================
 
-use std::path::PathBuf;
-use serde_yaml::Value;
-use std::collections::HashMap;
 use crate::playbooks::language::{Play};
 use crate::util::io::jet_file_open;
 use crate::util::io::{directory_as_string};
@@ -30,14 +27,14 @@ use crate::util::yaml::show_yaml_error_in_context;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
-use crate::module_base::list::Task;
+use crate::registry::list::Task;
 use crate::runner::task_fsm::fsm_run_task;
-use std::sync::Arc;
-use std::sync::Mutex;
 use crate::inventory::inventory::Inventory;
-use std::collections::HashSet;
-use std::sync::RwLock;
 use crate::inventory::hosts::Host;
+use std::path::PathBuf;
+use serde_yaml::Value;
+use std::collections::HashMap;
+use std::sync::{Arc,Mutex,RwLock};
 
 // ============================================================================
 // PUBLIC API, see syntax.rs/etc for usage
@@ -47,7 +44,7 @@ pub fn playbook_traversal(
     inventory: &Arc<RwLock<Inventory>>,
     playbook_paths: &Vec<PathBuf>, 
     context: &Arc<RwLock<PlaybookContext>>, 
-    visitor: &Mutex<RwLock<dyn PlaybookVisitor>>,
+    visitor: &Arc<RwLock<dyn PlaybookVisitor>>,
     connection_factory: &Arc<RwLock<dyn ConnectionFactory>>,
     default_user: String) -> Result<(), String> {
 

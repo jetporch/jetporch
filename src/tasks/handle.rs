@@ -24,7 +24,7 @@
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::connection::connection::Connection;
-use crate::tasks::request::{TaskRequest, TaskRequestType}
+use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
 use crate::connection::command::Command;
 use crate::inventory::inventory::Inventory;

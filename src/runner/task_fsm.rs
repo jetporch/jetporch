@@ -32,8 +32,8 @@ use crate::connection::connection::Connection;
 use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::TaskRequest;
 use crate::inventory::inventory::Inventory;
-use std::sync::Arc;
-use std::sync::Mutex;
+use crate::inventory::hosts::Host;
+use std::sync::{Arc,Mutex,RwLock};
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
@@ -84,7 +84,7 @@ fn run_task_on_host(
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>, 
-    task: &Arc<RwLock<Host>>) -> TaskResponse {
+    task: &Task) -> TaskResponse {
 
     let syntax      = visitor.lock().unwrap().is_syntax_only();
     let modify_mode = ! visitor.lock().unwrap().is_check_mode();
@@ -93,7 +93,7 @@ fn run_task_on_host(
 
     let task_ptr = Arc::new(task);
 
-    let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate(Arc::clone(&task_ptr)));
+    let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate());
     match vrc.is {
         TaskStatus::IsValidated => { 
             if syntax {
@@ -106,11 +106,11 @@ fn run_task_on_host(
 
 
     let query = TaskRequest::query();
-    let qrc = task.dispatch(Arc::clone(&handle), TaskRequest::query(Arc::clone(&task_ptr)));
+    let qrc = task.dispatch(Arc::clone(&handle), TaskRequest::query());
     let result = match qrc.status {
         TaskStatus::NeedsCreation => match modify_mode {
             true => {
-                let crc = task.dispatch(Arc::clone(&handle), TaskRequest::create(Arc::clone(&task_ptr)));
+                let crc = task.dispatch(Arc::clone(&handle), TaskRequest::create());
                 match crc.status {
                     TaskStatus::IsCreated => { crc },
                     TaskStatus::Failed  => { crc },
@@ -121,7 +121,7 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsRemoval => match modify_mode {
             true => {
-                let rrc = task.dispatch(Arc::clone(&handle), TaskRequest::remove(Arc::clone(&task_ptr)));
+                let rrc = task.dispatch(Arc::clone(&handle), TaskRequest::remove());
                 match rrc.status {
                     TaskStatus::IsRemoved => { rrc },
                     TaskStatus::Failed  => { rrc },
@@ -132,7 +132,7 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsModification => match modify_mode {
             true => {
-                let mrc = task.dispatch(Arc::clone(&handle), TaskRequest::modify(Arc::clone(&task_ptr), Arc::clone(&qrc.changes)));
+                let mrc = task.dispatch(Arc::clone(&handle), TaskRequest::modify(Arc::clone(&qrc.changes)));
                 match mrc.status {
                     TaskStatus::IsModified => { mrc },
                     TaskStatus::Failed  => { mrc },

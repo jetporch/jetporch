@@ -18,7 +18,7 @@
 use serde::{Deserialize};
 use serde_yaml::{Value};
 use std::collections::HashMap;
-use crate::module_base::list::Task;
+use crate::registry::list::Task;
 
 #[derive(Debug,Deserialize)]
 #[serde(untagged)]

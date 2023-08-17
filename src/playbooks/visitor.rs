@@ -25,7 +25,7 @@
 
 
 use crate::playbooks::context::PlaybookContext;
-use crate::module_base::common::TaskResponse;
+use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use std::sync::Mutex;
 

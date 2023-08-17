@@ -22,13 +22,11 @@
 // are mutable, they should not be adjusted outside of playbook traversal code.
 // ===================================================================================
 
-use std::sync::Mutex;
-use std::sync::Arc;
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use std::path::PathBuf;
 use std::collections::HashSet;
-use std::sync::RwLock;
+use std::sync::{Arc,Mutex,RwLock};
 
 pub struct PlaybookContext {
     pub playbook_path: RwLock<Option<String>>,
@@ -38,8 +36,8 @@ pub struct PlaybookContext {
     pub task: RwLock<Option<String>>,
     pub host: RwLock<Option<String>>,
     pub all_hosts: RwLock<HashSet<String>>,
-    pub role_path: RwLock<AOption<String>>,
-    pub role_name: RwLock<Option<String>.,
+    pub role_path: RwLock<Option<String>>,
+    pub role_name: RwLock<Option<String>>,
     pub remote_user: RwLock<Option<String>>,
 }
 
@@ -48,7 +46,7 @@ impl PlaybookContext {
     pub fn new() -> Self {
         Self {
             playbook_path: RwLock::new(None),
-            playbook_directory: RwLock::new(None)
+            playbook_directory: RwLock::new(None),
             play: RwLock::new(None),
             role: RwLock::new(None),
             task: RwLock::new(None),
