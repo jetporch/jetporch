@@ -20,6 +20,7 @@ mod util;
 mod playbooks;
 mod registry;
 mod connection;
+mod modules;
 mod runner;
 mod tasks;
 

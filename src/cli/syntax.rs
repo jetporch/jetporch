@@ -40,6 +40,6 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
 
     // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
     // we don't really need it.
-    return playbook_traversal(inventory, &playbook_paths, &context, &visitor, &factory, String::from("root"));
+    return playbook_traversal(inventory, &playbook_paths, context, visitor, factory, String::from("root"));
 
 }

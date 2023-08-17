@@ -129,8 +129,8 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
     //println!("{}", descendant_hosts_string);
     //println!("{}", child_hosts_string);
     
-    two_column_table(String::from("Host Report:"), String::from(""), host_elements);
-    println!("");
+    // two_column_table(String::from("Host Report:"), String::from(""), host_elements);
+    //println!("");
     captioned_display(String::from("Configured Variables"), group_variables);
     println!("");
     captioned_display(String::from("Blended Variables"), blended_variables);

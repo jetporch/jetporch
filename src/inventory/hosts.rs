@@ -20,7 +20,7 @@ use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
 use crate::tasks::response::TaskResponse;
-   |
+
 pub struct Host {
     pub name : String,
     pub variables : String,

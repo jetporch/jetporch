@@ -26,7 +26,7 @@ use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use std::path::PathBuf;
 use std::collections::HashSet;
-use std::sync::{Arc,Mutex,RwLock};
+use std::sync::{RwLock};
 
 pub struct PlaybookContext {
     pub playbook_path: RwLock<Option<String>>,

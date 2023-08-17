@@ -21,7 +21,6 @@
 // runner::task_handle which abstracts away some of these details
 // ===================================================================================
 
-use std::collections::HashMap;
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
@@ -45,10 +44,7 @@ pub enum TaskProperty {
 
 pub trait IsTask { 
     fn get_property(&self, property: TaskProperty) -> String;
-
-    fn dispatch(&self, 
-        handle: Arc<TaskHandle>, 
-        request: Arc<TaskRequest>) -> TaskResponse;
+    fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> Arc<TaskResponse>;
 }
 
 pub fn get_property(property: &Option<String>) -> String {

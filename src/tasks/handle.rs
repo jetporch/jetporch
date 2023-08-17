@@ -28,6 +28,7 @@ use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
 use crate::connection::command::Command;
 use crate::inventory::inventory::Inventory;
+use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 
@@ -87,7 +88,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: Some(msg.clone()) 
         });
-        self.host.write().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(&response));
         return response;
     }
 
@@ -99,7 +100,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: None 
         });
-        self.host.write().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(&response));
         return response;
     }
     
@@ -111,7 +112,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: None 
         });
-        self.host.write().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(&response));
         return response;
     }
     
@@ -123,7 +124,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: None 
         });
-        self.host.write().record_task_response(Arc::clone(&response));
+        self.host.write().unwrap().record_task_response(Arc::clone(&response));
         return response;
     }
     
@@ -135,7 +136,7 @@ impl TaskHandle {
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().record_task_response(response);
+        self.host.write().unwrap().record_task_response(response);
         return response;
     }
 
@@ -148,7 +149,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: None 
         });
-        self.host.write().record_task_response(response);
+        self.host.write().unwrap().record_task_response(response);
         return response;
     }
     
@@ -159,7 +160,7 @@ impl TaskHandle {
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().record_task_response(response);
+        self.host.write().unwrap().record_task_response(response);
         return response;
     }
     
@@ -170,7 +171,7 @@ impl TaskHandle {
             changes: Arc::new(HashMap::new()), 
             msg: None 
         });
-        self.host.write().record_task_response(response);
+        self.host.write().unwrap().record_task_response(response);
         return response;
     }
 

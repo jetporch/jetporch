@@ -22,15 +22,15 @@
 // particularly needed for SSH modes of the program
 // ===================================================================================
 
-use crate::module_base::common::{TaskStatus,TaskResponse};
+use crate::tasks::response::{TaskStatus,TaskResponse};
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
 use crate::connection::no::NoFactory;
-use crate::module_base::list::Task;
+use crate::registry::list::Task;
 use crate::connection::connection::Connection;
-use crate::runner::task_handle::TaskHandle;
-use crate::module_base::common::TaskRequest;
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::request::TaskRequest;
 use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use std::sync::{Arc,Mutex,RwLock};
@@ -38,8 +38,8 @@ use std::sync::{Arc,Mutex,RwLock};
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
 pub fn fsm_run_task(
-    inventory: &Arc<Mutex<Inventory>>, 
-    context: &Arc<Mutex<PlaybookContext>>,
+    inventory: &Arc<RwLock<Inventory>>, 
+    context: &Arc<RwLock<PlaybookContext>>,
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
     connection_factory: &Arc<RwLock<dyn ConnectionFactory>>, 
     task: &Task) -> Result<(), String> {

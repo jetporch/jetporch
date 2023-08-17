@@ -31,12 +31,11 @@ use crate::tasks::common::TaskProperty;
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::request::TaskRequest;
-use crate::runner::task_handle::TaskHandle;
 use std::sync::Arc;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
 
-use crate::module_library::echo::Echo;
+use crate::modules::echo::Echo;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
