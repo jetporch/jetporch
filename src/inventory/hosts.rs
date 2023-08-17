@@ -95,7 +95,7 @@ impl Host {
         return blend_variables(&mine, &blended);
     }
 
-    pub fn record_task_response(&mut self, task_request: Arc<TaskRequest>, task_response: Arc<TaskResponse>) {
+    pub fn record_task_response(&mut self, task_request: &Arc<TaskRequest>, task_response: &Arc<TaskResponse>) {
         self.history.push((Arc::clone(&task_request), Arc::clone(&task_response)));
     }
 

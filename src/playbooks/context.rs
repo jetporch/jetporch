@@ -102,7 +102,7 @@ impl PlaybookContext {
         }
     }
 
-    pub fn get_remote_user(&mut self, host: &String) -> String {
+    pub fn get_remote_user(&self, host: &String) -> String {
         let default = self.remote_user.read().unwrap();
         if default.is_some() {
             let x = default.as_ref().unwrap();
@@ -112,7 +112,7 @@ impl PlaybookContext {
         }
     }
 
-    pub fn get_remote_port(&mut self, host: &String) -> usize {
+    pub fn get_remote_port(&self, host: &String) -> usize {
         // notice this doesn't really use the context.
         // FIXME: check the variables + host variables
         return 22usize;

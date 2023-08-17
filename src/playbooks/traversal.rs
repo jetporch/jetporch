@@ -54,7 +54,7 @@ pub fn playbook_traversal(
     for playbook_path in playbook_paths {
 
         {
-            let ctx = context.write().unwrap();
+            let mut ctx = context.write().unwrap();
             ctx.set_playbook_path(playbook_path);
 
         }
@@ -113,7 +113,7 @@ pub fn playbook_traversal(
                         // FIXME: also set role.params in context
                         // FIXME: blending logic in context
                         {
-                            let ctx = context.write().unwrap();
+                            let mut ctx = context.write().unwrap();
                             ctx.set_role(role.name.clone(), directory_as_string(&pathbuf));
                         }
                         visitor.read().unwrap().on_role_start(&context);
@@ -124,7 +124,7 @@ pub fn playbook_traversal(
                     }
                 }
                 {
-                    let ctx = context.write().unwrap();
+                    let mut ctx = context.write().unwrap();
                     ctx.unset_role();
                 }
 
@@ -171,7 +171,6 @@ pub fn playbook_traversal(
                 }
                 */
             }
-            println!("version: {}", &play.jet.version);
             visitor.read().unwrap().on_play_stop(&context);
         }
     }

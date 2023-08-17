@@ -88,7 +88,7 @@ impl TaskHandle {
             changes: Arc::new(None),
             msg: Some(msg.clone()) 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -99,7 +99,7 @@ impl TaskHandle {
             changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -110,7 +110,7 @@ impl TaskHandle {
             changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -121,7 +121,7 @@ impl TaskHandle {
             changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -132,7 +132,7 @@ impl TaskHandle {
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -144,7 +144,7 @@ impl TaskHandle {
             changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -155,7 +155,7 @@ impl TaskHandle {
             changes: Arc::clone(&changes), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -166,7 +166,7 @@ impl TaskHandle {
             changes: Arc::new(None), 
             msg: None 
         });
-        self.host.write().unwrap().record_task_response(Arc::clone(request), response);
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 

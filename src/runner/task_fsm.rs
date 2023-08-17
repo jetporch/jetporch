@@ -62,7 +62,7 @@ pub fn fsm_run_task(
             if visitor.read().unwrap().is_syntax_only() { return Ok(()); }
         }, 
         TaskStatus::Failed => { 
-            return Err(format!("parameters conflict: {}", syntax_check_result.msg.unwrap()));
+            return Err(format!("parameters conflict: {}", syntax_check_result.msg.as_ref().unwrap()));
         },
         _ => { panic!("module returned invalid response to syntax check") }
     }
@@ -86,7 +86,7 @@ pub fn fsm_run_task(
 
                 if task_response.is_failed() {
                     // FIXME: visitor does not need locks around it!
-                    visitor.read().unwrap().on_host_task_failed(context, task_response, host.clone());
+                    visitor.read().unwrap().on_host_task_failed(context, &task_response, host.clone());
                 }
             },
             Err(_) => { 

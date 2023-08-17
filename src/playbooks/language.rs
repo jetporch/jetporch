@@ -29,16 +29,8 @@ pub enum AsInteger {
 
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct JetHeader {
-    pub version: String
-}
-
-
-#[derive(Debug,Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Play {
     pub name : String,
-    pub jet : JetHeader,
     pub groups : Vec<String>,
     pub roles : Option<Vec<Role>>,
     pub vars : Option<HashMap<String,Value>>,

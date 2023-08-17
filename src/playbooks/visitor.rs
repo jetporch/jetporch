@@ -85,7 +85,7 @@ pub trait PlaybookVisitor {
         println!("> task complete: {}", task);
     }
 
-    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: Arc<TaskResponse>, host: String) {
+    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: String) {
         println!("> host task failed: {}", host.clone());
         //println!("> task failed on host: {}", host);
         context.write().unwrap().fail_host(&host);
