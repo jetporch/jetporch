@@ -35,9 +35,9 @@ impl PlaybookVisitor for SyntaxVisitor {
 
 pub fn playbook_syntax_scan(inventory: &Arc<Mutex<Inventory>>, playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
     
-    let context : Arc<Mutex<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
+    let context : Arc<RwLock<PlaybookContext>> = Arc::new(Mutex::new(PlaybookContext::new()));
     let visitor : Arc<Mutex<dyn PlaybookVisitor>> = Arc::new(Mutex::new(SyntaxVisitor::new()));
-    let factory : Arc<Mutex<dyn ConnectionFactory>> = Arc::new(Mutex::new(NoFactory::new()));
+    let factory : Arc<RwLock<dyn ConnectionFactory>> = Arc::new(Mutex::new(NoFactory::new()));
 
     // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
     // we don't really need it.

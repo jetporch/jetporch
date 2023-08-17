@@ -14,7 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod common;
-pub mod list;
+#[derive(PartialEq)]
+pub enum TaskStatus {
+    IsCreated,
+    IsRemoved,
+    IsModified,
+    IsValidated,
+    IsChanged,
+    NeedsCreation,
+    NeedsRemoval,
+    NeedsModification,
+    Failed
+}
 
+pub struct TaskResponse {
+    pub request: Arc<TaskRequest>,
+    pub status: TaskStatus,
+    pub changes: Arc<HashMap<String, String>>,
+    pub msg: Option<String>,
+}
 
+impl TaskResponse {
+    pub fn is_failed(&self) -> bool {
+        return self.status == TaskStatus::Failed;
+    }
+
+    // possible methods for getting change counts, etc?
+}

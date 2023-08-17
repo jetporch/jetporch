@@ -31,9 +31,9 @@ use crate::module_base::list::Task;
 use crate::connection::connection::Connection;
 use crate::runner::task_handle::TaskHandle;
 use crate::module_base::common::TaskRequest;
+use crate::inventory::inventory::Inventory;
 use std::sync::Arc;
 use std::sync::Mutex;
-use crate::inventory::inventory::Inventory;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
@@ -41,7 +41,7 @@ pub fn fsm_run_task(
     inventory: &Arc<Mutex<Inventory>>, 
     context: &Arc<Mutex<PlaybookContext>>,
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
-    connection_factory: &Arc<Mutex<dyn ConnectionFactory>>, 
+    connection_factory: &Arc<RwLock<dyn ConnectionFactory>>, 
     task: &Task) -> Result<(), String> {
 
     let no_connection = NoFactory::new().get_connection(context, String::from("localhost")).unwrap();
@@ -58,7 +58,7 @@ pub fn fsm_run_task(
 
     let hosts = context.lock().unwrap().get_all_hosts();
     for host in hosts {
-        let connection_result = connection_factory.lock().unwrap().get_connection(context, host.clone());
+        let connection_result = connection_factory.read().unwrap().get_connection(context, host.clone());
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
@@ -79,18 +79,21 @@ pub fn fsm_run_task(
 // the "on this host" method body from fsm_run_task
 
 fn run_task_on_host(
-    inventory: &Arc<Mutex<Inventory>>, 
-    context: &Arc<Mutex<PlaybookContext>>,
+    inventory: &Arc<RwLock<Inventory>>, 
+    context: &Arc<RwLock<PlaybookContext>>,
     visitor: &Arc<Mutex<dyn PlaybookVisitor>>, 
-    connection: &Arc<Mutex<dyn Connection>>, 
-    task: &Task) -> TaskResponse {
+    connection: &Arc<Mutex<dyn Connection>>,
+    host: &Arc<RwLock<Host>>, 
+    task: &Arc<RwLock<Host>>) -> TaskResponse {
 
     let syntax      = visitor.lock().unwrap().is_syntax_only();
     let modify_mode = ! visitor.lock().unwrap().is_check_mode();
 
-    let handle = Arc::new(TaskHandle::new(inventory, context, visitor, connection));
+    let handle = Arc::new(TaskHandle::new(inventory, context, visitor, connection, host));
 
-    let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate());
+    let task_ptr = Arc::new(task);
+
+    let vrc = task.dispatch(Arc::clone(&handle), TaskRequest::validate(Arc::clone(&task_ptr)));
     match vrc.is {
         TaskStatus::IsValidated => { 
             if syntax {
@@ -103,12 +106,12 @@ fn run_task_on_host(
 
 
     let query = TaskRequest::query();
-    let qrc = task.dispatch(Arc::clone(&handle), TaskRequest::query());
-    let result = match qrc.is {
+    let qrc = task.dispatch(Arc::clone(&handle), TaskRequest::query(Arc::clone(&task_ptr)));
+    let result = match qrc.status {
         TaskStatus::NeedsCreation => match modify_mode {
             true => {
-                let crc = task.dispatch(Arc::clone(&handle), TaskRequest::create());
-                match crc.is {
+                let crc = task.dispatch(Arc::clone(&handle), TaskRequest::create(Arc::clone(&task_ptr)));
+                match crc.status {
                     TaskStatus::IsCreated => { crc },
                     TaskStatus::Failed  => { crc },
                     _=> { panic!("module internal fsm state invalid (on create)") }
@@ -118,8 +121,8 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsRemoval => match modify_mode {
             true => {
-                let rrc = task.dispatch(Arc::clone(&handle), TaskRequest::remove());
-                match rrc.is {
+                let rrc = task.dispatch(Arc::clone(&handle), TaskRequest::remove(Arc::clone(&task_ptr)));
+                match rrc.status {
                     TaskStatus::IsRemoved => { rrc },
                     TaskStatus::Failed  => { rrc },
                     _=> { panic!("module internal fsm state invalid (on remove)") }
@@ -129,8 +132,8 @@ fn run_task_on_host(
         },
         TaskStatus::NeedsModification => match modify_mode {
             true => {
-                let mrc = task.dispatch(Arc::clone(&handle), TaskRequest::modify(Arc::clone(&qrc.changes)));
-                match mrc.is {
+                let mrc = task.dispatch(Arc::clone(&handle), TaskRequest::modify(Arc::clone(&task_ptr), Arc::clone(&qrc.changes)));
+                match mrc.status {
                     TaskStatus::IsModified => { mrc },
                     TaskStatus::Failed  => { mrc },
                     _=> { panic!("module internal fsm state invalid (on modify)") }
@@ -141,6 +144,8 @@ fn run_task_on_host(
         TaskStatus::Failed => qrc,
         _ => { panic!("module internal fsm state invalid (on query)"); }
     };
+
+
     return result;
 
 }

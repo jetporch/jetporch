@@ -169,8 +169,8 @@ fn load_vars_directory(inventory: &Arc<Mutex<Inventory>>, path: &Path, is_group:
                 group.write().unwrap().set_variables(&yaml_string.clone());
             }
             false => {
-                let host = inv.get_host(&base_name.clone());
-                host.write().unwrap().set_variables(&yaml_string.clone());
+                let host = inv.get_host(&base_name);
+                host.write().unwrap().set_variables(&yaml_string);
             }
         }
         Ok(())

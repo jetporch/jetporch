@@ -27,35 +27,45 @@
 // ===================================================================================
 
 use serde::Deserialize;
-use crate::module_base::common::*;
+use crate::tasks::common::TaskProperty;
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::response::TaskResponse;
+use crate::tasks::request::TaskRequest;
 use crate::runner::task_handle::TaskHandle;
 use std::sync::Arc;
 
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
+
 use crate::module_library::echo::Echo;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
+
     // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2)
     Echo(Echo),
+
 }
 
 impl Task {
 
     pub fn get_property(&self, property: TaskProperty) -> String { 
         return match self {
+            
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
             Task::Echo(x) => x.get_property(property), 
+            
             _ => { panic!("module properties not registered"); },
         };
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
-    pub fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> TaskResponse {
+    pub fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> Arc<TaskResponse> {
         return match self {
+            
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
             Task::Echo(x) => x.dispatch(handle, request), 
+
             _ => { panic!("module dispatch not registered"); },
         };
     }

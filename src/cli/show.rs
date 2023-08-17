@@ -115,6 +115,8 @@ pub fn show_inventory_group(inventory: &Arc<Mutex<Inventory>>, group_name: &Stri
     // FIXME: print child hosts without termimad, as there are too many in very large inventories
     // just print the first 100 or so and add ...
 
+    // FIXME: also sort
+
     //let host_elements : Vec<(String, String)> = vec![
     //    (String::from(format!("All Ancestors ({})",descendant_hosts_count)), descendant_hosts_string),
     //    (String::from(format!("Children ({})", child_hosts_count)), child_hosts_string),

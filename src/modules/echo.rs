@@ -14,12 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::module_base::common::{TaskRequest,TaskRequestType,TaskResponse,TaskProperty,get_property};
-use crate::runner::task_handle::TaskHandle;
-use crate::module_base::common::IsTask;
+use crate::tasks::common::{TaskProperty,IsTask,get_property};
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::response::TaskResponse;
+use crate::tasks::request::TaskRequest;
+use std::sync::Arc;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
-use std::sync::Arc;
+
+// =======================================================================
+// MODULE STRUCTURE
+// =======================================================================
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -39,7 +44,10 @@ pub struct Echo {
 
 impl IsTask for Echo {
 
-    /** COMMON MODULE BOILERPLATE **/
+    // =======================================================================
+    // FIELD ACCESS BOILERPLATE
+    // =======================================================================
+
     fn get_property(&self, property: TaskProperty) -> String { 
         return match property {
             TaskProperty::ChangedWhen => get_property(&self.changed_when),
@@ -51,8 +59,12 @@ impl IsTask for Echo {
         }
     }
 
+    // =======================================================================
+    // MODULE SPECIFIC IMPLEMENTATION
+    // =======================================================================
+
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> TaskResponse {
+    fn dispatch(&self, handle: Arc<TaskHandle>, request: Arc<TaskRequest>) -> Arc<TaskResponse> {
     
         match request.request_type {
 

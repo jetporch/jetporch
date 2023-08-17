@@ -25,6 +25,7 @@ pub struct Host {
     pub name : String,
     pub variables : String,
     pub groups : HashMap<String,Arc<RwLock<Group>>>
+    pub task_responses: Vec<Arc<TaskResponse>>,
 }
 
 impl Host {
@@ -33,7 +34,8 @@ impl Host {
         Self {
             name: name.clone(),
             variables: String::new(),
-            groups: HashMap::new()
+            groups: HashMap::new(),
+            task_responses: Vec::new(),
         }
     }
 
@@ -90,6 +92,10 @@ impl Host {
         }
         let mine = self.get_variables();
         return blend_variables(&mine, &blended);
+    }
+
+    pub record_task_response(&self, task_response: Arc<TaskResponse>) {
+        self.task_responses.push(Arc::clone(&task_response));
     }
 
 }
