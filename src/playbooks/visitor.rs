@@ -40,29 +40,29 @@ pub trait PlaybookVisitor {
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.playbook_path.lock().unwrap();
         //let path = arc.as_ref().unwrap();
-        let path = "FIXME".to_string();
+        let path = "<PATH GOES HERE>".to_string();
         println!("> playbook start: {}", path)
     }
 
     fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
-        let play = "FIXME".to_string();
+        let play = &context.read().unwrap().play;
 
-        println!("> play start: {}", play);
+        println!("> play start: {}", play.as_ref().unwrap());
     }
     
     fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         //let role = arc.as_ref().unwrap();
-        let role = "FIXME".to_string();
-        println!("> role start: {}", role);
+        let role = &context.read().unwrap().role;
+        println!("> role start: {}", role.as_ref().unwrap());
     }
 
     fn on_role_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
-        let role = "FIXME".to_string();
-        println!("> role stop: {}", role);
+        let role = &context.read().unwrap().role;
+        println!("> role stop: {}", role.as_ref().unwrap());
     }
 
     fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -90,19 +90,19 @@ pub trait PlaybookVisitor {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
         //let module = task.get_module();
-        let task = "FIXME".to_string();
-        println!("> task start: {}", task);
+        let task = &context.read().unwrap().task;
+        println!("> task start: {}", task.as_ref().unwrap());
     }
 
     fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
-        println!("> batch {}/{}, {} hosts", batch_num, batch_count, batch_size);
+        println!("> batch {}/{}, {} hosts", batch_num+1, batch_count, batch_size);
     }
 
     fn on_task_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
-        let task = "FIXME".to_string();
-        println!("> task complete: {}", task);
+        let task = &context.read().unwrap().task;
+        println!("> task complete: {}", task.as_ref().unwrap());
     }
 
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
