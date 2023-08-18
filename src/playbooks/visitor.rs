@@ -28,6 +28,8 @@ use crate::playbooks::context::PlaybookContext;
 use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use std::sync::RwLock;
+use crate::util::terminal::two_column_table;
+use crate::inventory::hosts::Host;
 
 pub trait PlaybookVisitor {
 
@@ -66,8 +68,22 @@ pub trait PlaybookVisitor {
     fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
-        let play = "FIXME".to_string();
-        println!("> play complete: {}", play);
+        
+        let ctx = context.read().unwrap();
+        let play_name = ctx.get_play_name();
+
+        if self.is_syntax_only() {
+
+            let elements: Vec<(String,String)> = vec![     
+                (String::from("Roles"), format!("{}", ctx.get_role_count())),
+                (String::from("Tasks"), format!("{}", ctx.get_task_count())),
+                (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
+            ];
+            two_column_table(String::from("Play Result"), play_name.clone(), elements);
+
+        } else {
+            println!("(full play output not implemented)");
+        }
     }
 
     fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -85,15 +101,15 @@ pub trait PlaybookVisitor {
         println!("> task complete: {}", task);
     }
 
-    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: String) {
-        println!("> host task failed: {}", host.clone());
+    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+        let host2 = host.read().unwrap();
+        println!("> host task failed: {}", host2.name);
         //println!("> task failed on host: {}", host);
-        context.write().unwrap().fail_host(&host);
     }
 
-    fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: String) {
-        println!("> connection failed to host: {}", host.clone());
-        context.write().unwrap().fail_host(&host);
+    fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+        let host2 = host.read().unwrap();
+        println!("> connection failed to host: {}", host2.name);
     }
 
     fn is_syntax_only(&self) -> bool;

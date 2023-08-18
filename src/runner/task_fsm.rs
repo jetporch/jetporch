@@ -45,18 +45,10 @@ pub fn fsm_run_task(
     connection_factory: &Arc<RwLock<dyn ConnectionFactory>>, 
     task: &Task) -> Result<(), String> {
 
+    // syntax check first
     let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
     let no_connection = NoFactory::new().get_connection(context, &String::from("localhost")).unwrap();
-
-    let syntax_check_result = run_task_on_host(
-        inventory, 
-        context, 
-        visitor, 
-        &no_connection, 
-        &tmp_localhost, 
-        task
-    );
-
+    let syntax_check_result = run_task_on_host(inventory,context,visitor,&no_connection,&tmp_localhost,task);
     match syntax_check_result.status {
         TaskStatus::IsValidated => { 
             if visitor.read().unwrap().is_syntax_only() { return Ok(()); }
@@ -67,13 +59,14 @@ pub fn fsm_run_task(
         _ => { panic!("module returned invalid response to syntax check") }
     }
 
+    // now full traversal (if not syntax check only mode)
     let hosts = context.read().unwrap().get_all_hosts();
     for host in hosts {
-        let connection_result = connection_factory.read().unwrap().get_connection(context, &host.clone());
+        let connection_result = connection_factory.read().unwrap().get_connection(context, &host);
+        let host_object = inventory.read().unwrap().get_host(&host);
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
-                let host_object = inventory.read().unwrap().get_host(&host);
 
                 let task_response = run_task_on_host(
                     inventory, 
@@ -86,11 +79,13 @@ pub fn fsm_run_task(
 
                 if task_response.is_failed() {
                     // FIXME: visitor does not need locks around it!
-                    visitor.read().unwrap().on_host_task_failed(context, &task_response, host.clone());
+                    context.write().unwrap().fail_host(&host);
+                    visitor.read().unwrap().on_host_task_failed(context, &task_response, &host_object);
                 }
             },
             Err(_) => { 
-                visitor.read().unwrap().on_host_connect_failed(context, host.clone());
+                context.write().unwrap().fail_host(&host);
+                visitor.read().unwrap().on_host_connect_failed(context, &host_object);
             }
         }
     }

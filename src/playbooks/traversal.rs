@@ -53,11 +53,7 @@ pub fn playbook_traversal(
         
     for playbook_path in playbook_paths {
 
-        {
-            let mut ctx = context.write().unwrap();
-            ctx.set_playbook_path(playbook_path);
-
-        }
+        { let mut ctx = context.write().unwrap(); ctx.set_playbook_path(playbook_path); }
         visitor.read().unwrap().on_playbook_start(&context);
 
         let playbook_file = jet_file_open(&playbook_path)?;
@@ -70,6 +66,9 @@ pub fn playbook_traversal(
 
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
+
+
+            // FIXME: make this a function!
 
             let batch_size_num = play.batch_size.unwrap_or(0);
 
@@ -123,10 +122,7 @@ pub fn playbook_traversal(
                         visitor.read().unwrap().on_role_stop(&context);
                     }
                 }
-                {
-                    let mut ctx = context.write().unwrap();
-                    ctx.unset_role();
-                }
+                { let mut ctx = context.write().unwrap(); ctx.unset_role(); }
 
                 if play.tasks.is_some() {
                     let tasks = play.tasks.as_ref().unwrap();
@@ -149,6 +145,7 @@ pub fn playbook_traversal(
                 if play.roles.is_some() {
                     let roles = play.roles.as_ref().unwrap();
                     for role in roles.iter() {
+                        context.write().unwrap().increment_task_count();
                         visitor.on_role_start(&context);
                         let role_name = role.name.clone();
                         let role_path = find_role(&context, visitor, role_name.clone())?;                        
@@ -173,6 +170,8 @@ pub fn playbook_traversal(
             }
             visitor.read().unwrap().on_play_stop(&context);
         }
+
+        // FIXME: reset roles and task counts, role and play names, in context etc.
     }
     return Ok(())
 }
@@ -319,6 +318,7 @@ fn process_task(
     // we don't actually crash here.  The workflow code should handle parallelization
     // as this function needs access to the task list.
 
+    context.write().unwrap().increment_task_count();
 
     visitor.read().unwrap().debug(String::from("processing task"));
 
