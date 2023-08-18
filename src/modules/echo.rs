@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::common::{TaskProperty,IsTask,get_property};
+use crate::tasks::common::{TaskProperty,IsTask,get_property,get_property_or_default};
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::request::{TaskRequestType,TaskRequest};
@@ -25,6 +25,8 @@ use serde::{Deserialize};
 // =======================================================================
 // MODULE STRUCTURE
 // =======================================================================
+
+static MODULE_NAME : &'static str = "Echo";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
@@ -54,7 +56,7 @@ impl IsTask for Echo {
             TaskProperty::Delay => get_property(&self.delay),
             TaskProperty::Register => get_property(&self.register),
             TaskProperty::Retry => get_property(&self.retry),
-            TaskProperty::Name => get_property(&self.name),
+            TaskProperty::Name => get_property_or_default(&self.name, &String::from(MODULE_NAME)),
             TaskProperty::When => get_property(&self.when), 
         }
     }

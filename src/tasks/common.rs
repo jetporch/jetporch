@@ -47,6 +47,13 @@ pub trait IsTask {
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse>;
 }
 
+pub fn get_property_or_default(property: &Option<String>, default: &String) -> String {
+    return match property { 
+        Some(x) => x.clone(), 
+        _ => default.clone()
+    }
+}
+
 pub fn get_property(property: &Option<String>) -> String {
     return match property { 
         Some(x) => x.clone(), 

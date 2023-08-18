@@ -45,7 +45,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) 
 
     // syntax check first
     let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
-    let no_connection = NoFactory::new().get_connection(&run_state.context, &String::from("localhost")).unwrap();
+    let no_connection = NoFactory::new().get_connection(&run_state.context, &tmp_localhost).unwrap();
     let syntax_check_result = run_task_on_host(run_state,&no_connection,&tmp_localhost,task);
     match syntax_check_result.status {
         TaskStatus::IsValidated => { 
@@ -58,9 +58,9 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) 
     }
 
     // now full traversal (if not syntax check only mode)
-    let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_targetted_hosts();
+    let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     for (_name, host) in hosts {
-        let connection_result = run_state.connection_factory.read().unwrap().get_connection(run_state.context, &host);
+        let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
@@ -70,12 +70,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) 
                 if task_response.is_failed() {
                     // FIXME: visitor does not need locks around it!
                     run_state.context.write().unwrap().fail_host(&host);
-                    run_state.visitor.read().unwrap().on_host_task_failed(run_state.context, &task_response, &host);
+                    run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &task_response, &host);
                 }
             },
             Err(_) => { 
                 run_state.context.write().unwrap().fail_host(&host);
-                run_state.visitor.read().unwrap().on_host_connect_failed(run_state.context, &host);
+                run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
             }
         }
     }

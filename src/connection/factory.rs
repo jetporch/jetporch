@@ -23,11 +23,12 @@
 
 use crate::connection::connection::{Connection};
 use crate::playbooks::context::PlaybookContext;
+use crate::inventory::hosts::Host;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 
 pub trait ConnectionFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &String) -> Result<Arc<Mutex<dyn Connection>>, String>;
+    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String>;
 }
 

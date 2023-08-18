@@ -43,15 +43,17 @@ impl SshFactory {
 }
 
 impl ConnectionFactory for SshFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
-        if host.eq("localhost") {
+    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
+        let host_obj = host.read().unwrap();
+        let hostname = host_obj.name;
+        if hostname.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
             let ctx = context.read().unwrap();
             let mut conn = SshConnection::new(
-                host.read().unwrap().name,
+                &hostname.clone(),
                 ctx.get_ssh_remote_port(&host),
-                ctx.get_ssh_remote_user(&host),
+                &ctx.get_ssh_remote_user(&host),
             );
             return match conn.connect() {
                 Ok(_)  => { Ok(Arc::new(Mutex::new(conn))) },

@@ -23,6 +23,7 @@
 use crate::connection::connection::{Connection,ConnectionCommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
+use crate::inventory::hosts::Host;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -36,7 +37,7 @@ impl LocalFactory {
 }
 
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &String) -> Result<Arc<Mutex<dyn Connection>>,String> {
+    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
         return Ok(Arc::new(Mutex::new(LocalConnection::new())));
     }
 }

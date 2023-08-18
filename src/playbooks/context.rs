@@ -24,10 +24,12 @@
 
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
+use crate::tasks::common::TaskProperty;
 use std::path::PathBuf;
-use std::collections::{HashSet,HashMap};
+use std::collections::{HashMap};
 use crate::inventory::hosts::Host;
 use std::sync::{Arc,RwLock};
+use crate::registry::list::Task;
 
 pub struct PlaybookContext {
     
@@ -52,6 +54,9 @@ pub struct PlaybookContext {
 
     // FIXME: should this be here, it's a property of the connection
     pub remote_user: Option<String>,
+
+    // FIXME: probably want to track notified handlers here
+    // FIXME: probably need a reset() method for end of plays
 }
 
 impl PlaybookContext {
@@ -112,8 +117,8 @@ impl PlaybookContext {
         self.playbook_directory = Some(directory_as_string(&path));
     }
 
-    pub fn set_task(&mut self, task_name: String) {
-        self.task = Some(task_name.clone());
+    pub fn set_task(&mut self, task: &Task) {
+        self.task = Some(task.get_property(TaskProperty::Name)); 
     }
 
     pub fn set_play(&mut self, play: &Play) {
@@ -148,7 +153,7 @@ impl PlaybookContext {
     }
     */
 
-    pub fn get_remote_user(&self, host: &Arc<RwLock<Host>>) -> String {
+    pub fn get_ssh_remote_user(&self, host: &Arc<RwLock<Host>>) -> String {
         // FIXME: default only if host doesn't have an answer in blended variables
         // FIXME: we can also see if there is a value set on the play
         return match &self.remote_user {
@@ -157,14 +162,11 @@ impl PlaybookContext {
         }
     }
 
-    pub fn get_remote_port(&self, host: &Arc<RwLock<Host>>) -> usize {
+    pub fn get_ssh_remote_port(&self, host: &Arc<RwLock<Host>>) -> usize {
         // FIXME: default only if host doesn't have an answer in blended variables
         // FIXME: we can also see if there is a value set on the play
         return 22usize;
-
     }
-
-    */
 
     // ==================================================================================
     // STATISTICS

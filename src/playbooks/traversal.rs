@@ -108,7 +108,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
 
 // ==============================================================================
 
-fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<String>) -> Result<(), String> {
+fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<Host>>>) -> Result<(), String> {
 
     // assign the batch
     { let mut ctx = run_state.context.write().unwrap(); ctx.set_targetted_hosts(&hosts); }
@@ -146,7 +146,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<String>) -> 
 
 fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: bool) -> Result<(), String> {
 
-    run_state.context.set_task(task);
+    run_state.context.write().unwrap().set_task(&task);
     run_state.visitor.read().unwrap().on_task_start(&run_state.context);
     run_state.context.write().unwrap().increment_task_count();
 
@@ -193,10 +193,12 @@ fn get_host_batches(run_state: &Arc<RunState>, play: &Play, batch_size: usize, h
     // partition a list of hosts into a number of batches.
     // FIXME: not implemented!
 
-    let mut results : HashMap<usize, String> = HashMap::new();
-    for host in hosts.iter() {
-        results.insert(0usize, host.clone());
-    }
+    let mut results : HashMap<usize, Vec<Arc<RwLock<Host>>>> = HashMap::new();
+    //for host in hosts.iter() {
+    //    results.insert(0usize, Arc::clone(&host));
+    // }
+
+    results.insert(0, hosts.iter().map(|v| Arc::clone(&v)).collect());
     return (1, 1, results);
 
 }
@@ -210,13 +212,13 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
     let inventory = run_state.inventory.read().unwrap();
     let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
     for group in groups.iter() {
-        let group_object = run_state.inventory.get_group(&group.clone());
+        let group_object = run_state.inventory.read().unwrap().get_group(&group.clone());
         let hosts = group_object.read().unwrap().get_descendant_hosts();
         for (k,v) in hosts.iter() {
             results.insert(k.clone(), Arc::clone(&v));
         }
     }
-    return results.iter().map(|(k,v)| v).collect();
+    return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
 }
 
 // ==============================================================================
