@@ -45,7 +45,7 @@ impl SshFactory {
 impl ConnectionFactory for SshFactory {
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
         let host_obj = host.read().unwrap();
-        let hostname = host_obj.name;
+        let hostname = &host_obj.name;
         if hostname.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {

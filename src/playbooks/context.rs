@@ -93,7 +93,7 @@ impl PlaybookContext {
         return results;
     }
 
-    pub fn set_targetted_hosts(&self, hosts: &Vec<Arc<RwLock<Host>>>) {
+    pub fn set_targetted_hosts(&mut self, hosts: &Vec<Arc<RwLock<Host>>>) {
         for host in hosts.iter() {
             self.all_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
             self.remaining_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
@@ -102,8 +102,10 @@ impl PlaybookContext {
 
     pub fn fail_host(&mut self, host: &Arc<RwLock<Host>>) {
         // FIXME - we should really keep all_hosts seperate from unfailed_hosts
-        self.remaining_hosts.remove(&host.read().unwrap().name);
-        self.failed_hosts.insert(host.read().unwrap().name, Arc::clone(&host));
+        let host2 = host.read().unwrap();
+        let hostname = host2.name.clone();
+        self.remaining_hosts.remove(&hostname);
+        self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
 
 

@@ -42,14 +42,14 @@ pub struct YamlGroup {
 // PUBLIC API
 // ==============================================================================================================
 
-pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Vec<PathBuf>) -> Result<(), String> {
+pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Arc<RwLock<Vec<PathBuf>>>) -> Result<(), String> {
 
     {
         let mut inv_obj = inventory.write().unwrap();
         inv_obj.store_group(&String::from("all"));
     }
 
-    for inventory_path_buf in inventory_paths {
+    for inventory_path_buf in inventory_paths.read().unwrap().iter() {
         let inventory_path = inventory_path_buf.as_path();
         if inventory_path.is_dir() {
             let groups_pathbuf      = inventory_path_buf.join("groups");

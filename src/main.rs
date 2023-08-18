@@ -25,14 +25,13 @@ mod runner;
 mod tasks;
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use crate::util::io::{quit};
 use crate::inventory::inventory::Inventory;
 use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
 use crate::cli::syntax::{playbook_syntax_scan};
-use std::sync::RwLock;
+use std::sync::{Arc,RwLock};
 
 fn main() {
     match liftoff() { Err(e) => quit(&e), _ => {} }
@@ -50,8 +49,9 @@ fn liftoff() -> Result<(),String> {
     }
 
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
-    let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
-    load_inventory(&inventory, inventory_paths)?;
+    //let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths; 
+    //cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
+    load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
 
     return match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
@@ -81,7 +81,7 @@ pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Re
 // FIXME: look at anyhow crate
 
 pub fn handle_syntax(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
-    return playbook_syntax_scan(inventory, parser.playbook_paths);
+    return playbook_syntax_scan(inventory, &parser.playbook_paths);
 }
 
 

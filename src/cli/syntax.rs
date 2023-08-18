@@ -31,10 +31,10 @@ impl PlaybookVisitor for SyntaxVisitor {
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
-pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: Vec<PathBuf>) -> Result<(), String> {
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> Result<(), String> {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
-        playbook_paths: playbook_paths,
+        playbook_paths: Arc::clone(playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),

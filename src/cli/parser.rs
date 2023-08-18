@@ -21,6 +21,7 @@
 use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
+use std::sync::{Arc,RwLock};
 
 // FIXME: add --user and pass the value to various traversals in main (SSH only)
 
@@ -30,8 +31,8 @@ use std::path::PathBuf;
 
 pub struct CliParser {
     // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
-    pub playbook_paths: Vec<PathBuf>,
-    pub inventory_paths: Vec<PathBuf>,
+    pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub mode: u32,
     pub needs_help: bool,
     pub hosts: Vec<String>,
@@ -167,8 +168,8 @@ impl CliParser  {
     pub fn new() -> Self {
 
         CliParser { 
-            playbook_paths: Vec::new(),
-            inventory_paths: Vec::new(),
+            playbook_paths: Arc::new(RwLock::new(Vec::new())),
+            inventory_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
             mode: CLI_MODE_UNSET,
             hosts: Vec::new(),
@@ -316,7 +317,7 @@ impl CliParser  {
 
     fn store_playbook_value(&mut self, value: &String) -> Result<(), String> {
         match parse_paths(value) {
-            Ok(paths)  =>  { self.playbook_paths = paths; }, 
+            Ok(paths)  =>  { *self.playbook_paths.write().unwrap() = paths; }, 
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
         }
         return Ok(());
@@ -328,7 +329,7 @@ impl CliParser  {
 
     fn store_inventory_value(&mut self, value: &String) -> Result<(), String> {
         match parse_paths(value) {
-            Ok(paths)  =>  { self.inventory_paths = paths; }, 
+            Ok(paths)  =>  { *self.inventory_paths.write().unwrap() = paths; }, 
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_INVENTORY, err_msg)),
         }
         return Ok(());

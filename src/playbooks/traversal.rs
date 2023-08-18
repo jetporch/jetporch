@@ -32,7 +32,7 @@ use std::sync::{Arc,RwLock};
 
 pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
-    pub playbook_paths: Vec<PathBuf>,
+    pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
@@ -45,7 +45,7 @@ pub struct RunState {
 
 pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         
-    for playbook_path in run_state.playbook_paths.iter() {
+    for playbook_path in run_state.playbook_paths.read().unwrap().iter() {
 
         { let mut ctx = run_state.context.write().unwrap(); ctx.set_playbook_path(playbook_path); }
 
@@ -208,7 +208,7 @@ fn get_host_batches(run_state: &Arc<RunState>, play: &Play, batch_size: usize, h
 fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>>> {
 
     // given a list of group names, return a vector of all hosts selected by those groups.
-    let groups = play.groups;
+    let groups = &play.groups;
     let inventory = run_state.inventory.read().unwrap();
     let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
     for group in groups.iter() {
@@ -230,7 +230,7 @@ fn validate_groups(run_state: &Arc<RunState>, play: &Play) -> Result<(), String>
 
     // FIXME: warn if any group names are not found in inventory if this does not produce
     // an error.
-    let groups = play.groups;
+    let groups = &play.groups;
     let inv = run_state.inventory.read().unwrap();
     for group_name in groups.iter() {
         if !inv.has_group(&group_name.clone()) {
