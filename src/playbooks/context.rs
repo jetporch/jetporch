@@ -25,21 +25,32 @@
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use std::path::PathBuf;
-use std::collections::HashSet;
-use std::sync::{RwLock};
+use std::collections::{HashSet,HashMap};
+use crate::inventory::hosts::Host;
+use std::sync::{Arc,RwLock};
 
 pub struct PlaybookContext {
+    
     pub playbook_path: Option<String>,
     pub playbook_directory: Option<String>,
     pub play: Option<String>,
+    
     pub role: Option<String>,
-    pub role_count: usize,
-    pub task_count: usize,
-    pub task: Option<String>,
-    pub host: Option<String>,
-    pub all_hosts: HashSet<String>,
     pub role_path: Option<String>,
     pub role_name: Option<String>,
+    pub role_count: usize,
+
+    pub task_count: usize,
+    pub task: Option<String>,
+
+    // FIXME: should this be here, it should be passed around maybe?
+    pub host: Option<String>,
+    
+    pub all_hosts: HashMap<String, Arc<RwLock<Host>>>,
+    pub remaining_hosts: HashMap<String, Arc<RwLock<Host>>>,
+    pub failed_hosts: HashMap<String, Arc<RwLock<Host>>>,
+
+    // FIXME: should this be here, it's a property of the connection
     pub remote_user: Option<String>,
 }
 
@@ -55,22 +66,44 @@ impl PlaybookContext {
             role_count : 0,
             task_count : 0,
             host: None,
-            all_hosts: HashSet::new(),
+            all_hosts: HashMap::new(),
+            remaining_hosts: HashMap::new(),
+            failed_hosts: HashMap::new(),
             role_path: None,
             role_name: None,
             remote_user: None
         }
     }
 
+    // ===============================================================================
+    // HOST TARGETTING
+
     // get all selected hosts in the play
     // FIXME: need a method for non-failed hosts
-    pub fn get_all_hosts(&self) -> HashSet<String> {
-        let mut results : HashSet<String> = HashSet::new();
-        for host in self.all_hosts.iter() {
-            results.insert(host.clone());
+    pub fn get_remaining_hosts(&self) -> HashMap<String, Arc<RwLock<Host>>> {
+        let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
+        for (k,v) in self.remaining_hosts.iter() {
+            results.insert(k.clone(), Arc::clone(&v));
         }
         return results;
     }
+
+    pub fn set_targetted_hosts(&self, hosts: &Vec<Arc<RwLock<Host>>>) {
+        for host in hosts.iter() {
+            self.all_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
+            self.remaining_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
+        }
+    }
+
+    pub fn fail_host(&mut self, host: &Arc<RwLock<Host>>) {
+        // FIXME - we should really keep all_hosts seperate from unfailed_hosts
+        self.remaining_hosts.remove(&host.read().unwrap().name);
+        self.failed_hosts.insert(host.read().unwrap().name, Arc::clone(&host));
+    }
+
+
+    // =================================================================================
+    // SIGNPOSTS
 
     // FIXME: we need a method set_hosts that clears all_hosts
 
@@ -104,6 +137,8 @@ impl PlaybookContext {
         self.role_path = None;
     }
     
+
+    /* FIXME: doesn't make sense, I think?
     pub fn set_remote_user(&mut self, play: &Play, default_username: String) {
         // FIXME: get current logged in username or update docs
         match &play.ssh_user {
@@ -111,25 +146,28 @@ impl PlaybookContext {
             None => { self.remote_user = Some(String::from("root")); }
         }
     }
+    */
 
-    pub fn get_remote_user(&self, host: &String) -> String {
+    pub fn get_remote_user(&self, host: &Arc<RwLock<Host>>) -> String {
+        // FIXME: default only if host doesn't have an answer in blended variables
+        // FIXME: we can also see if there is a value set on the play
         return match &self.remote_user {
             Some(x) => x.clone(),
             None => String::from("root")
         }
     }
 
-    pub fn get_remote_port(&self, host: &String) -> usize {
-        // notice this doesn't really use the context.
-        // FIXME: check the variables + host variables
+    pub fn get_remote_port(&self, host: &Arc<RwLock<Host>>) -> usize {
+        // FIXME: default only if host doesn't have an answer in blended variables
+        // FIXME: we can also see if there is a value set on the play
         return 22usize;
 
     }
 
-    pub fn fail_host(&mut self, host: &String){
-        // FIXME - we should really keep all_hosts seperate from unfailed_hosts
-        panic!("fail_host is not implemented yet");
-    }
+    */
+
+    // ==================================================================================
+    // STATISTICS
 
     pub fn get_role_count(&self) -> usize {
         return self.role_count;

@@ -21,38 +21,29 @@
 // and mostly standardized
 // ===================================================================================
 
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
+//use crate::playbooks::context::PlaybookContext;
+//use crate::playbooks::visitor::PlaybookVisitor;
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
 use crate::connection::command::Command;
-use crate::inventory::inventory::Inventory;
+//use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
+use crate::playbooks::traversal::RunState;
 
 pub struct TaskHandle {
-    inventory: Arc<RwLock<Inventory>>, 
-    context: Arc<RwLock<PlaybookContext>>,
-    visitor: Arc<RwLock<dyn PlaybookVisitor>>, 
+    run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
 }
 
 impl TaskHandle {
 
-    pub fn new(
-        inventory_handle: Arc<RwLock<Inventory>>, 
-        context_handle: Arc<RwLock<PlaybookContext>>, 
-        visitor_handle: Arc<RwLock<dyn PlaybookVisitor>>, 
-        connection_handle: Arc<Mutex<dyn Connection>>,
-        host_handle: Arc<RwLock<Host>>) -> Self {
-
+    pub fn new(run_state_handle: Arc<RunState>,connection_handle: Arc<Mutex<dyn Connection>>,host_handle: Arc<RwLock<Host>>) -> Self {
         Self {
-            inventory: inventory_handle,
-            context: context_handle,
-            visitor: visitor_handle,
+            run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
         }
@@ -76,7 +67,7 @@ impl TaskHandle {
     // to make module code nicer.
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: String) {
-        self.visitor.read().unwrap().debug(message);
+        self.run_state.visitor.read().unwrap().debug(message);
     }
 
     // ================================================================================

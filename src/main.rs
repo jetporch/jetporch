@@ -54,15 +54,15 @@ fn liftoff() -> Result<(),String> {
     load_inventory(&inventory, inventory_paths)?;
 
     return match cli_parser.mode {
-        cli::parser::CLI_MODE_SHOW   => handle_show(inventory, &cli_parser),
-        cli::parser::CLI_MODE_SYNTAX => handle_syntax(inventory, &cli_parser),
+        cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&inventory, &cli_parser),
 
         _ => Err(String::from("invalid CLI mode"))
     }
 
 }
 
-pub fn handle_show(inventory: Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
+pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
     // jetp show -i inventory
     // jetp show -i inventory --groups g1:g2
     // jetp show -i inventory --hosts h1:h2
@@ -80,8 +80,8 @@ pub fn handle_show(inventory: Arc<RwLock<Inventory>>, parser: &CliParser) -> Res
 
 // FIXME: look at anyhow crate
 
-pub fn handle_syntax(inventory: Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
-    return playbook_syntax_scan(inventory, &parser.playbook_paths);
+pub fn handle_syntax(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
+    return playbook_syntax_scan(inventory, parser.playbook_paths);
 }
 
 

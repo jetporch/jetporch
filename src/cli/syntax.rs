@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::playbooks::traversal::{playbook_traversal};
-use crate::connection::no::{NoFactory};
-use crate::playbooks::context::{PlaybookContext};
+use crate::playbooks::traversal::{playbook_traversal,RunState};
+use crate::connection::no::NoFactory;
+use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
-use crate::connection::factory::ConnectionFactory;
 use crate::inventory::inventory::Inventory;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
@@ -32,14 +31,14 @@ impl PlaybookVisitor for SyntaxVisitor {
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
-pub fn playbook_syntax_scan(inventory: Arc<RwLock<Inventory>>, playbook_paths: &Vec<PathBuf>) -> Result<(), String> {
-    
-    let context : Arc<RwLock<PlaybookContext>> = Arc::new(RwLock::new(PlaybookContext::new()));
-    let visitor : Arc<RwLock<dyn PlaybookVisitor>> = Arc::new(RwLock::new(SyntaxVisitor::new()));
-    let factory : Arc<RwLock<dyn ConnectionFactory>> = Arc::new(RwLock::new(NoFactory::new()));
-
-    // FIXME: the default user should come from the CLI --user at least in cases of ssh commands, otherwise
-    // we don't really need it.
-    return playbook_traversal(inventory, &playbook_paths, context, visitor, factory, String::from("root"));
-
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: Vec<PathBuf>) -> Result<(), String> {
+    let run_state = Arc::new(RunState {
+        inventory: Arc::clone(inventory),
+        playbook_paths: playbook_paths,
+        context: Arc::new(RwLock::new(PlaybookContext::new())),
+        visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
+        connection_factory: Arc::new(RwLock::new(NoFactory::new())),
+        default_user: String::from("root")
+    });
+    return playbook_traversal(&run_state);
 }

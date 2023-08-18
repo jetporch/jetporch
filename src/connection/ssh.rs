@@ -29,6 +29,7 @@ use std::path::Path;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::local::LocalConnection;
+use crate::inventory::hosts::Host;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -42,16 +43,15 @@ impl SshFactory {
 }
 
 impl ConnectionFactory for SshFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &String) -> Result<Arc<Mutex<dyn Connection>>, String> {
+    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
         if host.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
-            let host2 = host.clone();
             let ctx = context.read().unwrap();
             let mut conn = SshConnection::new(
-                &host2,
-                ctx.get_remote_port(&host2),
-                &ctx.get_remote_user(&host2),
+                host.read().unwrap().name,
+                ctx.get_ssh_remote_port(&host),
+                ctx.get_ssh_remote_user(&host),
             );
             return match conn.connect() {
                 Ok(_)  => { Ok(Arc::new(Mutex::new(conn))) },

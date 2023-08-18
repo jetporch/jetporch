@@ -94,6 +94,10 @@ pub trait PlaybookVisitor {
         println!("> task start: {}", task);
     }
 
+    fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
+        println!("> batch {}/{}, {} hosts", batch_num, batch_count, batch_size);
+    }
+
     fn on_task_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
