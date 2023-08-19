@@ -24,6 +24,7 @@
 
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
+use crate::tasks::handle::TaskHandle;
 use std::sync::Arc;
 
 
@@ -41,7 +42,7 @@ pub trait Connection {
     fn get_file(&self, remote_path: String) -> String;
     */
 
-    fn run_command(&self, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
+    fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
 
 
 }

@@ -79,7 +79,7 @@ impl IsTask for Echo {
             },
     
             TaskRequestType::Create => {
-                handle.debug(&request, self.msg.clone());
+                handle.debug(&request, &self.msg);
                 return Ok(handle.is_created(&request))
             },
     

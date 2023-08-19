@@ -63,28 +63,30 @@ impl Connection for LocalConnection {
         return Ok(());
     }
 
-    fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         // FIXME: eventually also add sudo strings in here
-        let command = Command::new("sh").args("-c").args(cmd).args("2>&1");
+        let command = Command::new("sh").arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
-            Ok(x) => match x.exit_status {
-                0 => handle.command_ok(request, &CommandResult { out: convert_out(&x.stdout), rc: x.exit_status }),
-                _ => handle.command_failed(request, &CommandResult { out: convert_out(&x.stdout), rc: x.exit_status })
+            Ok(x) => match x.status.code() {
+                Some(0)      => Ok(handle.command_ok(request, CommandResult { out: convert_out(&x.stdout), rc: 0 })),
+                Some(status) => Err(handle.command_failed(request, CommandResult { out: convert_out(&x.stdout), rc: status })),
+                _            => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 418 }))
             },
-            Err(x) => handle.command_failed(request, &CommandResult { out: String::from(""), rc: 404 })
+            Err(x) => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 404 }))
         }
     }
 
-   // FIXME: should return some type of result object
-   fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
-   }
+    // FIXME: this signature will change
+    // FIXME: should return some type of result object
+    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+    }
 
 }
 
 // the input type is NOT string
-fn convert_out(output: &String) -> String {
-    return match str::from_utf8(output) {
-        Ok(val) => val,
+fn convert_out(output: &Vec<u8>) -> String {
+    return match std::str::from_utf8(output) {
+        Ok(val) => val.to_string(),
         Err(_) => String::from("invalid UTF-8 characters in response"),
     };
 }

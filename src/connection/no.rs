@@ -61,10 +61,11 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+   fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
        panic!("NoConnection may only be used for syntax checking");
    }
 
+   // FIXME: this signature will change
    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
        panic!("NoConnection may only be used for syntax checking");
    }

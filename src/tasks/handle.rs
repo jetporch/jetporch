@@ -59,7 +59,8 @@ impl TaskHandle {
     // to make module code nicer.
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
-        self.run_state.visitor.read().unwrap().debug(&message.clone());
+        // FIXME should visitor debug take a reference?
+        self.run_state.visitor.read().unwrap().debug(message.clone());
     }
 
     pub fn info(&self, request: &Arc<TaskRequest>, message: &String) {
@@ -69,7 +70,7 @@ impl TaskHandle {
     pub fn info_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
         // this later may be modified to acquire a lock and keep messages together
         for message in messages.iter() {
-            self.info(self, request, &message);
+            self.info(request, &message);
         }
     }
 
@@ -90,7 +91,7 @@ impl TaskHandle {
         return response;
     }
 
-    fn is_command_failed(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+    pub fn command_failed(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse {
             status: TaskStatus::Failed,
             changes: Arc::new(None),
@@ -101,9 +102,9 @@ impl TaskHandle {
         return response;
     }
 
-    fn is_command_ok(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+    pub fn command_ok(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse {
-            status: TaskStatus::Created,
+            status: TaskStatus::IsCreated,
             changes: Arc::new(None),
             msg: None,
             command_result: Some(result)

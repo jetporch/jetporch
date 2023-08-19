@@ -44,7 +44,7 @@ pub enum TaskProperty {
 
 pub trait IsTask { 
     fn get_property(&self, property: TaskProperty) -> String;
-    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse>;
+    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
 }
 
 pub fn get_property_or_default(property: &Option<String>, default: &String) -> String {

@@ -125,7 +125,7 @@ impl Connection for SshConnection {
 
     }
 
-    fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let mut channel = self.session.as_ref().unwrap().channel_session().unwrap();
         // FIXME: eventually this will need to insert sudo/elevation level details as well
         let actual_cmd = format!("{} 2>&1", cmd);
@@ -136,9 +136,9 @@ impl Connection for SshConnection {
         let exit_status = channel.exit_status().unwrap();
         let empty = String::from("");
         if exit_status == 0 {
-            return handle.command_ok(request, &CommandResult { stdout: s, stderr: empty.clone(), exit_status: exit_status });
+            return Ok(handle.command_ok(request, CommandResult { out: s.clone(), rc: exit_status }));
         } else {
-            return handle.command_failed(request, &CommandResult { stdout: s, stderr: empty.clone(), exit_status: exit_status });
+            return Err(handle.command_failed(request, CommandResult { out: s.clone(), rc: exit_status }));
         }
     }
 
@@ -146,7 +146,8 @@ impl Connection for SshConnection {
  
  
     // test pushing a file
- 
+    // FIXME: this signature will change
+
     fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
 
         // FIXME: all to the unwrap() calls should be caught
