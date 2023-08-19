@@ -18,7 +18,7 @@ use crate::tasks::common::{TaskProperty,IsTask,get_property,get_property_or_defa
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::request::{TaskRequestType,TaskRequest};
-use crate::connection::command::extract_cmd_info;
+use crate::connection::command::cmd_info;
 use std::sync::Arc;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
@@ -31,7 +31,7 @@ static MODULE_NAME : &'static str = "Shell";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="shell",deny_unknown_fields)]
-pub struct Echo {
+pub struct Shell {
 
     // ** MODULE SPECIFIC PARAMETERS ****
     pub cmd: String,
@@ -45,7 +45,7 @@ pub struct Echo {
     pub when: Option<String>
 }
 
-impl IsTask for Echo {
+impl IsTask for Shell {
 
     // =======================================================================
     // FIELD ACCESS BOILERPLATE
@@ -83,7 +83,7 @@ impl IsTask for Echo {
                 let result = handle.run(&request, &self.cmd.clone());
                 let (rc, out) = cmd_info(&result);
 
-                let display = Vec![ format!("rc: {}",rc), format!("out: {}", out) ];
+                let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
                 handle.info_lines(&request, &display);
 
                 return result;

@@ -37,6 +37,7 @@ use std::sync::Arc;
 // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
 
 use crate::modules::echo::Echo;
+use crate::modules::shell::Shell;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
@@ -44,6 +45,7 @@ pub enum Task {
 
     // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2)
     Echo(Echo),
+    Shell(Shell),
 
 }
 
@@ -54,7 +56,8 @@ impl Task {
             
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
             Task::Echo(x) => x.get_property(property), 
-            
+            Task::Shell(x) => x.get_property(property), 
+
             _ => { panic!("module properties not registered"); },
         };
     }
@@ -64,7 +67,8 @@ impl Task {
         return match self {
             
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
-            Task::Echo(x) => x.dispatch(handle, request), 
+            Task::Echo(x)  => x.dispatch(handle, request), 
+            Task::Shell(x) => x.dispatch(handle, request), 
 
             _ => { panic!("module dispatch not registered"); },
         };

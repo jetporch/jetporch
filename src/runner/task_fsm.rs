@@ -38,39 +38,42 @@ use crate::tasks::response::{TaskStatus,TaskResponse};
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 
-
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
 pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) -> Result<(), String> {
 
-    // syntax check first
+    // syntax check first, always
     let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
     let no_connection = NoFactory::new().get_connection(&run_state.context, &tmp_localhost).unwrap();
-    let syntax_check_result = run_task_on_host(run_state,&no_connection,&tmp_localhost,task);
+    let syntax_check_result = run_task_on_host(run_state,&no_connection,&tmp_localhost,task, true);
     match syntax_check_result {
         Ok(scr_ok) => match scr_ok.status {
             TaskStatus::IsValidated => { 
                 if run_state.visitor.read().unwrap().is_syntax_only() { return Ok(()); }
             }, 
-            _ => { panic!("module returned invalid response to syntax check (1)") }
+            _ => { panic!("module returned invalid response to syntax check (1): {:?}", scr_ok.as_ref()) }
         },
         Err(scr_err) => match scr_err.status {
             TaskStatus::Failed => { 
                 return Err(format!("parameters conflict: {}", scr_err.msg.as_ref().unwrap()));
             },
-            _ => { panic!("module returned invalid response to syntax check (2)") },
+            _ => { panic!("module returned invalid response to syntax check (2): {:?}", scr_err.as_ref()) },
         }
     };
+    let syntax = run_state.visitor.read().unwrap().is_syntax_only();
+    if syntax {
+        return Ok(())
+    }
 
-    // now full traversal (if not syntax check only mode)
+    // now full traversal across the host loop
+    // FIXME: this is the part that will be parallelized in SSH mode.
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     for (_name, host) in hosts {
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
-
-                let task_response = run_task_on_host(&run_state,&connection,&host,task);
+                let task_response = run_task_on_host(&run_state,&connection,&host,task,false);
 
                 if task_response.is_err() {
                     let err_response = task_response.expect("task response has data");
@@ -95,9 +98,11 @@ fn run_task_on_host(
     run_state: &Arc<RunState>, 
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>, 
-    task: &Task) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    task: &Task,
+    syntax: bool) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    let syntax      = run_state.visitor.read().unwrap().is_syntax_only();
+    println!("SYNTAX ONLY? {}", syntax);
+
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let task_ptr = Arc::new(task);

@@ -16,3 +16,4 @@
 
 /** ADD MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (0) **/
 pub mod echo;
+pub mod shell;
