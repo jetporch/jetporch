@@ -35,6 +35,7 @@ pub struct Shell {
 
     // ** MODULE SPECIFIC PARAMETERS ****
     pub cmd: String,
+    pub verbose: Option<bool>,
 
     // *** COMMON MODULE BOILERPLATE ****
     pub changed_when: Option<String>,
@@ -76,15 +77,21 @@ impl IsTask for Shell {
             },
 
             TaskRequestType::Query => {
-                return Ok(handle.needs_creation(&request));
+                return Ok(handle.needs_execution(&request));
+            },
+
+            TaskRequestType::Create => {
+                panic!("this module does not create resources");
             },
     
-            TaskRequestType::Create => {
+            TaskRequestType::Execute => {
                 let result = handle.run(&request, &self.cmd.clone());
                 let (rc, out) = cmd_info(&result);
 
-                let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
-                handle.info_lines(&request, &display);
+                if self.verbose.is_some() && self.verbose.unwrap() {
+                    let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
+                    handle.debug_lines(&request, &display);
+                }
 
                 return result;
             },

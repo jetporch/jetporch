@@ -25,7 +25,7 @@
 
 
 use crate::playbooks::context::PlaybookContext;
-use crate::tasks::response::TaskResponse;
+use crate::tasks::response::{TaskResponse,TaskStatus};
 use std::sync::Arc;
 use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
@@ -33,40 +33,47 @@ use crate::inventory::hosts::Host;
 
 pub trait PlaybookVisitor {
 
+    fn banner(&self) {
+        println!("----------------------------------------------------------");
+    }
+
     fn debug(&self, message: String) {
         println!("| debug | {}", message.clone());
     }
 
-    fn info(&self, message: String) {
-        println!("| info  | {}", message.clone());
+    fn debug_host(&self, host: &Arc<RwLock<Host>>, message: String) {
+        println!("     > {} : {}", host.read().unwrap().name, message.clone());
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.playbook_path.lock().unwrap();
         //let path = arc.as_ref().unwrap();
         let path = "<PATH GOES HERE>".to_string();
-        println!("@ playbook start: {}", path)
+        self.banner();
+        println!("> playbook start: {}", path)
     }
 
     fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
         let play = &context.read().unwrap().play;
-
-        println!("@ play start: {}", play.as_ref().unwrap());
+        self.banner();
+        println!("> play start: {}", play.as_ref().unwrap());
     }
     
     fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         //let role = arc.as_ref().unwrap();
         let role = &context.read().unwrap().role;
-        println!("@ role start: {}", role.as_ref().unwrap());
+        self.banner();
+        println!("> role start: {}", role.as_ref().unwrap());
     }
 
     fn on_role_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         let role = &context.read().unwrap().role;
-        println!("@ role stop: {}", role.as_ref().unwrap());
+        self.banner();
+        println!("> role stop: {}", role.as_ref().unwrap());
     }
 
     fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -94,30 +101,54 @@ pub trait PlaybookVisitor {
         //let arc = context.task.lock().unwrap();
         //let task = arc.as_ref().unwrap();
         //let module = task.get_module();
-        let task = &context.read().unwrap().task;
-        println!("@ task start: {}", task.as_ref().unwrap());
+        let context = context.read().unwrap();
+        //let play = context.play;
+        let task = context.task.as_ref().unwrap();
+        self.banner();
+        println!("> begin task: {}", task);
     }
 
     fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
+        self.banner();
         println!("> batch {}/{}, {} hosts", batch_num+1, batch_count, batch_size);
     }
 
-    fn on_task_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
-        //let arc = context.task.lock().unwrap();
-        //let task = arc.as_ref().unwrap();
-        let task = &context.read().unwrap().task;
+    fn on_task_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
+        /*
+        let context = context.read().unwrap();
+        let host = context.host
+        let play = context.play;
+        let task = context.task;
         println!("@ task complete: {}", task.as_ref().unwrap());
+        */
+    }
+
+    fn on_host_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+        let host2 = host.read().unwrap();
+        println!("! host: {} ...", host2.name);
+    }
+
+    fn on_host_task_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+        let host2 = host.read().unwrap();
+        match &task_response.status {
+            TaskStatus::IsCreated => { println!("! host: {} => created", host2.name); },
+            TaskStatus::IsRemoved => { println!("! host: {} => removed", host2.name); },
+            TaskStatus::IsModified => { println!("! host: {} => modified", host2.name); },
+            TaskStatus::IsChanged => { println!("! host: {} => changed", host2.name); },
+            TaskStatus::IsExecuted => { println!("! host: {} => executed", host2.name); },
+            _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
+        }
     }
 
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("@ host task failed: {}", host2.name);
+        println!("! host failed: {}", host2.name);
         //println!("> task failed on host: {}", host);
     }
 
     fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("> connection failed to host: {}", host2.name);
+        println!("! connection failed to host: {}", host2.name);
     }
 
     fn is_syntax_only(&self) -> bool;

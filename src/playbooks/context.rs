@@ -44,9 +44,6 @@ pub struct PlaybookContext {
 
     pub task_count: usize,
     pub task: Option<String>,
-
-    // FIXME: should this be here, it should be passed around maybe?
-    pub host: Option<String>,
     
     pub all_hosts: HashMap<String, Arc<RwLock<Host>>>,
     pub remaining_hosts: HashMap<String, Arc<RwLock<Host>>>,
@@ -70,7 +67,6 @@ impl PlaybookContext {
             task: None,
             role_count : 0,
             task_count : 0,
-            host: None,
             all_hosts: HashMap::new(),
             remaining_hosts: HashMap::new(),
             failed_hosts: HashMap::new(),

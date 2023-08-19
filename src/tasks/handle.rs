@@ -29,12 +29,16 @@ use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
 use crate::connection::command::CommandResult;
+use once_cell::sync::Lazy;
 
 pub struct TaskHandle {
     run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
 }
+
+
+static OUTPUT_LOCK: Lazy<Mutex<i32>> = Lazy::new(|| Mutex::new(0));
 
 impl TaskHandle {
 
@@ -60,17 +64,14 @@ impl TaskHandle {
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         // FIXME should visitor debug take a reference?
-        self.run_state.visitor.read().unwrap().debug(message.clone());
+        self.run_state.visitor.read().unwrap().debug_host(&self.host, message.clone());
     }
 
-    pub fn info(&self, request: &Arc<TaskRequest>, message: &String) {
-        self.debug(request, message);
-    }
-
-    pub fn info_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
+    pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
+        OUTPUT_LOCK.lock();
         // this later may be modified to acquire a lock and keep messages together
         for message in messages.iter() {
-            self.info(request, &message);
+            self.debug(request, &message);
         }
     }
 
@@ -104,7 +105,7 @@ impl TaskHandle {
 
     pub fn command_ok(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse {
-            status: TaskStatus::IsCreated,
+            status: TaskStatus::IsExecuted,
             changes: Arc::new(None),
             msg: None,
             command_result: Some(result)
@@ -124,11 +125,26 @@ impl TaskHandle {
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
-    
+
+    // FIXME: reduce boilerplate in all of these...
+
     pub fn is_created(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequestType::Create, "is_created response can only be returned for a creation request");
+        assert!(request.request_type == TaskRequestType::Create, "is_executed response can only be returned for a creation request");
         let response = Arc::new(TaskResponse { 
-            status: TaskStatus::IsCreated, 
+            status: TaskStatus::IsExecuted, 
+            changes: Arc::new(None), 
+            msg: None,
+            command_result: None 
+        });
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
+        return response;
+    }
+    
+    // see also command_ok for shortcuts, as used in the shell module.
+    pub fn is_executed(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Execute, "is_executed response can only be returned for a creation request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::IsExecuted, 
             changes: Arc::new(None), 
             msg: None,
             command_result: None 
@@ -190,6 +206,18 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_removal response can only be returned for a query request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
+            changes: Arc::new(None), 
+            msg: None,
+            command_result: None 
+        });
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
+        return response;
+    }
+
+    pub fn needs_execution(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Query, "needs_execution response can only be returned for a query request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::NeedsExecution, 
             changes: Arc::new(None), 
             msg: None,
             command_result: None 

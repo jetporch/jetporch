@@ -73,13 +73,17 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) 
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
+                run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
                 let task_response = run_task_on_host(&run_state,&connection,&host,task,false);
-
+                let real_response = task_response.as_ref().expect("task response has data");
                 if task_response.is_err() {
-                    let err_response = task_response.expect("task response has data");
                     // FIXME: visitor does not need locks around it!
                     run_state.context.write().unwrap().fail_host(&host);
-                    run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &err_response, &host);
+                    run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &real_response, &host);
+                } else {
+                    // BOOKMARK:
+                    // FIXME: record the amount of changes and modifications performed and number of hosts with changes/modifications
+                    run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &real_response, &host);
                 }
             },
             Err(_) => { 
@@ -101,7 +105,7 @@ fn run_task_on_host(
     task: &Task,
     syntax: bool) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    println!("SYNTAX ONLY? {}", syntax);
+    //println!("SYNTAX ONLY? {}", syntax);
 
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
@@ -126,11 +130,11 @@ fn run_task_on_host(
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {
                             TaskStatus::IsCreated => crc,
-                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                            _ => { panic!("module internal fsm state invalid (on create): {:?}", crc); }
                         },
                         Err(ref crc_err) => match crc_err.status {
                             TaskStatus::Failed  => crc,
-                            _ => { panic!("module returned a non-failure code inside an Err"); }
+                            _ => { panic!("module internal fsm state invalid (on create), {:?}", crc); }
                         }
                     }
                 },
@@ -142,11 +146,11 @@ fn run_task_on_host(
                     match rrc {
                         Ok(ref rrc_ok) => match rrc_ok.status {
                             TaskStatus::IsRemoved => rrc,
-                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                            _ => { panic!("module internal fsm state invalid (on remove): {:?}", rrc); }
                         },
                         Err(ref rrc_err) => match rrc_err.status {
                             TaskStatus::Failed  => rrc,
-                            _ => { panic!("module returned a non-failure code inside an Err"); }
+                            _ => { panic!("module internal fsm state invalid (on remove): {:?}", rrc); }
                         }
                     }
                 },
@@ -158,22 +162,38 @@ fn run_task_on_host(
                     match mrc {
                         Ok(ref mrc_ok) => match mrc_ok.status {
                             TaskStatus::IsModified => mrc,
-                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                            _ => { panic!("module internal fsm state invalid (on modify): {:?}", mrc); }
                         }
                         Err(ref mrc_err)  => match mrc_err.status {
                             TaskStatus::Failed  => mrc,
-                            _ => { panic!("module internal fsm state invalid (on modify)"); }
+                            _ => { panic!("module internal fsm state invalid (on modify): {:?}", mrc); }
                         }
                     }
                 },
                 false => Ok(handle.is_modified(&query, Arc::clone(&qrc_ok.changes)))
             },
-            TaskStatus::Failed => { panic!("module returned failure inside an Ok()"); },
-            _ => { panic!("module internal fsm state unknown (on query)"); }
+            TaskStatus::NeedsExecution => match modify_mode {
+                true => {
+                    let erc = task.dispatch(&handle, &TaskRequest::execute());
+                    match erc {
+                        Ok(ref erc_ok) => match erc_ok.status {
+                            TaskStatus::IsExecuted => erc,
+                            _ => { panic!("module internal fsm state invalid (on execute): {:?}", erc); }
+                        }
+                        Err(ref erc_err)  => match erc_err.status {
+                            TaskStatus::Failed  => erc,
+                            _ => { panic!("module internal fsm state invalid (on execute): {:?}", erc); }
+                        }
+                    }
+                },
+                false => Ok(handle.is_executed(&query))
+            },
+            TaskStatus::Failed => { panic!("module returned failure inside an Ok(): {:?}", qrc); },
+            _ => { panic!("module internal fsm state unknown (on query): {:?}", qrc); }
         },
         Err(ref x) => match x.status {
             TaskStatus::Failed => qrc,
-            _ => { panic!("module returned a non-failure code inside an Err"); }
+            _ => { panic!("module returned a non-failure code inside an Err: {:?}", x); }
         }
     };
 

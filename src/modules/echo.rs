@@ -75,14 +75,18 @@ impl IsTask for Echo {
             },
 
             TaskRequestType::Query => {
-                return Ok(handle.needs_creation(&request))
+                return Ok(handle.needs_execution(&request))
             },
     
             TaskRequestType::Create => {
-                handle.debug(&request, &self.msg);
-                return Ok(handle.is_created(&request))
+                panic!("this module does not create resources");
             },
-    
+
+            TaskRequestType::Execute => {
+                handle.debug(&request, &self.msg);
+                return Ok(handle.is_executed(&request))
+            },
+
             TaskRequestType::Remove => {
                 panic!("this module does not remove resources");
             },

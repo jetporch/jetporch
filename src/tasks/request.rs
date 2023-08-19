@@ -24,6 +24,7 @@ pub enum TaskRequestType {
     Create,
     Remove,
     Modify,
+    Execute,
 }
 
 pub struct TaskRequest {
@@ -72,6 +73,14 @@ impl TaskRequest {
             Self { 
                 request_type: TaskRequestType::Modify, 
                 changes: Arc::clone(&changes) 
+            }
+        )
+    }
+    pub fn execute() -> Arc<Self> {
+        return Arc::new(
+            Self { 
+                request_type: TaskRequestType::Execute, 
+                changes: Arc::new(None) 
             }
         )
     }
