@@ -22,10 +22,11 @@
 // instances.
 // ===================================================================================
 
-pub struct ConnectionCommandResult {
-    pub data: String,
-    pub exit_status: i32
-}
+use crate::tasks::request::TaskRequest;
+use crate::tasks::response::TaskResponse;
+use std::sync::Arc;
+
+
 
 pub trait Connection {
 
@@ -40,8 +41,7 @@ pub trait Connection {
     fn get_file(&self, remote_path: String) -> String;
     */
 
-    // FIXME should return result
-    fn run_command(&self, command: String) -> ConnectionCommandResult;
+    fn run_command(&self, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
 
 
 }

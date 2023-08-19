@@ -60,7 +60,7 @@ impl Task {
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
-    pub fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+    pub fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
         return match self {
             
             // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 

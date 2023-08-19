@@ -21,17 +21,14 @@
 // and mostly standardized
 // ===================================================================================
 
-//use crate::playbooks::context::PlaybookContext;
-//use crate::playbooks::visitor::PlaybookVisitor;
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
-use crate::connection::command::Command;
-//use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
+use crate::connection::command::CommandResult;
 
 pub struct TaskHandle {
     run_state: Arc<RunState>, 
@@ -41,7 +38,7 @@ pub struct TaskHandle {
 
 impl TaskHandle {
 
-    pub fn new(run_state_handle: Arc<RunState>,connection_handle: Arc<Mutex<dyn Connection>>,host_handle: Arc<RwLock<Host>>) -> Self {
+    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
         Self {
             run_state: run_state_handle,
             connection: connection_handle,
@@ -52,23 +49,31 @@ impl TaskHandle {
     // ================================================================================
     // CONNECTION INTERACTION
 
-    // FIXME: things like running commands go here, details are TBD.
-
-    pub fn run(&mut self, request: &Arc<TaskRequest>, command: Arc<Command>) -> Result<(), String> {
+    pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
-        // FIXME: use the connection to run the command
-        // TODO: FIXME: think about how we want to work with command results
-        // FIXME: push commands history to host?
-        return Err(format!("not implemented"));
+        return self.connection.run_command(self, request, cmd);
     }
 
     // ================================================================================
     // PLAYBOOK INTERACTION: simplified interactions with the visitor object
     // to make module code nicer.
 
-    pub fn debug(&self, _request: &Arc<TaskRequest>, message: String) {
-        self.run_state.visitor.read().unwrap().debug(message);
+    pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
+        self.run_state.visitor.read().unwrap().debug(&message.clone());
     }
+
+    pub fn info(&self, request: &Arc<TaskRequest>, message: &String) {
+        self.debug(request, message);
+    }
+
+    pub fn info_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
+        // this later may be modified to acquire a lock and keep messages together
+        for message in messages.iter() {
+            self.info(self, request, &message);
+        }
+    }
+
+
 
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
@@ -77,7 +82,31 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
             changes: Arc::new(None),
-            msg: Some(msg.clone()) 
+            msg: Some(msg.clone()), 
+            command_result: None
+        });
+        // FIXME: make a function for this
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
+        return response;
+    }
+
+    fn is_command_failed(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+        let response = Arc::new(TaskResponse {
+            status: TaskStatus::Failed,
+            changes: Arc::new(None),
+            msg: None,
+            command_result: Some(result)
+        });
+        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
+        return response;
+    }
+
+    fn is_command_ok(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+        let response = Arc::new(TaskResponse {
+            status: TaskStatus::Created,
+            changes: Arc::new(None),
+            msg: None,
+            command_result: Some(result)
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -88,7 +117,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsValidated, 
             changes: Arc::new(None), 
-            msg: None 
+            msg: None,
+            command_result: None
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -99,7 +129,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsCreated, 
             changes: Arc::new(None), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -110,7 +141,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsRemoved, 
             changes: Arc::new(None), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -121,7 +153,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsModified, 
             changes: Arc::clone(&changes), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -133,7 +166,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsCreation, 
             changes: Arc::new(None), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -144,7 +178,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsModification, 
             changes: Arc::clone(&changes), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
@@ -155,7 +190,8 @@ impl TaskHandle {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
             changes: Arc::new(None), 
-            msg: None 
+            msg: None,
+            command_result: None 
         });
         self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;

@@ -21,10 +21,13 @@
 // that tasks have zero way of running, and is mostly here for provable correctness
 // ===================================================================================
 
-use crate::connection::connection::{Connection,ConnectionCommandResult};
+use crate::connection::connection::{Connection};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::request::TaskRequest;
+use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -58,14 +61,11 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, command: String) -> ConnectionCommandResult {
-       ConnectionCommandResult {
-           data: String::from(""),
-           exit_status: 0
-       }
+   fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+       panic!("NoConnection may only be used for syntax checking");
    }
 
    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+       panic!("NoConnection may only be used for syntax checking");
    }
-
 }

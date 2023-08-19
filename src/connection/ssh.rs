@@ -21,18 +21,22 @@
 // for nodes named 127.0.0.* so we can still connect to the loopback for testing
 // ===================================================================================
 
-use crate::connection::connection::{Connection,ConnectionCommandResult};
-use ssh2::Session;
-use std::io::{Read,Write};
-use std::net::TcpStream;
-use std::path::Path;
+use crate::connection::connection::{Connection};
+use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::local::LocalConnection;
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::request::TaskRequest;
+use crate::tasks::response::TaskResponse;
 use crate::inventory::hosts::Host;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use ssh2::Session;
+use std::io::{Read,Write};
+use std::net::TcpStream;
+use std::path::Path;
 
 pub struct SshFactory {}
 
@@ -121,23 +125,21 @@ impl Connection for SshConnection {
 
     }
 
-
-    fn run_command(&self, command: String) -> ConnectionCommandResult {
-
-    
+    fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let mut channel = self.session.as_ref().unwrap().channel_session().unwrap();
-        channel.exec(&command).unwrap();
+        // FIXME: eventually this will need to insert sudo/elevation level details as well
+        let actual_cmd = format!("{} 2>&1", cmd);
+        channel.exec(&actual_cmd).unwrap();
         let mut s = String::new();
         channel.read_to_string(&mut s).unwrap();
-        //println!("{}", s);
         let _w = channel.wait_close();
-
-        ConnectionCommandResult {
-            data: s,
-            exit_status: channel.exit_status().unwrap()
+        let exit_status = channel.exit_status().unwrap();
+        let empty = String::from("");
+        if exit_status == 0 {
+            return handle.command_ok(request, &CommandResult { stdout: s, stderr: empty.clone(), exit_status: exit_status });
+        } else {
+            return handle.command_failed(request, &CommandResult { stdout: s, stderr: empty.clone(), exit_status: exit_status });
         }
-        //println!("{}", channel.exit_status().unwrap());
- 
     }
 
     // Make sure we succeeded

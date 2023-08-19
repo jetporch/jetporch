@@ -66,21 +66,21 @@ impl IsTask for Echo {
     // =======================================================================
 
     /** MODULE SPECIFIC IMPLEMENTATION **/
-    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
             TaskRequestType::Validate => {
-                return handle.is_validated(&request);
+                return Ok(handle.is_validated(&request));
             },
 
             TaskRequestType::Query => {
-                return handle.needs_creation(&request)
+                return Ok(handle.needs_creation(&request))
             },
     
             TaskRequestType::Create => {
                 handle.debug(&request, self.msg.clone());
-                return handle.is_created(&request)
+                return Ok(handle.is_created(&request))
             },
     
             TaskRequestType::Remove => {

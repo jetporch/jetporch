@@ -20,13 +20,18 @@
 // and is used by 'local' and 'check-local' CLI invocations.
 // ===================================================================================
 
-use crate::connection::connection::{Connection,ConnectionCommandResult};
+use crate::connection::connection::{Connection};
+use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
+use crate::tasks::handle::TaskHandle;
+use crate::tasks::request::TaskRequest;
+use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use std::process::Command;
 
 pub struct LocalFactory {}
 
@@ -58,15 +63,28 @@ impl Connection for LocalConnection {
         return Ok(());
     }
 
-   fn run_command(&self, command: String) -> ConnectionCommandResult {
-       ConnectionCommandResult {
-           data: String::from("unimplemented"),
-           exit_status: 0
-       }
-   }
+    fn run_command(&self, handle: &TaskHandle, request: &TaskRequest, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        // FIXME: eventually also add sudo strings in here
+        let command = Command::new("sh").args("-c").args(cmd).args("2>&1");
+        return match command.output() {
+            Ok(x) => match x.exit_status {
+                0 => handle.command_ok(request, &CommandResult { out: convert_out(&x.stdout), rc: x.exit_status }),
+                _ => handle.command_failed(request, &CommandResult { out: convert_out(&x.stdout), rc: x.exit_status })
+            },
+            Err(x) => handle.command_failed(request, &CommandResult { out: String::from(""), rc: 404 })
+        }
+    }
 
    // FIXME: should return some type of result object
    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
    }
 
+}
+
+// the input type is NOT string
+fn convert_out(output: &String) -> String {
+    return match str::from_utf8(output) {
+        Ok(val) => val,
+        Err(_) => String::from("invalid UTF-8 characters in response"),
+    };
 }

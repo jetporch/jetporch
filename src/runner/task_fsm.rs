@@ -93,67 +93,78 @@ fn run_task_on_host(
 
     let syntax      = run_state.visitor.read().unwrap().is_syntax_only();
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
-
-    let handle = Arc::new(TaskHandle::new(
-        Arc::clone(run_state), 
-        Arc::clone(connection), 
-        Arc::clone(host))
-    );
-
+    let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let task_ptr = Arc::new(task);
-
     let vrc = task.dispatch(&handle, &TaskRequest::validate());
-    match vrc.status {
-        TaskStatus::IsValidated => { 
-            if syntax {
-                return vrc;
-            }
+    match vrc {
+        Ok(x) => match x.status {
+            TaskStatus::IsValidated => { if syntax { return x; } },
+            TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
+            _ => { panic!("module internal fsm state invalid (on verify)") }
         },
-        TaskStatus::Failed => { return vrc; },
-        _ => { panic!("module internal fsm state invalid (on verify)") }
+        Err(x) => { return x }
     }
-
 
     let query = TaskRequest::query();
     let qrc = task.dispatch(&handle, &TaskRequest::query());
-    let result = match qrc.status {
-        TaskStatus::NeedsCreation => match modify_mode {
-            true => {
-                let crc = task.dispatch(&handle, &TaskRequest::create());
-                match crc.status {
-                    TaskStatus::IsCreated => { crc },
-                    TaskStatus::Failed  => { crc },
-                    _=> { panic!("module internal fsm state invalid (on create)") }
-                }
+    let result = match qrc {
+        Ok(x) => match x.status {
+            TaskStatus::NeedsCreation => match modify_mode {
+                true => {
+                    let crc = task.dispatch(&handle, &TaskRequest::create());
+                    match crc {
+                        Ok(crc_ok) => match crc_ok.status {
+                            TaskStatus::IsCreated => crc_ok,
+                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                        },
+                        Err(crc_err) => match crc_err.status {
+                            TaskStatus::Failed  => crc_err,
+                            _ => { panic!("module returned a non-failure code inside an Err"); }
+                        }
+                    }
+                },
+                false => handle.is_created(&query)
             },
-            false => handle.is_created(&query)
-        },
-        TaskStatus::NeedsRemoval => match modify_mode {
-            true => {
-                let rrc = task.dispatch(&handle, &TaskRequest::remove());
-                match rrc.status {
-                    TaskStatus::IsRemoved => { rrc },
-                    TaskStatus::Failed  => { rrc },
-                    _=> { panic!("module internal fsm state invalid (on remove)") }
-                }
-            }, 
-            false => handle.is_removed(&query),
-        },
-        TaskStatus::NeedsModification => match modify_mode {
-            true => {
-                let mrc = task.dispatch(&handle, &TaskRequest::modify(Arc::clone(&qrc.changes)));
-                match mrc.status {
-                    TaskStatus::IsModified => { mrc },
-                    TaskStatus::Failed  => { mrc },
-                    _=> { panic!("module internal fsm state invalid (on modify)") }
-                }
+            TaskStatus::NeedsRemoval => match modify_mode {
+                true => {
+                    let rrc = task.dispatch(&handle, &TaskRequest::remove());
+                    match rrc {
+                        Ok(rrc_ok) => match rrc_ok.status {
+                            TaskStatus::IsRemoved => rrc_ok,
+                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                        },
+                        Err(rrc_err) => match rrc_err.status {
+                            TaskStatus::Failed  => rrc_err,
+                            _ => { panic!("module returned a non-failure code inside an Err"); }
+                        }
+                    }
+                },
+                false => handle.is_removed(&query),
             },
-            false => handle.is_modified(&query, Arc::clone(&qrc.changes))
+            TaskStatus::NeedsModification => match modify_mode {
+                true => {
+                    let mrc = task.dispatch(&handle, &TaskRequest::modify(Arc::clone(&qrc.changes)));
+                    match mrc {
+                        Ok(mrc_ok) => match mrc.status {
+                            TaskStatus::IsModified => mrc,
+                            _ => { panic!("module internal fsm state invalid (on create)"); }
+                        }
+                        Err(mrc_err)  => match mrc_err.status {
+                            TaskStatus::Failed  => mrc_err,
+                            _ => { panic!("module internal fsm state invalid (on modify)"); }
+                        }
+                    }
+                },
+                false => handle.is_modified(&query, Arc::clone(&qrc.changes))
+            },
+            TaskStatus::Failed => { panic!("module returned failure inside an Ok()"); },
+            _ => { panic!("module internal fsm state unknown (on query)"); }
         },
-        TaskStatus::Failed => qrc,
-        _ => { panic!("module internal fsm state invalid (on query)"); }
+        Err(x) => match x.status {
+            TaskStatus::Failed => x,
+            _ => { panic!("module returned a non-failure code inside an Err"); }
+        }
     };
-
 
     return result;
 

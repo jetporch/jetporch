@@ -14,23 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: commands.rs
-// the Command struct wraps commands as executed by // runner::task_handle::TaskHandle 
-// to ensure proper usage and status in playbook context. For usage, see many
-// modules in modules/
-// ===================================================================================
+use std::sync::Arc;
+use crate::tasks::response::TaskResponse;
 
-pub struct Command {
-    cmd: String,
+pub struct CommandResult {
+    pub out: String,
+    pub rc: i32
 }
 
-impl Command {
-
-    pub fn new(cmd: String) -> Self {
-        Self { 
-            cmd: cmd.clone(),
-        }
+pub fn cmd_info(info: &Result<Arc<TaskResponse>,Arc<TaskResponse>>) -> (i32, String) {
+    return match info {
+        Ok(ok) => extract_cmd_info(&ok),
+        Err(err) => extract_cmd_info(&err)
     }
+}
 
+fn extract_cmd_info(info: &CommandResult) -> (i32, String) {
+    assert!(info.command_result.is_some(), "called cmd_info on a response that is not a command result");
+    let result = info.command_result.unwrap();
+    return (result.rc, result.out);
 }

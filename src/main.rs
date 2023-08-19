@@ -30,7 +30,7 @@ use crate::inventory::inventory::Inventory;
 use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
-use crate::cli::syntax::{playbook_syntax_scan};
+use crate::cli::playbooks::{playbook_syntax_scan,playbook_ssh};
 use std::sync::{Arc,RwLock};
 
 fn main() {
@@ -55,7 +55,8 @@ fn liftoff() -> Result<(),String> {
 
     return match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
-        cli::parser::CLI_MODE_SYNTAX => handle_syntax(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser.playbook_paths),
+        cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths),
 
         _ => Err(String::from("invalid CLI mode"))
     }
@@ -77,14 +78,6 @@ pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Re
     }
     return Ok(());
 }
-
-// FIXME: look at anyhow crate
-
-pub fn handle_syntax(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {
-    return playbook_syntax_scan(inventory, &parser.playbook_paths);
-}
-
-
 
 //******************************************************************************************
 // EOF
