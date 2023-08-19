@@ -17,6 +17,7 @@
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
 
+#[derive(Debug)]
 pub struct CommandResult {
     pub out: String,
     pub rc: i32
@@ -31,6 +32,6 @@ pub fn cmd_info(info: &Result<Arc<TaskResponse>,Arc<TaskResponse>>) -> (i32, Str
 
 fn extract_cmd_info(info: &Arc<TaskResponse>) -> (i32, String) {
     assert!(info.command_result.is_some(), "called cmd_info on a response that is not a command result");
-    let result = info.command_result.unwrap();
-    return (result.rc, result.out);
+    let result = info.command_result.as_ref().unwrap();
+    return (result.rc, result.out.clone());
 }

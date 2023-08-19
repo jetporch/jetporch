@@ -51,7 +51,7 @@ impl TaskHandle {
 
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
-        return self.connection.run_command(self, request, cmd);
+        return self.connection.lock().unwrap().run_command(self, request, cmd);
     }
 
     // ================================================================================

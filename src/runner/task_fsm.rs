@@ -73,7 +73,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) 
                 let task_response = run_task_on_host(&run_state,&connection,&host,task);
 
                 if task_response.is_err() {
-                    let err_response = task_response.unwrap();
+                    let err_response = task_response.expect("task response has data");
                     // FIXME: visitor does not need locks around it!
                     run_state.context.write().unwrap().fail_host(&host);
                     run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &err_response, &host);
@@ -103,27 +103,27 @@ fn run_task_on_host(
     let task_ptr = Arc::new(task);
     let vrc = task.dispatch(&handle, &TaskRequest::validate());
     match vrc {
-        Ok(x) => match x.status {
+        Ok(ref x) => match x.status {
             TaskStatus::IsValidated => { if syntax { return vrc; } },
             TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
             _ => { panic!("module internal fsm state invalid (on verify)") }
         },
-        Err(x) => { return vrc }
+        Err(ref x) => { return vrc }
     }
 
     let query = TaskRequest::query();
     let qrc = task.dispatch(&handle, &TaskRequest::query());
     let result = match qrc {
-        Ok(qrc_ok) => match qrc_ok.status {
+        Ok(ref qrc_ok) => match qrc_ok.status {
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
                     let crc = task.dispatch(&handle, &TaskRequest::create());
                     match crc {
-                        Ok(crc_ok) => match crc_ok.status {
+                        Ok(ref crc_ok) => match crc_ok.status {
                             TaskStatus::IsCreated => crc,
                             _ => { panic!("module internal fsm state invalid (on create)"); }
                         },
-                        Err(crc_err) => match crc_err.status {
+                        Err(ref crc_err) => match crc_err.status {
                             TaskStatus::Failed  => crc,
                             _ => { panic!("module returned a non-failure code inside an Err"); }
                         }
@@ -135,11 +135,11 @@ fn run_task_on_host(
                 true => {
                     let rrc = task.dispatch(&handle, &TaskRequest::remove());
                     match rrc {
-                        Ok(rrc_ok) => match rrc_ok.status {
+                        Ok(ref rrc_ok) => match rrc_ok.status {
                             TaskStatus::IsRemoved => rrc,
                             _ => { panic!("module internal fsm state invalid (on create)"); }
                         },
-                        Err(rrc_err) => match rrc_err.status {
+                        Err(ref rrc_err) => match rrc_err.status {
                             TaskStatus::Failed  => rrc,
                             _ => { panic!("module returned a non-failure code inside an Err"); }
                         }
@@ -151,11 +151,11 @@ fn run_task_on_host(
                 true => {
                     let mrc = task.dispatch(&handle, &TaskRequest::modify(Arc::clone(&qrc_ok.changes)));
                     match mrc {
-                        Ok(mrc_ok) => match mrc_ok.status {
+                        Ok(ref mrc_ok) => match mrc_ok.status {
                             TaskStatus::IsModified => mrc,
                             _ => { panic!("module internal fsm state invalid (on create)"); }
                         }
-                        Err(mrc_err)  => match mrc_err.status {
+                        Err(ref mrc_err)  => match mrc_err.status {
                             TaskStatus::Failed  => mrc,
                             _ => { panic!("module internal fsm state invalid (on modify)"); }
                         }
@@ -166,7 +166,7 @@ fn run_task_on_host(
             TaskStatus::Failed => { panic!("module returned failure inside an Ok()"); },
             _ => { panic!("module internal fsm state unknown (on query)"); }
         },
-        Err(x) => match x.status {
+        Err(ref x) => match x.status {
             TaskStatus::Failed => qrc,
             _ => { panic!("module returned a non-failure code inside an Err"); }
         }

@@ -61,7 +61,7 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+   fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
        panic!("NoConnection may only be used for syntax checking");
    }
 

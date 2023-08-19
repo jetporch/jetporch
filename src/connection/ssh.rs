@@ -125,7 +125,7 @@ impl Connection for SshConnection {
 
     }
 
-    fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let mut channel = self.session.as_ref().unwrap().channel_session().unwrap();
         // FIXME: eventually this will need to insert sudo/elevation level details as well
         let actual_cmd = format!("{} 2>&1", cmd);

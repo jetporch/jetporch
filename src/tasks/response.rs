@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use crate::connection::command::CommandResult;
 
-#[derive(PartialEq)]
+#[derive(Debug,PartialEq)]
 pub enum TaskStatus {
     IsCreated,
     IsRemoved,
@@ -31,6 +31,7 @@ pub enum TaskStatus {
     Failed
 }
 
+#[derive(Debug)]
 pub struct TaskResponse {
     pub status: TaskStatus,
     pub changes: Arc<Option<HashMap<String, String>>>,

@@ -63,9 +63,10 @@ impl Connection for LocalConnection {
         return Ok(());
     }
 
-    fn run_command(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         // FIXME: eventually also add sudo strings in here
-        let command = Command::new("sh").arg("-c").arg(cmd).arg("2>&1");
+        let mut base = Command::new("sh");
+        let command = base.arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
             Ok(x) => match x.status.code() {
                 Some(0)      => Ok(handle.command_ok(request, CommandResult { out: convert_out(&x.stdout), rc: 0 })),
