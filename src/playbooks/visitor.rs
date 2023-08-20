@@ -42,13 +42,13 @@ pub trait PlaybookVisitor {
     }
 
     fn debug_host(&self, host: &Arc<RwLock<Host>>, message: String) {
-        println!("     > {} : {}", host.read().unwrap().name, message.clone());
+        println!("| ..... {} | {}", host.read().unwrap().name, message.clone());
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.playbook_path.lock().unwrap();
-        //let path = arc.as_ref().unwrap();
-        let path = "<PATH GOES HERE>".to_string();
+        let ctx = context.read().unwrap();
+        let path = ctx.playbook_path.as_ref().unwrap();
         self.banner();
         println!("> playbook start: {}", path)
     }
@@ -96,8 +96,11 @@ pub trait PlaybookVisitor {
                 (String::from("Tasks"), format!("{}", ctx.get_task_count())),
                 (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
             ];
-            two_column_table(&String::from("Results"), &play_name.clone(), &elements);
+            two_column_table(&String::from("Play"), &play_name.clone(), &elements);
         } else {
+            println!("----------------------------------------------------------");
+            println!("> done."); // FIXME: show time here
+            println!("");
             show_playbook_summary(context);
         }
     }
@@ -130,7 +133,7 @@ pub trait PlaybookVisitor {
 
     fn on_host_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("! host: {} ...", host2.name);
+        println!("! host: {} => running", host2.name);
     }
 
     // FIXME: this pattern of the visitor accessing the context is cleaner than the FSM code that accesses both in sequence, so do
@@ -141,10 +144,11 @@ pub trait PlaybookVisitor {
         let mut context = context.write().unwrap();
         context.increment_attempted_for_host(&host2.name);
         match &task_response.status {
-            TaskStatus::IsCreated  =>  { println!("! host: {} => created",  &host2.name); context.increment_created_for_host(&host2.name);  },
-            TaskStatus::IsRemoved  =>  { println!("! host: {} => removed",  &host2.name); context.increment_removed_for_host(&host2.name);  },
-            TaskStatus::IsModified =>  { println!("! host: {} => modified", &host2.name); context.increment_modified_for_host(&host2.name); },
-            TaskStatus::IsExecuted =>  { println!("! host: {} => executed", &host2.name); context.increment_executed_for_host(&host2.name); },
+            TaskStatus::IsCreated  =>  { println!("! host: {} => ok (created)",  &host2.name); context.increment_created_for_host(&host2.name);  },
+            TaskStatus::IsRemoved  =>  { println!("! host: {} => ok (removed)",  &host2.name); context.increment_removed_for_host(&host2.name);  },
+            TaskStatus::IsModified =>  { println!("! host: {} => ok (modified)", &host2.name); context.increment_modified_for_host(&host2.name); },
+            TaskStatus::IsExecuted =>  { println!("! host: {} => ok (executed)", &host2.name); context.increment_executed_for_host(&host2.name); },
+            TaskStatus::IsPassive  =>  { println!("! host: {} => ok", &host2.name); context.increment_passive_for_host(&host2.name); }
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }
@@ -174,53 +178,6 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let ctx = context.read().unwrap();
     let play_name = ctx.get_play_name();
 
-    /*
-    let failed_hosts = ctx.get_hosts_failed_count();
-    let adjusted_hosts = ctx.get_hosts_adjusted_count();
-    let properties_block = format!("{} ({}) hosts\
-                                    {} ({}) hosts\
-                                    {} ({}) hosts\
-                                    {} ({}) hosts\
-                                    {} ({}) hosts",
-                                    ctx.get_total_attempted_count(), ctx.get_hosts_attempted_count(),
-                                    ctx.get_total_creation_count(),   ctx.get_hosts_creation_count(),
-                                    ctx.get_total_modified_count(),  ctx.get_hosts_modified_count(),
-                                    ctx.get_total_removal_count(),   ctx.get_hosts_removal_count(),
-                                    ctx.get_total_executions_count(),  ctx.get_hosts_executions_count());
-
-    let total_attempted = ctx.get_total_attempted_count();
-    let total_adjusted  = ctx.get_total_adjusted_count();
-    let total_unchanged = total_attempted - total_adjusted;
-     */
-
-    //let adjusted_hosts  = ctx.get_hosts_adjusted_count();
-    //let unchanged_hosts   = seen_hosts - adjusted_hosts;
-
-    /*
-    let properties2_block = format!("{} ({}) hosts\
-                                     {} ({}) hosts\
-                                     {} ({}) hosts",
-                                     total_adjusted,  adjusted_hosts,
-                                     total_unchanged, unchanged_hosts,
-                                     ctx.get_total_failed_count(), failed_hosts);
-            
-   */
-
-
-
-
-
-    /*
-    let elements: Vec<(String,String)> = vec![     
-        (String::from("Roles"),     format!("{}",            ctx.get_role_count())),
-        (String::from("Tasks"),     format!("{}",            ctx.get_task_count())),
-        (String::from("Actions"),   format!("{} ({} hosts)", total_attempted, ctx.get_hosts_attempted_count())),
-        (String::from("Created\nCreated\nModified\nRemoved\nExecuted"), properties_block),
-        (String::from("Adjusted\nUnchanged\nFailed"), properties2_block),
-        (summary1, summary2),
-    ];
-    two_column_table(&String::from("Results"), &String::from(""), &elements);
-    */
     let seen_hosts = ctx.get_hosts_seen_count();
     let role_ct = ctx.get_role_count();
     let task_ct = ctx.get_task_count(); 
@@ -234,6 +191,8 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let removed_hosts = ctx.get_hosts_removal_count();
     let executed_ct = ctx.get_total_executions_count();
     let executed_hosts = ctx.get_hosts_executions_count();
+    let passive_ct = ctx.get_total_passive_count();
+    let passive_hosts = ctx.get_hosts_passive_count();
     let adjusted_ct = ctx.get_total_adjusted_count();
     let adjusted_hosts = ctx.get_hosts_adjusted_count();
     let unchanged_hosts = seen_hosts - adjusted_hosts;
@@ -242,12 +201,13 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let failed_hosts = ctx.get_hosts_failed_count();
 
 
+
     let summary = match failed_hosts {
-        0 => String::from("(X) Failures have occured."),
-        _ => match adjusted_hosts {
+        0 => match adjusted_hosts {
             0 => String::from("(✓) Perfect. All hosts matched policy."),
             _ => String::from("(✓) Actions were applied."),
-        }
+        },
+        _ => String::from("(X) Failures have occured."),
     };
 
     let mode_table = format!("|:-|:-|:-|\n\
@@ -260,14 +220,17 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
                       | Modified | {modified_ct} | {modified_hosts}\n\
                       | Removed | {removed_ct} | {removed_hosts}\n\
                       | Executed | {executed_ct} | {executed_hosts}\n\
+                      | Passive | {passive_ct} | {passive_hosts}\n\
                       | --- | --- | ---\n\
-                      | Changed | {adjusted_ct} | {adjusted_hosts}\n\
                       | Unchanged | {unchanged_ct} | {unchanged_hosts}\n\
+                      | Changed | {adjusted_ct} | {adjusted_hosts}\n\
                       | Failed | {failed_ct} | {failed_hosts}\n\
                       |-|-|-");
 
     crate::util::terminal::markdown_print(&mode_table);
     println!("{}", format!("\n{summary}"));
+    println!("");
+
 
 
 }

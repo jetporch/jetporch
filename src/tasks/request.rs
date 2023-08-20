@@ -25,6 +25,7 @@ pub enum TaskRequestType {
     Remove,
     Modify,
     Execute,
+    Passive,
 }
 
 pub struct TaskRequest {
@@ -80,6 +81,15 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Execute, 
+                changes: Arc::new(None) 
+            }
+        )
+    }
+
+    pub fn passive() -> Arc<Self> {
+        return Arc::new(
+            Self { 
+                request_type: TaskRequestType::Passive, 
                 changes: Arc::new(None) 
             }
         )

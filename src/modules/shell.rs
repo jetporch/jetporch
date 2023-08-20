@@ -80,9 +80,11 @@ impl IsTask for Shell {
                 return Ok(handle.needs_execution(&request));
             },
 
+            /*
             TaskRequestType::Create => {
                 panic!("this module does not create resources");
             },
+            */
     
             TaskRequestType::Execute => {
                 let result = handle.run(&request, &self.cmd.clone());
@@ -96,6 +98,7 @@ impl IsTask for Shell {
                 return result;
             },
     
+            /*
             TaskRequestType::Remove => {
                 panic!("this module does not remove resources");
             },
@@ -103,6 +106,8 @@ impl IsTask for Shell {
             TaskRequestType::Modify => {
                 panic!("this module does not modify resources");
             },
+            */
+            
             _ => { panic!("invalid request type") }
     
         }

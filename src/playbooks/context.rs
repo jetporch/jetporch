@@ -48,17 +48,18 @@ pub struct PlaybookContext {
     pub task_count: usize,
     pub task: Option<String>,
     
-    pub seen_hosts: HashMap<String, Arc<RwLock<Host>>>,
-    pub targetted_hosts: HashMap<String, Arc<RwLock<Host>>>,
-    pub failed_hosts: HashMap<String, Arc<RwLock<Host>>>,
+    seen_hosts:               HashMap<String, Arc<RwLock<Host>>>,
+    targetted_hosts:          HashMap<String, Arc<RwLock<Host>>>,
+    failed_hosts:             HashMap<String, Arc<RwLock<Host>>>,
 
-    pub attempted_count_for_host: HashMap<String, usize>,
-    pub adjusted_count_for_host:  HashMap<String, usize>,
-    pub created_count_for_host:   HashMap<String, usize>,
-    pub removed_count_for_host:   HashMap<String, usize>,
-    pub modified_count_for_host:  HashMap<String, usize>,
-    pub executed_count_for_host:  HashMap<String, usize>,
-    pub failed_count_for_host:    HashMap<String, usize>,
+    attempted_count_for_host: HashMap<String, usize>,
+    adjusted_count_for_host:  HashMap<String, usize>,
+    created_count_for_host:   HashMap<String, usize>,
+    removed_count_for_host:   HashMap<String, usize>,
+    modified_count_for_host:  HashMap<String, usize>,
+    executed_count_for_host:  HashMap<String, usize>,
+    passive_count_for_host:   HashMap<String, usize>,
+    failed_count_for_host:    HashMap<String, usize>,
     // FIXME: should this be here, it's a property of the connection? is it used?
     pub ssh_remote_user: Option<String>,
 
@@ -89,7 +90,9 @@ impl PlaybookContext {
             removed_count_for_host:   HashMap::new(),
             modified_count_for_host:  HashMap::new(),
             executed_count_for_host:  HashMap::new(),
+            passive_count_for_host:   HashMap::new(),
             failed_count_for_host:    HashMap::new(),
+            
         }
     }
 
@@ -233,6 +236,9 @@ impl PlaybookContext {
     pub fn increment_failed_for_host(&mut self, host: &String) {
         *self.failed_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+    pub fn increment_passive_for_host(&mut self, host: &String) {
+        *self.passive_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
 
     pub fn get_total_attempted_count(&self) -> usize {
         return self.attempted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
@@ -255,6 +261,9 @@ impl PlaybookContext {
     pub fn get_total_adjusted_count(&self) -> usize {
         return self.adjusted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+    pub fn get_total_passive_count(&self) -> usize {
+        return self.passive_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
 
     pub fn get_hosts_attempted_count(&self) -> usize {
         return self.attempted_count_for_host.keys().len();
@@ -270,6 +279,9 @@ impl PlaybookContext {
     }
     pub fn get_hosts_executions_count(&self) -> usize {
         return self.executed_count_for_host.keys().len();
+    }
+    pub fn get_hosts_passive_count(&self) -> usize {
+        return self.passive_count_for_host.keys().len();
     }
     pub fn get_hosts_failed_count(&self) -> usize {
         return self.failed_count_for_host.keys().len();

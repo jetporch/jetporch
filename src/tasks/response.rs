@@ -26,10 +26,12 @@ pub enum TaskStatus {
     IsValidated,
     IsChanged,
     IsExecuted,
+    IsPassive,
     NeedsCreation,
     NeedsRemoval,
     NeedsModification,
     NeedsExecution,
+    NeedsPassive,
     Failed
 }
 

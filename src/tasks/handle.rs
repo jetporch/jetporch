@@ -88,7 +88,6 @@ impl TaskHandle {
             command_result: None
         });
         // FIXME: make a function for this
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -99,7 +98,6 @@ impl TaskHandle {
             msg: None,
             command_result: Some(result)
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -110,7 +108,6 @@ impl TaskHandle {
             msg: None,
             command_result: Some(result)
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -122,7 +119,6 @@ impl TaskHandle {
             msg: None,
             command_result: None
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -136,7 +132,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -149,7 +144,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -161,7 +155,17 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
+        return response;
+    }
+
+    pub fn is_passive(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Passive, "is_passive response can only be returned for a passive request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::IsPassive, 
+            changes: Arc::new(None), 
+            msg: None,
+            command_result: None 
+        });
         return response;
     }
     
@@ -173,7 +177,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -186,7 +189,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -198,7 +200,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
     
@@ -210,7 +211,6 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
 
@@ -222,9 +222,18 @@ impl TaskHandle {
             msg: None,
             command_result: None 
         });
-        self.host.write().unwrap().record_task_response(&Arc::clone(request), &response);
         return response;
     }
-
+    
+    pub fn needs_passive(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Query, "needs_passive response can only be returned for a query request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::NeedsPassive, 
+            changes: Arc::new(None), 
+            msg: None,
+            command_result: None 
+        });
+        return response;
+    }
 
 }
