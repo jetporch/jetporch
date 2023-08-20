@@ -32,6 +32,9 @@ use std::sync::{Arc,RwLock};
 use crate::registry::list::Task;
 
 pub struct PlaybookContext {
+
+    // FIXME: needs a .reset() method but keeps failed_hosts and refuses to add hosts to 
+    // the targetted list if they had failures
     
     pub playbook_path: Option<String>,
     pub playbook_directory: Option<String>,
@@ -45,15 +48,20 @@ pub struct PlaybookContext {
     pub task_count: usize,
     pub task: Option<String>,
     
-    pub all_hosts: HashMap<String, Arc<RwLock<Host>>>,
-    pub remaining_hosts: HashMap<String, Arc<RwLock<Host>>>,
+    pub seen_hosts: HashMap<String, Arc<RwLock<Host>>>,
+    pub targetted_hosts: HashMap<String, Arc<RwLock<Host>>>,
     pub failed_hosts: HashMap<String, Arc<RwLock<Host>>>,
 
-    // FIXME: should this be here, it's a property of the connection
-    pub remote_user: Option<String>,
+    pub attempted_count_for_host: HashMap<String, usize>,
+    pub adjusted_count_for_host:  HashMap<String, usize>,
+    pub created_count_for_host:   HashMap<String, usize>,
+    pub removed_count_for_host:   HashMap<String, usize>,
+    pub modified_count_for_host:  HashMap<String, usize>,
+    pub executed_count_for_host:  HashMap<String, usize>,
+    pub failed_count_for_host:    HashMap<String, usize>,
+    // FIXME: should this be here, it's a property of the connection? is it used?
+    pub ssh_remote_user: Option<String>,
 
-    // FIXME: probably want to track notified handlers here
-    // FIXME: probably need a reset() method for end of plays
 }
 
 impl PlaybookContext {
@@ -67,32 +75,46 @@ impl PlaybookContext {
             task: None,
             role_count : 0,
             task_count : 0,
-            all_hosts: HashMap::new(),
-            remaining_hosts: HashMap::new(),
+            seen_hosts: HashMap::new(),
+            targetted_hosts: HashMap::new(),
             failed_hosts: HashMap::new(),
             role_path: None,
             role_name: None,
-            remote_user: None
+            // FIXME: look through cli commands - this is part of the runstate, not the context
+            // and should be modified.  Remove the methods below that access it / port
+            ssh_remote_user: None, 
+            adjusted_count_for_host:  HashMap::new(),
+            attempted_count_for_host: HashMap::new(),
+            created_count_for_host:   HashMap::new(),
+            removed_count_for_host:   HashMap::new(),
+            modified_count_for_host:  HashMap::new(),
+            executed_count_for_host:  HashMap::new(),
+            failed_count_for_host:    HashMap::new(),
         }
     }
 
     // ===============================================================================
     // HOST TARGETTING
 
-    // get all selected hosts in the play
-    // FIXME: need a method for non-failed hosts
     pub fn get_remaining_hosts(&self) -> HashMap<String, Arc<RwLock<Host>>> {
         let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
-        for (k,v) in self.remaining_hosts.iter() {
+        for (k,v) in self.targetted_hosts.iter() {
             results.insert(k.clone(), Arc::clone(&v));
         }
         return results;
     }
 
     pub fn set_targetted_hosts(&mut self, hosts: &Vec<Arc<RwLock<Host>>>) {
+        self.targetted_hosts.clear();
         for host in hosts.iter() {
-            self.all_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
-            self.remaining_hosts.insert(host.read().unwrap().name.clone(), Arc::clone(&host));
+            let hostname = host.read().unwrap().name.clone();
+            match self.failed_hosts.contains_key(&hostname) {
+                true => {},
+                false => { 
+                    self.seen_hosts.insert(hostname.clone(), Arc::clone(&host));
+                    self.targetted_hosts.insert(hostname.clone(), Arc::clone(&host)); 
+                }
+            }
         }
     }
 
@@ -100,15 +122,13 @@ impl PlaybookContext {
         // FIXME - we should really keep all_hosts seperate from unfailed_hosts
         let host2 = host.read().unwrap();
         let hostname = host2.name.clone();
-        self.remaining_hosts.remove(&hostname);
+        self.targetted_hosts.remove(&hostname);
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
 
 
     // =================================================================================
     // SIGNPOSTS
-
-    // FIXME: we need a method set_hosts that clears all_hosts
 
     pub fn set_playbook_path(&mut self, path: &PathBuf) {
         self.playbook_path = Some(path_as_string(&path));
@@ -140,25 +160,29 @@ impl PlaybookContext {
         self.role_path = None;
     }
     
-
     /* FIXME: doesn't make sense, I think?
     pub fn set_remote_user(&mut self, play: &Play, default_username: String) {
         // FIXME: get current logged in username or update docs
         match &play.ssh_user {
-            Some(x) => { self.remote_user = Some(x.clone()) },
-            None => { self.remote_user = Some(String::from("root")); }
+            Some(x) => { self.ssh_remote_user = Some(x.clone()) },
+            None => { self.ssh_remote_user = Some(String::from("root")); }
         }
     }
     */
 
+
+    // FIXME: move to runstate???
+
     pub fn get_ssh_remote_user(&self, host: &Arc<RwLock<Host>>) -> String {
         // FIXME: default only if host doesn't have an answer in blended variables
         // FIXME: we can also see if there is a value set on the play
-        return match &self.remote_user {
+        return match &self.ssh_remote_user {
             Some(x) => x.clone(),
             None => String::from("root")
         }
     }
+
+    // FIXME: move to runstate???
 
     pub fn get_ssh_remote_port(&self, host: &Arc<RwLock<Host>>) -> usize {
         // FIXME: default only if host doesn't have an answer in blended variables
@@ -168,6 +192,8 @@ impl PlaybookContext {
 
     // ==================================================================================
     // STATISTICS
+
+    // FIXME: might want to track task count differently from handler count?
 
     pub fn get_role_count(&self) -> usize {
         return self.role_count;
@@ -185,5 +211,75 @@ impl PlaybookContext {
         self.task_count = self.task_count + 1;
     }
 
+    pub fn increment_attempted_for_host(&mut self, host: &String) {
+        *self.attempted_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+    pub fn increment_created_for_host(&mut self, host: &String) {
+        *self.created_count_for_host.entry(host.clone()).or_insert(0) += 1;
+        *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+    pub fn increment_removed_for_host(&mut self, host: &String) {
+        *self.removed_count_for_host.entry(host.clone()).or_insert(0) += 1;
+        *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+    pub fn increment_modified_for_host(&mut self, host: &String) {
+        *self.modified_count_for_host.entry(host.clone()).or_insert(0) += 1;
+        *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+    pub fn increment_executed_for_host(&mut self, host: &String) {
+        *self.executed_count_for_host.entry(host.clone()).or_insert(0) += 1;
+        *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+    pub fn increment_failed_for_host(&mut self, host: &String) {
+        *self.failed_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+
+    pub fn get_total_attempted_count(&self) -> usize {
+        return self.attempted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_creation_count(&self) -> usize {
+        return self.created_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_modified_count(&self) -> usize{
+        return self.modified_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_removal_count(&self) -> usize{
+        return self.removed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_executions_count(&self) -> usize {
+        return self.executed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_failed_count(&self) -> usize{
+        return self.failed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+    pub fn get_total_adjusted_count(&self) -> usize {
+        return self.adjusted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+
+    pub fn get_hosts_attempted_count(&self) -> usize {
+        return self.attempted_count_for_host.keys().len();
+    }
+    pub fn get_hosts_creation_count(&self) -> usize {
+        return self.created_count_for_host.keys().len();
+    }
+    pub fn get_hosts_modified_count(&self) -> usize {
+        return self.modified_count_for_host.keys().len();
+    }
+    pub fn get_hosts_removal_count(&self) -> usize {
+        return self.removed_count_for_host.keys().len();
+    }
+    pub fn get_hosts_executions_count(&self) -> usize {
+        return self.executed_count_for_host.keys().len();
+    }
+    pub fn get_hosts_failed_count(&self) -> usize {
+        return self.failed_count_for_host.keys().len();
+    }
+    pub fn get_hosts_adjusted_count(&self) -> usize {
+        return self.adjusted_count_for_host.keys().len();
+    }
+    pub fn get_hosts_seen_count(&self) -> usize {
+        return self.seen_hosts.keys().len();
+    }
+    
 
 }

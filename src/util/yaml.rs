@@ -61,7 +61,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     let line_count = lines.len();
     let mut show_start: usize = 0;
 
-    banner(format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
+    banner(&format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
 
     if error_line < YAML_ERROR_SHOW_LINES {
         show_start = 1;

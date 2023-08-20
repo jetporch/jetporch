@@ -64,6 +64,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         }
 
     }
+    run_state.visitor.read().unwrap().on_exit(&run_state.context);
     return Ok(())
 }
 

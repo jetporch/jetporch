@@ -54,12 +54,12 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
 
     ];
 
-    two_column_table(String::from("Host Report:"), String::from(""), host_elements);
+    two_column_table(&String::from("Host Report:"), &String::from(""), &host_elements);
     println!("");
 
-    captioned_display(String::from("Configured Variables"), host_variables);
+    captioned_display(&String::from("Configured Variables"), &host_variables);
     println!("");
-    captioned_display(String::from("Blended Variables"), blended_variables);
+    captioned_display(&String::from("Blended Variables"), &blended_variables);
     println!("");
 
     Ok(())
@@ -123,7 +123,7 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     //];
 
 
-    two_column_table(String::from("Group Report:"), String::from(""), group_elements);
+    two_column_table(&String::from("Group Report:"), &String::from(""), &group_elements);
     println!("");
 
     //println!("{}", descendant_hosts_string);
@@ -131,9 +131,9 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     
     // two_column_table(String::from("Host Report:"), String::from(""), host_elements);
     //println!("");
-    captioned_display(String::from("Configured Variables"), group_variables);
+    captioned_display(&String::from("Configured Variables"), &group_variables);
     println!("");
-    captioned_display(String::from("Blended Variables"), blended_variables);
+    captioned_display(&String::from("Blended Variables"), &blended_variables);
     println!("");
 
     return Ok(());

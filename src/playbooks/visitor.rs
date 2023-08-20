@@ -77,23 +77,28 @@ pub trait PlaybookVisitor {
     }
 
     fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
+        let ctx = context.read().unwrap();
+        let play_name = ctx.get_play_name();
+        self.banner();
+        println!("> playbook stop: {}", play_name);
+    }
+
+    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
         
-        let ctx = context.read().unwrap();
-        let play_name = ctx.get_play_name();
 
         if self.is_syntax_only() {
-
+            let ctx = context.read().unwrap();
+            let play_name = ctx.get_play_name();
             let elements: Vec<(String,String)> = vec![     
                 (String::from("Roles"), format!("{}", ctx.get_role_count())),
                 (String::from("Tasks"), format!("{}", ctx.get_task_count())),
                 (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
             ];
-            two_column_table(String::from("Play Result"), play_name.clone(), elements);
-
+            two_column_table(&String::from("Results"), &play_name.clone(), &elements);
         } else {
-            println!("(full play output not implemented)");
+            show_playbook_summary(context);
         }
     }
 
@@ -128,14 +133,18 @@ pub trait PlaybookVisitor {
         println!("! host: {} ...", host2.name);
     }
 
+    // FIXME: this pattern of the visitor accessing the context is cleaner than the FSM code that accesses both in sequence, so do
+    // more of this below.
+
     fn on_host_task_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
+        let mut context = context.write().unwrap();
+        context.increment_attempted_for_host(&host2.name);
         match &task_response.status {
-            TaskStatus::IsCreated => { println!("! host: {} => created", host2.name); },
-            TaskStatus::IsRemoved => { println!("! host: {} => removed", host2.name); },
-            TaskStatus::IsModified => { println!("! host: {} => modified", host2.name); },
-            TaskStatus::IsChanged => { println!("! host: {} => changed", host2.name); },
-            TaskStatus::IsExecuted => { println!("! host: {} => executed", host2.name); },
+            TaskStatus::IsCreated  =>  { println!("! host: {} => created",  &host2.name); context.increment_created_for_host(&host2.name);  },
+            TaskStatus::IsRemoved  =>  { println!("! host: {} => removed",  &host2.name); context.increment_removed_for_host(&host2.name);  },
+            TaskStatus::IsModified =>  { println!("! host: {} => modified", &host2.name); context.increment_modified_for_host(&host2.name); },
+            TaskStatus::IsExecuted =>  { println!("! host: {} => executed", &host2.name); context.increment_executed_for_host(&host2.name); },
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }
@@ -143,16 +152,122 @@ pub trait PlaybookVisitor {
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         println!("! host failed: {}", host2.name);
+        context.write().unwrap().increment_failed_for_host(&host2.name);
         //println!("> task failed on host: {}", host);
     }
 
     fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
+        context.write().unwrap().increment_failed_for_host(&host2.name);
         println!("! connection failed to host: {}", host2.name);
     }
 
     fn is_syntax_only(&self) -> bool;
 
     fn is_check_mode(&self) -> bool;
+
+}
+
+
+pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
+    
+    let ctx = context.read().unwrap();
+    let play_name = ctx.get_play_name();
+
+    /*
+    let failed_hosts = ctx.get_hosts_failed_count();
+    let adjusted_hosts = ctx.get_hosts_adjusted_count();
+    let properties_block = format!("{} ({}) hosts\
+                                    {} ({}) hosts\
+                                    {} ({}) hosts\
+                                    {} ({}) hosts\
+                                    {} ({}) hosts",
+                                    ctx.get_total_attempted_count(), ctx.get_hosts_attempted_count(),
+                                    ctx.get_total_creation_count(),   ctx.get_hosts_creation_count(),
+                                    ctx.get_total_modified_count(),  ctx.get_hosts_modified_count(),
+                                    ctx.get_total_removal_count(),   ctx.get_hosts_removal_count(),
+                                    ctx.get_total_executions_count(),  ctx.get_hosts_executions_count());
+
+    let total_attempted = ctx.get_total_attempted_count();
+    let total_adjusted  = ctx.get_total_adjusted_count();
+    let total_unchanged = total_attempted - total_adjusted;
+     */
+
+    //let adjusted_hosts  = ctx.get_hosts_adjusted_count();
+    //let unchanged_hosts   = seen_hosts - adjusted_hosts;
+
+    /*
+    let properties2_block = format!("{} ({}) hosts\
+                                     {} ({}) hosts\
+                                     {} ({}) hosts",
+                                     total_adjusted,  adjusted_hosts,
+                                     total_unchanged, unchanged_hosts,
+                                     ctx.get_total_failed_count(), failed_hosts);
+            
+   */
+
+
+
+
+
+    /*
+    let elements: Vec<(String,String)> = vec![     
+        (String::from("Roles"),     format!("{}",            ctx.get_role_count())),
+        (String::from("Tasks"),     format!("{}",            ctx.get_task_count())),
+        (String::from("Actions"),   format!("{} ({} hosts)", total_attempted, ctx.get_hosts_attempted_count())),
+        (String::from("Created\nCreated\nModified\nRemoved\nExecuted"), properties_block),
+        (String::from("Adjusted\nUnchanged\nFailed"), properties2_block),
+        (summary1, summary2),
+    ];
+    two_column_table(&String::from("Results"), &String::from(""), &elements);
+    */
+    let seen_hosts = ctx.get_hosts_seen_count();
+    let role_ct = ctx.get_role_count();
+    let task_ct = ctx.get_task_count(); 
+    let action_ct = ctx.get_total_attempted_count();
+    let action_hosts = ctx.get_hosts_attempted_count();
+    let created_ct = ctx.get_total_creation_count();
+    let created_hosts = ctx.get_hosts_creation_count();
+    let modified_ct = ctx.get_total_modified_count();
+    let modified_hosts = ctx.get_hosts_modified_count();
+    let removed_ct = ctx.get_total_removal_count();
+    let removed_hosts = ctx.get_hosts_removal_count();
+    let executed_ct = ctx.get_total_executions_count();
+    let executed_hosts = ctx.get_hosts_executions_count();
+    let adjusted_ct = ctx.get_total_adjusted_count();
+    let adjusted_hosts = ctx.get_hosts_adjusted_count();
+    let unchanged_hosts = seen_hosts - adjusted_hosts;
+    let unchanged_ct = action_ct - adjusted_ct;
+    let failed_ct    = ctx.get_total_failed_count();
+    let failed_hosts = ctx.get_hosts_failed_count();
+
+
+    let summary = match failed_hosts {
+        0 => String::from("(X) Failures have occured."),
+        _ => match adjusted_hosts {
+            0 => String::from("(✓) Perfect. All hosts matched policy."),
+            _ => String::from("(✓) Actions were applied."),
+        }
+    };
+
+    let mode_table = format!("|:-|:-|:-|\n\
+                      | Results | Items | Hosts \n\
+                      | --- | --- | --- |\n\
+                      | Roles | {role_ct} | |\n\
+                      | Tasks | {task_ct} | {seen_hosts}|\n\
+                      | --- | --- | --- |\n\
+                      | Created | {created_ct} | {created_hosts}\n\
+                      | Modified | {modified_ct} | {modified_hosts}\n\
+                      | Removed | {removed_ct} | {removed_hosts}\n\
+                      | Executed | {executed_ct} | {executed_hosts}\n\
+                      | --- | --- | ---\n\
+                      | Changed | {adjusted_ct} | {adjusted_hosts}\n\
+                      | Unchanged | {unchanged_ct} | {unchanged_hosts}\n\
+                      | Failed | {failed_ct} | {failed_hosts}\n\
+                      |-|-|-");
+
+    crate::util::terminal::markdown_print(&mode_table);
+    println!("{}", format!("\n{summary}"));
+
 
 }
