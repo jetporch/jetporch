@@ -27,6 +27,7 @@ pub enum TaskStatus {
     IsChanged,
     IsExecuted,
     IsPassive,
+    IsMatched,
     NeedsCreation,
     NeedsRemoval,
     NeedsModification,

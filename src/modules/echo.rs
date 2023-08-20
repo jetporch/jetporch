@@ -77,35 +77,16 @@ impl IsTask for Echo {
             TaskRequestType::Query => {
                 return Ok(handle.needs_passive(&request))
             },
-    
-            
-            TaskRequestType::Create => {
-                panic!("this module does not create resources");
-            },
-
-            TaskRequestType::Execute => {
-                panic!("this module does not execute resources");
-
-            },
-            
 
             TaskRequestType::Passive => {
                 handle.debug(&request, &self.msg);
                 return Ok(handle.is_passive(&request))
             },
 
-            
-            TaskRequestType::Remove => {
-                panic!("this module does not remove resources");
-            },
-
-            TaskRequestType::Modify => {
-                panic!("this module does not modify resources");
-            },
-            
-
-            _ => { panic!("invalid request type") }
-    
+            _ => {
+                return Err(handle.not_supported(&request));
+            }
+        
         }
     }
 

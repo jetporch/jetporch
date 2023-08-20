@@ -80,7 +80,7 @@ impl TaskHandle {
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
-    pub fn is_failed(&self, request: &Arc<TaskRequest>,  msg: String) -> Arc<TaskResponse> {
+    pub fn is_failed(&self, request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
             changes: Arc::new(None),
@@ -89,6 +89,10 @@ impl TaskHandle {
         });
         // FIXME: make a function for this
         return response;
+    }
+
+    pub fn not_supported(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        return self.is_failed(request, &String::from("not supported"));
     }
 
     pub fn command_failed(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
@@ -115,6 +119,17 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsValidated, 
+            changes: Arc::new(None), 
+            msg: None,
+            command_result: None
+        });
+        return response;
+    }
+
+    pub fn is_matched(&self, request: &Arc<TaskRequest>, ) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Query, "is_matched response can only be returned for a query request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::IsMatched, 
             changes: Arc::new(None), 
             msg: None,
             command_result: None

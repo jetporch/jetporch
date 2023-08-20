@@ -31,6 +31,8 @@ use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
 
+use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset};
+
 pub trait PlaybookVisitor {
 
     fn banner(&self) {
@@ -38,11 +40,11 @@ pub trait PlaybookVisitor {
     }
 
     fn debug(&self, message: String) {
-        println!("| debug | {}", message.clone());
+        println!("{color_cyan}| debug | {}{color_reset}", message.clone());
     }
 
     fn debug_host(&self, host: &Arc<RwLock<Host>>, message: String) {
-        println!("| ..... {} | {}", host.read().unwrap().name, message.clone());
+        println!("{color_cyan}| ..... {} | {}{color_reset}", host.read().unwrap().name, message.clone());
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -144,18 +146,19 @@ pub trait PlaybookVisitor {
         let mut context = context.write().unwrap();
         context.increment_attempted_for_host(&host2.name);
         match &task_response.status {
-            TaskStatus::IsCreated  =>  { println!("! host: {} => ok (created)",  &host2.name); context.increment_created_for_host(&host2.name);  },
-            TaskStatus::IsRemoved  =>  { println!("! host: {} => ok (removed)",  &host2.name); context.increment_removed_for_host(&host2.name);  },
-            TaskStatus::IsModified =>  { println!("! host: {} => ok (modified)", &host2.name); context.increment_modified_for_host(&host2.name); },
-            TaskStatus::IsExecuted =>  { println!("! host: {} => ok (executed)", &host2.name); context.increment_executed_for_host(&host2.name); },
-            TaskStatus::IsPassive  =>  { println!("! host: {} => ok", &host2.name); context.increment_passive_for_host(&host2.name); }
+            TaskStatus::IsCreated  =>  { println!("{color_blue}! host: {} => ok (created){color_reset}",  &host2.name); context.increment_created_for_host(&host2.name);  },
+            TaskStatus::IsRemoved  =>  { println!("{color_blue}! host: {} => ok (removed){color_reset}",  &host2.name); context.increment_removed_for_host(&host2.name);  },
+            TaskStatus::IsModified =>  { println!("{color_blue}! host: {} => ok (modified){color_reset}", &host2.name); context.increment_modified_for_host(&host2.name); },
+            TaskStatus::IsExecuted =>  { println!("{color_blue}! host: {} => ok (executed){color_reset}", &host2.name); context.increment_executed_for_host(&host2.name); },
+            TaskStatus::IsPassive  =>  { println!("{color_green}! host: {} => ok (no effect) {color_reset}", &host2.name); context.increment_passive_for_host(&host2.name); }
+            TaskStatus::IsMatched  =>  { println!("{color_green}! host: {} => ok (no changes) {color_reset}", &host2.name); } 
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }
 
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("! host failed: {}", host2.name);
+        println!("{color_red}! host failed: {}{color_reset}", host2.name);
         context.write().unwrap().increment_failed_for_host(&host2.name);
         //println!("> task failed on host: {}", host);
     }
@@ -163,7 +166,7 @@ pub trait PlaybookVisitor {
     fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         context.write().unwrap().increment_failed_for_host(&host2.name);
-        println!("! connection failed to host: {}", host2.name);
+        println!("{color_red}! connection failed to host: {}{color_reset}", host2.name);
     }
 
     fn is_syntax_only(&self) -> bool;
@@ -204,10 +207,10 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
 
     let summary = match failed_hosts {
         0 => match adjusted_hosts {
-            0 => String::from("(✓) Perfect. All hosts matched policy."),
-            _ => String::from("(✓) Actions were applied."),
+            0 => String::from("{color_green}(✓) Perfect. All hosts matched policy.{color_reset}"),
+            _ => String::from("{color_blue}(✓) Actions were applied.{color_reset}"),
         },
-        _ => String::from("(X) Failures have occured."),
+        _ => String::from("{color_red}(X) Failures have occured.{color_reset}"),
     };
 
     let mode_table = format!("|:-|:-|:-|\n\

@@ -124,6 +124,9 @@ fn run_task_on_host(
     let qrc = task.dispatch(&handle, &TaskRequest::query());
     let (request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
+            TaskStatus::IsMatched => {
+                (Arc::clone(&query), Ok(handle.is_matched(&Arc::clone(&query))))
+            },
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
                     let req = TaskRequest::create();
