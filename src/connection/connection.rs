@@ -18,8 +18,9 @@ use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::handle::TaskHandle;
 use std::sync::Arc;
+use std::marker::{Send,Sync};
 
-pub trait Connection {
+pub trait Connection : Send + Sync {
 
     fn connect(&mut self) -> Result<(),String>;  
 

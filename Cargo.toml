@@ -13,3 +13,5 @@ serde = { version = "1.0.171",  features = ["derive"] }
 serde_yaml = "0.9.25"
 termimad = "0.20"
 inline_colorization = "0.1.5"
+rayon = "1.7.0"
+

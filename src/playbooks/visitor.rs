@@ -22,8 +22,9 @@ use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset};
+use std::marker::{Send,Sync};
 
-pub trait PlaybookVisitor {
+pub trait PlaybookVisitor : Send + Sync {
 
     fn banner(&self) {
         println!("----------------------------------------------------------");

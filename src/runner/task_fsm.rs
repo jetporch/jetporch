@@ -25,6 +25,7 @@ use crate::inventory::hosts::Host;
 use crate::tasks::response::{TaskStatus,TaskResponse};
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
+use rayon::prelude::*;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
@@ -61,8 +62,17 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     if hosts.len() == 0 {
         return Err(String::from("no hosts remaining"))
     }
+    let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
+    for (_,v) in hosts {
+        println!("HO=!");
+        host_objects.push(Arc::clone(&v));
+    }
 
-    for (_name, host) in hosts {
+
+    let total : i64 = host_objects.par_iter().map(|host| {
+
+        println!("INSIDE THE BLIP!!!!");
+
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {
@@ -86,7 +96,8 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
             }
         }
-    }
+        return 1;
+    }).sum();
     return Ok(());
 }
 
@@ -214,6 +225,7 @@ fn run_task_on_host(
             _ => { panic!("module returned a non-failure code inside an Err: {:?}", x); }
         }
     };
+    /*
     match result {
         Ok(ref x) =>  { 
             host.write().unwrap().record_task_response(&Arc::clone(&request), &x); 
@@ -222,6 +234,7 @@ fn run_task_on_host(
             host.write().unwrap().record_task_response(&Arc::clone(&request), x); 
         },
     }
+    */
     return result;
 
 }
