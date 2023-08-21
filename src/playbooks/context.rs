@@ -14,14 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: context.rs
-// the playbook context is a struct of status that remains available to all objects
-// while walking the playbook tree, it, for instance, allows any task to know the
-// current role, what the current path root is, and so on. While parts of the context
-// are mutable, they should not be adjusted outside of playbook traversal code.
-// ===================================================================================
-
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use crate::tasks::common::TaskProperty;
@@ -29,7 +21,9 @@ use std::path::PathBuf;
 use std::collections::{HashMap};
 use crate::inventory::hosts::Host;
 use std::sync::{Arc,RwLock};
+use crate::connection::cache::ConnectionCache;
 use crate::registry::list::Task;
+use crate::util::yaml::blend_variables;
 
 pub struct PlaybookContext {
 
@@ -60,8 +54,9 @@ pub struct PlaybookContext {
     executed_count_for_host:  HashMap<String, usize>,
     passive_count_for_host:   HashMap<String, usize>,
     failed_count_for_host:    HashMap<String, usize>,
-    // FIXME: should this be here, it's a property of the connection? is it used?
-    pub ssh_remote_user: Option<String>,
+    
+    pub default_remote_user:  Option<String>,
+    pub connection_cache:     RwLock<ConnectionCache>
 
 }
 
@@ -81,9 +76,7 @@ impl PlaybookContext {
             failed_hosts: HashMap::new(),
             role_path: None,
             role_name: None,
-            // FIXME: look through cli commands - this is part of the runstate, not the context
-            // and should be modified.  Remove the methods below that access it / port
-            ssh_remote_user: None, 
+            default_remote_user: None, 
             adjusted_count_for_host:  HashMap::new(),
             attempted_count_for_host: HashMap::new(),
             created_count_for_host:   HashMap::new(),
@@ -92,6 +85,7 @@ impl PlaybookContext {
             executed_count_for_host:  HashMap::new(),
             passive_count_for_host:   HashMap::new(),
             failed_count_for_host:    HashMap::new(),
+            connection_cache: RwLock::new(ConnectionCache::new())
             
         }
     }
@@ -163,39 +157,79 @@ impl PlaybookContext {
         self.role_path = None;
     }
     
-    /* FIXME: doesn't make sense, I think?
-    pub fn set_remote_user(&mut self, play: &Play, default_username: String) {
-        // FIXME: get current logged in username or update docs
-        match &play.ssh_user {
-            Some(x) => { self.ssh_remote_user = Some(x.clone()) },
-            None => { self.ssh_remote_user = Some(String::from("root")); }
-        }
-    }
-    */
-
-
-    // FIXME: move to runstate???
-
-    pub fn get_ssh_remote_user(&self, _host: &Arc<RwLock<Host>>) -> String {
-        // FIXME: default only if host doesn't have an answer in blended variables
-        // FIXME: we can also see if there is a value set on the play
-        return match &self.ssh_remote_user {
-            Some(x) => x.clone(),
-            None => String::from("root")
+    pub fn set_default_remote_user(&mut self, default_username: Option<String>) {
+        match default_username {
+            Some(x) => { self.default_remote_user = Some(x) },
+            None => { }
         }
     }
 
-    // FIXME: move to runstate???
-
-    pub fn get_ssh_remote_port(&self, _host: &Arc<RwLock<Host>>) -> usize {
-        // FIXME: default only if host doesn't have an answer in blended variables
-        // FIXME: we can also see if there is a value set on the play
-        return 22usize;
+    pub fn get_default_remote_user(&self, _host: &Arc<RwLock<Host>>) -> Option<String> {
+        return self.default_remote_user.clone();
     }
 
     // ==================================================================================
-    // STATISTICS
+    // VARIABLES
 
+    pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>) -> String  {
+        // !!!
+        // !!!
+        // FIXME: load in defaults then inventory then vars/vars_files - keep role vars seperate
+        // !!!
+        // !!!
+        let blended = String::from("");
+        let host_blended = host.read().unwrap().get_blended_variables();
+        //let context_blended = context.read().get_blended_variables();
+        let blended2 = blend_variables(&host_blended, &blended);
+        //blended = blend_variables(&host_blended, &context_blended);
+        return blended2
+    }
+
+    pub fn get_complete_blended_variables_mapping(&self, host: &Arc<RwLock<Host>>) -> HashMap<String, serde_yaml::Value> {
+        let complete_blended = self.get_complete_blended_variables(host);
+        let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&complete_blended).unwrap();
+        return vars;
+    }
+
+    pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
+        
+        // FIXME: implement a version that uses the context to also include all other variables
+        // which will also be needed by templating... 
+        let vars = self.get_complete_blended_variables_mapping(host);
+        let host2 = host.read().unwrap();
+
+        let remote_hostname = match vars.contains_key(&String::from("jet_ssh_remote_hostname")) {
+            true => match vars.get(&String::from("jet_ssh_remote_hostname")).unwrap().as_str() {
+                Some(x) => String::from(x),
+                None => host2.name.clone()
+            },
+            false => host2.name.clone()
+        };
+        let remote_user = match vars.contains_key(&String::from("jet_ssh_remote_user")) {
+            true => match vars.get(&String::from("jet_ssh_remote_user")).unwrap().as_str() {
+                Some(x) => String::from(x),
+                None => String::from("root")
+            },
+            false => match &self.default_remote_user {
+                Some(x) => x.clone(),
+                None => String::from("root")
+            }
+        };
+        let remote_port = match vars.contains_key(&String::from("jet_ssh_remote_port")) {
+            true => match vars.get(&String::from("jet_ssh_remote_port")).unwrap().as_i64() {
+                Some(x) => x,
+                None => 22
+            },
+            false => 22
+        };
+
+        return (remote_hostname, remote_user, remote_port)
+
+
+    } 
+
+    // ==================================================================================
+    // STATISTICS
     // FIXME: might want to track task count differently from handler count?
 
     pub fn get_role_count(&self) -> usize {

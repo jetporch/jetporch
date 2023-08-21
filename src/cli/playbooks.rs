@@ -49,19 +49,19 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),
-        default_user: String::from("__THIS_IS_NOT_USED__") // FIXME: should be an option
+        default_user: None
     });
     return playbook_traversal(&run_state);
 }
 
-pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> Result<(), String> {
+pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, default_user: Option<String>) -> Result<(), String> {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(SshFactory::new())),
-        default_user: String::from("root") // FIXME: get from CLI
+        default_user: default_user
     });
     return playbook_traversal(&run_state);
 }
@@ -73,7 +73,9 @@ pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<R
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(LocalFactory::new())),
-        default_user: String::from("__THIS_IS_NOT_USED__") // FIXME: should be an option
+        default_user: None
     });
     return playbook_traversal(&run_state);
 }
+
+// FIXME: add check modes for SSH and local

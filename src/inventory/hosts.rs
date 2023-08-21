@@ -95,8 +95,16 @@ impl Host {
         return blend_variables(&mine, &blended);
     }
 
+    pub fn get_blended_variables_mapping(&self) -> HashMap<String, serde_yaml::Value> {
+        let blended = self.get_blended_variables();
+        let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&blended).unwrap();
+        return vars;
+    }
+
     pub fn record_task_response(&mut self, task_request: &Arc<TaskRequest>, task_response: &Arc<TaskResponse>) {
         self.history.push((Arc::clone(&task_request), Arc::clone(&task_response)));
     }
+
+
 
 }

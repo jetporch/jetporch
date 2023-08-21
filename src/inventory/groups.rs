@@ -40,19 +40,6 @@ impl Group {
         }
     }
 
-    /*
-    pub fn has_group(&self, &group_name: String) -> bool {
-        let guard = self.groups.lock().unwrap();
-        return guard.contains_key(&group_name.clone());
-    }
-
-    pub fn get_group(&self, &group_name: String) -> Arc<Group> {
-        let guard = self.groups.lock().unwrap();
-        let arc = groups.get(&group_name.clone()).unwrap();
-        return Arc::clone(&arc);    
-    }
-    */
-
     pub fn add_subgroup(&mut self, name: &String, subgroup: Arc<RwLock<Group>>) {
         assert!(!name.eq(&self.name));
         self.subgroups.insert(

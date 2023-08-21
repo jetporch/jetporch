@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: no.rs
-// this is a dummy connection type that doesn't do anything, while it sounds useless
-// we do use these connecton types when validating playbook language. It ensures
-// that tasks have zero way of running, and is mostly here for provable correctness
-// ===================================================================================
-
 use crate::connection::connection::{Connection};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;

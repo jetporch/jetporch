@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// code for the CLI subcommand 'show'.
-
 use crate::util::terminal::{two_column_table, captioned_display};
 use std::sync::Arc;
 use std::sync::RwLock;

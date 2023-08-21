@@ -26,7 +26,6 @@ use crate::inventory::hosts::Host;
 use crate::util::io::{jet_file_open,directory_as_string};
 use crate::util::yaml::show_yaml_error_in_context;
 use std::path::PathBuf;
-//use serde_yaml::Value;
 use std::collections::HashMap;
 use std::sync::{Arc,RwLock};
 
@@ -36,7 +35,7 @@ pub struct RunState {
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
-    pub default_user: String
+    pub default_user: Option<String>
 }
 
 // ============================================================================
@@ -47,7 +46,11 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         
     for playbook_path in run_state.playbook_paths.read().unwrap().iter() {
 
-        { let mut ctx = run_state.context.write().unwrap(); ctx.set_playbook_path(playbook_path); }
+        { 
+            let mut ctx = run_state.context.write().unwrap(); 
+            ctx.set_playbook_path(playbook_path); 
+            ctx.set_default_remote_user(run_state.default_user.clone());
+        }
 
         run_state.visitor.read().unwrap().on_playbook_start(&run_state.context);
 
@@ -61,9 +64,12 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
             handle_play(&run_state, play)?;
+            run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
+        run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
 
     }
+    run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
     run_state.visitor.read().unwrap().on_exit(&run_state.context);
     return Ok(())
 }
@@ -100,6 +106,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
         let hosts = batches.get(&batch_num).unwrap();
         run_state.visitor.read().unwrap().on_batch(batch_num, batch_count, hosts.len());
         handle_batch(run_state, play, hosts)?;
+        run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
     }
     
     // we're done, generate our summary/report & output

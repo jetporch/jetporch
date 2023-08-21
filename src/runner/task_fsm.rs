@@ -14,14 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: task_fsm.rs
-// the task FSM is mostly about proveable correctness in executing modules - ensuring
-// that modules are implemented to be able to ask what they want to do, and to make
-// sure they respond correctly. It will also be used to loop over hosts in parallel
-// particularly needed for SSH modes of the program
-// ===================================================================================
-
 use crate::connection::factory::ConnectionFactory;
 use crate::connection::no::NoFactory;
 use crate::registry::list::Task;

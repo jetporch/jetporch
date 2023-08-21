@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: task_handle.rs
-// a task handle warps lots of playbook reporting, connection, and command details
-// to help ensure a module does not have too much API access to the rest of the program
-// and mostly standardized
-// ===================================================================================
-
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};

@@ -14,11 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: yaml.rs
-// various functions to assist working with YAML
-// ===================================================================================
-
 use std::path::{Path};
 use std::fs::read_to_string;
 use crate::util::terminal::{banner};

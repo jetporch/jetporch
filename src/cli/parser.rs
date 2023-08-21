@@ -14,23 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// the guts of CLI command line option parsing
-// we don't use any libraries here because they are a bit automagical
-// this is clearly the least organized part of jet, sorry
+// we don't use any parsing libraries here because they are a bit too automagical
+// this may change later.
 
 use std::env;
 use std::vec::Vec;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
 
-// FIXME: add --user and pass the value to various traversals in main (SSH only)
-
-// =============================================================================
-// PUBLIC API - for main.rs only
-// =============================================================================
-
 pub struct CliParser {
-    // NEW PARAMETERS?: ADD HERE (AND ELSEWHERE WITH THIS COMMENT)
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub mode: u32,
@@ -38,6 +30,7 @@ pub struct CliParser {
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
+    pub default_user: Option<String>
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -68,20 +61,13 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     }
 }
 
-// see also cli_parse.parse and other public methods in main.rs
-
-// =============================================================================
-// BEGIN INTERNALS
-// =============================================================================
-
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
 const ARGUMENT_GROUPS: &'static str = "--groups";
 const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
+const ARGUMENT_DEFAULT_USER: &'static str = "--default-user";
 
-// here's our CLI usage text, it's just hard coded for now
-// the markdown isn't too friendly to read but it looks great
 fn show_help() {
 
     let header_table = "|-|:-\n\
@@ -131,6 +117,8 @@ fn show_help() {
                        | | | | |\n\
                        | | --roles path1:path2| provides additional role search paths| - | most\n\
                        | | | | |\n\
+                       | | --default-user username | use this username to connect by default | - | ssh\n\
+                       | | | | |\n\
                        | --- | --- | --- | --- | --- |\n\
                        | scope: | | | |\n\
                        | | --groups group1:group2| for use with playbook narrowing or 'show' | - | most\n\
@@ -141,7 +129,10 @@ fn show_help() {
                        | | | |\n\
                        | --- | --- | --- | --- | --- |\n\
                        | advanced: | | | |\n\
+                       | | --batch-size N | how many hosts to configure at once | - | ssh |\n\
+                       | | | |\n\
                        | | --threads tag1:tag2| how many threads to use in SSH operations| - | ssh |\n\
+                       | | | |\n\
                        |-|-|-|-|-";
 
     crate::util::terminal::markdown_print(&String::from(flags_table));
@@ -150,21 +141,8 @@ fn show_help() {
 }
 
 
-
-// ------------------------------------------------------------------------------
-// logic behind CLI parsing begins
-// we're not using a library like clap as I've been told it changes a lot
-// and it would be nice to have flexibility.  There are some capabilities
-// missing in the parser but can be added as neede
-
 impl CliParser  {
 
-
-    // ===========================================================================
-    // PUBLIC METHODS
-    // ===========================================================================
-
-    // construct a new empty CliParser object, where all the values are empty
     pub fn new() -> Self {
 
         CliParser { 
@@ -174,27 +152,21 @@ impl CliParser  {
             mode: CLI_MODE_UNSET,
             hosts: Vec::new(),
             groups: Vec::new(),
-            batch_size: None
+            batch_size: None,
+            default_user: None
         }
     }
 
 
-    // print the usage message
     pub fn show_help(&self) {
         show_help();
     }
 
-    // modiifes the values on the CliParser struct to hold the answers from parsing ARGV
     pub fn parse(&mut self) -> Result<(), String> {
   
-        // keep track of the argument number
         let mut arg_count: usize = 0;
-
-        // this is a bit of a FSM, deciding if we are parsing a --flag or the
-        // the following value
         let mut next_is_value = false;
 
-        // walk the CLI arguments
         let args: Vec<String> = env::args().collect();
         'each_argument: for argument in &args {
 
@@ -217,22 +189,17 @@ impl CliParser  {
                     
                     // if it's not --help, then the second argument is the 
                     // required 'mode' parameter
-                    let result = self.store_mode_value(argument);
-                    if result.is_err() {
-                        return result;
-                    }
+                    let result = self.store_mode_value(argument)?;
                     continue 'each_argument;
                 },
 
                 // for the rest of the arguments we need to pay attention to whether
-                // we are reading a flag or a value
-
+                // we are reading a flag or a value, which alternate
                 _ => { 
 
                     if next_is_value == false {
 
                         // if we expect a flag...
-
                         // the --help argument requires special handling as it has no
                         // following value
                         if argument_str == ARGUMENT_HELP {
@@ -240,50 +207,28 @@ impl CliParser  {
                             return Ok(())
                         }
                         
-                        // the flag wasn't --help, so see if we have a way to store it
-                        // if the user types an invalid --flag, return an error
-                        // add new flags here and elsewhere this comment is found
                         let result = match argument_str {
-                            ARGUMENT_PLAYBOOK  => self.store_playbook_value(&args[arg_count]),
-                            ARGUMENT_INVENTORY => self.store_inventory_value(&args[arg_count]),
-                            ARGUMENT_GROUPS    => self.store_groups_value(&args[arg_count]),
-                            ARGUMENT_HOSTS     => self.store_hosts_value(&args[arg_count]),
+                            ARGUMENT_PLAYBOOK    => self.store_playbook_value(&args[arg_count]),
+                            ARGUMENT_INVENTORY   => self.store_inventory_value(&args[arg_count]),
+                            ARGUMENT_GROUPS      => self.store_groups_value(&args[arg_count]),
+                            ARGUMENT_HOSTS       => self.store_hosts_value(&args[arg_count]),
+                            ARGUMENT_DEFAULT_USER => self.store_default_user_value(&args[arg_count]),
                             _                  => Err(format!("invalid flag: {}", argument_str)),
                             
                         };
-
-                        // if we failed to store the flag value return the result
-                        if result.is_err() {
-                            return result;
-                        }
-
-                        // we need to skip over the next value in ARGV as we've already stored it
+                        if result.is_err() { return result; }
                         next_is_value = true;
 
                     } else {
-                        
-                        // we've already stored the value by reading ahead when we saw the flag
-                        // so the next argument is going to be a --flag
                         next_is_value = false;
                         continue 'each_argument;
                     }
                 } // end argument numbers 3-N
-            } // end match arg_count
-        } // end looping over arguments
+            }
+        } 
 
-        // now that all arguments are loaded in CliParser's struct we need to see if there
-        // are any conflicts between them
         return self.validate_internal_consistency()
     } 
-
-
-    
-    // ===========================================================================
-    // PRIVATE METHODS
-    // ===========================================================================
-
-    // some arguments may incompatible with each other, so add error handling here
-    // add new CLI modes here and elsewhere this comment is found
       
     fn validate_internal_consistency(&mut self) -> Result<(), String> {
 
@@ -300,9 +245,6 @@ impl CliParser  {
         return Ok(())
     }
 
-    // this function is used to store the subcommand in the playbook.  main.rs can
-    // perform different logic based on the subcommand, that logic does not happen in this file
-
     fn store_mode_value(&mut self, value: &String) -> Result<(), String> {
         if is_cli_mode_valid(value) {
             self.mode = cli_mode_from_string(value).unwrap();
@@ -311,10 +253,6 @@ impl CliParser  {
         return Err(format!("jetp mode ({}) is not valid, see --help", value))
      }
     
-    // store --playbook path/to/foo.yml
-    // this will raise an error if any of the paths are not present
-    // paths can be specified as multiple locations by using a colon between locations
-
     fn store_playbook_value(&mut self, value: &String) -> Result<(), String> {
         match parse_paths(value) {
             Ok(paths)  =>  { *self.playbook_paths.write().unwrap() = paths; }, 
@@ -322,10 +260,6 @@ impl CliParser  {
         }
         return Ok(());
     }
-    
-    // store --inventory path/to/inventory/folder and so on
-    // this will raise an error if any of the paths are not present
-    // paths can be specified as multiple locations by using a colon between locations
 
     fn store_inventory_value(&mut self, value: &String) -> Result<(), String> {
         match parse_paths(value) {
@@ -351,39 +285,30 @@ impl CliParser  {
         return Ok(());
     }
 
+    fn store_default_user_value(&mut self, value: &String) -> Result<(), String> {
+        self.default_user = Some(value.clone());
+        return Ok(());
+    }
 
 }
-
-// =====================================================================================
-// utility functions
-// =====================================================================================
-
-// split a string on colons returning a vector, eventually it may split on a few other
-// elements or do some more validation
 
 fn split_string(value: &String) -> Result<Vec<String>, String> {
     return Ok(value.split(":").map(|x| String::from(x)).collect());
 }
 
 // accept paths eliminated by ":" and return a list of paths, provided they exist
-
 fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
-    
     let string_paths = value.split(":");
     let mut results = Vec::new();
-
     for string_path in string_paths {
-
         let mut path_buf = PathBuf::new();
         path_buf.push(string_path);
-
         if path_buf.exists() {
             results.push(path_buf)
         } else {
             return Err(format!("path ({}) does not exist", string_path));
         }
     }
-
     return Ok(results);
 }
 

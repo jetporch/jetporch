@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: ssh.rs
-// everything about SSH connections.  Note that the factory is programmed to return
-// a local (non-SSH) connection for nodes named "localhost", this is *NOT* true
-// for nodes named 127.0.0.* so we can still connect to the loopback for testing
-// ===================================================================================
-
 use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
@@ -49,18 +42,27 @@ impl SshFactory {
 impl ConnectionFactory for SshFactory {
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
         let host_obj = host.read().unwrap();
-        let hostname = &host_obj.name;
-        if hostname.eq("localhost") {
+        let ctx = context.read().unwrap();
+        let hostname1 = host_obj.name.clone();
+        if hostname1.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
-            let ctx = context.read().unwrap();
-            let mut conn = SshConnection::new(
-                &hostname.clone(),
-                ctx.get_ssh_remote_port(&host),
-                &ctx.get_ssh_remote_user(&host),
-            );
+            let (mut hostname2, mut user, mut port) = (String::from(""), String::from(""), 22);
+            {
+                let cache = ctx.connection_cache.read().unwrap();
+                if cache.has_connection(host) {
+                    let conn : Arc<Mutex<dyn Connection>> = cache.get_connection(host);
+                    return Ok(conn)
+                }
+                (hostname2, user, port) = ctx.get_ssh_connection_details(host);
+            }
+            let mut conn = SshConnection::new(&hostname2.clone(), &user, port);
             return match conn.connect() {
-                Ok(_)  => { Ok(Arc::new(Mutex::new(conn))) },
+                Ok(_)  => { 
+                    let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
+                    ctx.connection_cache.write().unwrap().add_connection(&host, &Arc::clone(&conn2));
+                    Ok(conn2)
+                },
                 Err(x) => { Err(x) } 
             }
         }
@@ -69,14 +71,14 @@ impl ConnectionFactory for SshFactory {
 
 pub struct SshConnection {
     pub host: String,
-    pub port: usize,
     pub username: String,
+    pub port: i64,
     pub session: Option<Session>,
 }
 
 impl SshConnection {
-    pub fn new(host: &String, port: usize, username: &String) -> Self {
-        Self { host: host.clone(), port: port, username: username.clone(), session: None }
+    pub fn new(host: &String, username: &String, port: i64, ) -> Self {
+        Self { host: host.clone(), username: username.clone(), port: port, session: None }
     }
 }
 
@@ -87,11 +89,11 @@ impl Connection for SshConnection {
        // derived from docs at https://docs.rs/ssh2/latest/ssh2/
     
 
-       // Almost all APIs require a `Session` to be available
-       println!("ssh time");
-       let session = Session::new().unwrap();
+        // Almost all APIs require a `Session` to be available
+        println!("**** ssh connection time");
+        let session = Session::new().unwrap();
 
-       let mut agent = session.agent().unwrap();
+        let mut agent = session.agent().unwrap();
  
         // Connect the agent and request a list of identities
         agent.connect().unwrap();

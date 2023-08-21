@@ -5,10 +5,6 @@ use crate::inventory::hosts::Host;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
 
-// THINGS TO TRY, SLOWLY.... remove the mutex around the hashmap
-// the inventory already has mutex
-// (FIXME)
-
 pub struct Inventory {
     pub groups : HashMap<String, Arc<RwLock<Group>>>,
     pub hosts  : HashMap<String, Arc<RwLock<Host>>>

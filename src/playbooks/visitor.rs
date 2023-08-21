@@ -15,22 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: visitor.rs
-// these functions may be thought of as callbacks that report what is going on
-// with playbook code.  Eventually these themselves may take a vector of additional
-// functions, but the plan for now is that they would be overriden in the cli/*.rs
-// commands when custom behavior was needed.
-// ===================================================================================
-
-
 use crate::playbooks::context::PlaybookContext;
 use crate::tasks::response::{TaskResponse,TaskStatus};
 use std::sync::Arc;
 use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
-
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset};
 
 pub trait PlaybookVisitor {

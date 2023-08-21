@@ -48,14 +48,12 @@ fn liftoff() -> Result<(),String> {
     }
 
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
-    //let inventory_paths : Vec<PathBuf> = cli_parser.inventory_paths; 
-    //cli_parser.inventory_paths.iter().map(|x| x.clone()).collect();   
     load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
 
     return match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
         cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser.playbook_paths),
-        cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths),
+        cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths, cli_parser.default_user),
         cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser.playbook_paths),
 
         _ => Err(String::from("invalid CLI mode"))

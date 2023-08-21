@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: io.rs: functions to (mostly) wrap file I/O and CLI program behavior 
-// to make things occasionally more friendly and allow some place to hook 
-// common functionality if we ever want to.
-// ===================================================================================
-
-
 use std::fs;
 use std::path::{Path}; // ,PathBuf};
 use std::fs::ReadDir;

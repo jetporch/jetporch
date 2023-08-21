@@ -14,13 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// ===================================================================================
-// ABOUT: common.rs
-// common types and interfaces (mostly) for implementing modules.  A module will
-// not need to import most of these because it interacts a lot through 
-// runner::task_handle which abstracts away some of these details
-// ===================================================================================
-
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
@@ -37,7 +30,6 @@ pub enum TaskProperty {
     Retry,
     When,
 }
-
 
 //==========================================================
 // Methods we can call on a task
