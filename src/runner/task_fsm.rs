@@ -56,6 +56,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     // now full traversal across the host loop
     // FIXME: this is the part that will be parallelized in SSH mode.
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
+
+
+    if hosts.len() == 0 {
+        return Err(String::from("no hosts remaining"))
+    }
+
     for (_name, host) in hosts {
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
@@ -74,7 +80,8 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
                     run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &real_response, &host);
                 }
             },
-            Err(_) => { 
+            Err(x) => {
+                run_state.visitor.read().unwrap().debug_host(&host, x);
                 run_state.context.write().unwrap().fail_host(&host);
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
             }

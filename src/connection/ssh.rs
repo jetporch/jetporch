@@ -109,18 +109,30 @@ impl Connection for SshConnection {
 
         let connect_str = format!("{host}:{port}", host=self.host, port=self.port.to_string());
 
-        let tcp = TcpStream::connect(connect_str).unwrap();
-        let mut sess = Session::new().unwrap();
+        // FIXME: don't eat error info
+
+        let tcp = match TcpStream::connect(connect_str) {
+            Ok(x) => x,
+            _ => { return Err(format!("SSH connection attempt failed for {}:{}", self.host, self.port)); }
+        };
+        let mut sess = match Session::new() {
+            Ok(x) => x,
+            _ => { return Err(String::from("SSH session failed")); }
+        };
         sess.set_tcp_stream(tcp);
-        sess.handshake().unwrap();
- 
+        match sess.handshake() {
+            Ok(_) => {},
+            _ => { return Err(String::from("SSH handshake failed")); }
+        } ;
         // Try to authenticate with the first identity in the agent.
-        sess.userauth_agent(&self.username).unwrap();
-    
+        match sess.userauth_agent(&self.username) {
+            Ok(_) => {},
+            _ => { return Err(String::from("SSH userauth_agent failed")); }
+        };
         // FIXME: should return somehow instead and handle it
         if !(sess.authenticated()) {
             return Err("failed to authenticate".to_string());
-        }
+        };
 
         self.session = Some(sess);
         return Ok(());

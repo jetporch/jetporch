@@ -63,7 +63,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
 
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
-            handle_play(&run_state, play)?;
+            handle_play(&run_state, play);
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
         run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
@@ -89,8 +89,8 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     run_state.visitor.read().unwrap().on_play_start(&run_state.context);
 
     // load the basic setup details before dealing with tasks
-    load_play_vars(run_state, play)?;
-    load_play_vars_files(run_state, play)?;
+    //load_play_vars(run_state, play)?;
+    //load_play_vars_files(run_state, play)?;
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
     validate_hosts(run_state, play, &hosts)?;
@@ -264,7 +264,7 @@ fn validate_hosts(_run_state: &Arc<RunState>, _play: &Play, hosts: &Vec<Arc<RwLo
 fn load_play_vars(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // record play variables into the context
-    return Err(String::from("not implemented"));
+    return Err(String::from("play vars: not implemented"));
 }
 
 // ==============================================================================
@@ -272,7 +272,7 @@ fn load_play_vars(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String
 fn load_play_vars_files(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // record play variables into the context (from disk)
-    return Err(String::from("not implemented"));
+    return Err(String::from("vars files: not implemented"));
 }
 
 // ==============================================================================

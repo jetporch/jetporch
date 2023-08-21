@@ -186,7 +186,12 @@ impl PlaybookContext {
     }
 
     pub fn get_complete_blended_variables_mapping(&self, host: &Arc<RwLock<Host>>) -> HashMap<String, serde_yaml::Value> {
-        let complete_blended = self.get_complete_blended_variables(host);
+        let mut complete_blended = self.get_complete_blended_variables(host);
+        println!("!XDEBUG blended /{complete_blended}/");
+        if complete_blended.eq("null\n") {
+            println!("fixing");
+            complete_blended = String::from("unset: true");
+        }
         let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&complete_blended).unwrap();
         return vars;
     }
