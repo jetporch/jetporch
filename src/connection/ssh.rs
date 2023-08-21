@@ -48,6 +48,7 @@ impl ConnectionFactory for SshFactory {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
             let (mut hostname2, mut user, mut port) = (String::from(""), String::from(""), 22);
+
             {
                 let cache = ctx.connection_cache.read().unwrap();
                 if cache.has_connection(host) {
@@ -55,6 +56,10 @@ impl ConnectionFactory for SshFactory {
                     return Ok(conn)
                 }
                 (hostname2, user, port) = ctx.get_ssh_connection_details(host);
+                if hostname2.eq("localhost") {
+                    // FIXME: we could probably make it cache these as well, but there's probably not much point.
+                    return Ok(Arc::new(Mutex::new(LocalConnection::new())));
+                }
             }
             let mut conn = SshConnection::new(&hostname2.clone(), &user, port);
             return match conn.connect() {

@@ -64,15 +64,11 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     }
     let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
     for (_,v) in hosts {
-        println!("HO=!");
         host_objects.push(Arc::clone(&v));
     }
 
 
     let total : i64 = host_objects.par_iter().map(|host| {
-
-        println!("INSIDE THE BLIP!!!!");
-
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {

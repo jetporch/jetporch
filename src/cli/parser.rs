@@ -30,7 +30,8 @@ pub struct CliParser {
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
-    pub default_user: Option<String>
+    pub default_user: Option<String>,
+    pub threads: Option<usize>,
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -67,6 +68,8 @@ const ARGUMENT_GROUPS: &'static str = "--groups";
 const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
 const ARGUMENT_DEFAULT_USER: &'static str = "--default-user";
+const ARGUMENT_THREADS: &'static str = "--threads";
+const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 
 fn show_help() {
 
@@ -131,7 +134,7 @@ fn show_help() {
                        | advanced: | | | |\n\
                        | | --batch-size N | how many hosts to configure at once | - | ssh |\n\
                        | | | |\n\
-                       | | --threads tag1:tag2| how many threads to use in SSH operations| - | ssh |\n\
+                       | | --threads N| how many threads to use in SSH operations| - | ssh |\n\
                        | | | |\n\
                        |-|-|-|-|-";
 
@@ -153,7 +156,8 @@ impl CliParser  {
             hosts: Vec::new(),
             groups: Vec::new(),
             batch_size: None,
-            default_user: None
+            default_user: None,
+            threads: None,
         }
     }
 
@@ -208,11 +212,14 @@ impl CliParser  {
                         }
                         
                         let result = match argument_str {
-                            ARGUMENT_PLAYBOOK    => self.store_playbook_value(&args[arg_count]),
-                            ARGUMENT_INVENTORY   => self.store_inventory_value(&args[arg_count]),
-                            ARGUMENT_GROUPS      => self.store_groups_value(&args[arg_count]),
-                            ARGUMENT_HOSTS       => self.store_hosts_value(&args[arg_count]),
+                            ARGUMENT_PLAYBOOK     => self.store_playbook_value(&args[arg_count]),
+                            ARGUMENT_INVENTORY    => self.store_inventory_value(&args[arg_count]),
+                            ARGUMENT_GROUPS       => self.store_groups_value(&args[arg_count]),
+                            ARGUMENT_HOSTS        => self.store_hosts_value(&args[arg_count]),
                             ARGUMENT_DEFAULT_USER => self.store_default_user_value(&args[arg_count]),
+                            ARGUMENT_BATCH_SIZE   => self.store_batch_size_value(&args[arg_count]),
+                            ARGUMENT_THREADS      => self.store_threads_value(&args[arg_count]),
+
                             _                  => Err(format!("invalid flag: {}", argument_str)),
                             
                         };
@@ -288,6 +295,20 @@ impl CliParser  {
     fn store_default_user_value(&mut self, value: &String) -> Result<(), String> {
         self.default_user = Some(value.clone());
         return Ok(());
+    }
+
+    fn store_batch_size_value(&mut self, value: &String) -> Result<(), String> {
+        match value.parse::<usize>() {
+            Ok(n) =>  { self.batch_size = Some(n); return Ok(()); },
+            Err(e) => { return Err(format!("--{}: invalid value", ARGUMENT_BATCH_SIZE)); }
+        }
+    }
+
+    fn store_threads_value(&mut self, value: &String) -> Result<(), String> {
+        match value.parse::<usize>() {
+            Ok(n) =>  { self.threads = Some(n); return Ok(()); }
+            Err(e) => { return Err(format!("--{}: invalid value", ARGUMENT_THREADS)); }
+        }
     }
 
 }

@@ -31,6 +31,7 @@ use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
 use crate::cli::playbooks::{playbook_syntax_scan,playbook_ssh,playbook_local}; // FIXME: check modes coming
 use std::sync::{Arc,RwLock};
+use rayon;
 
 fn main() {
     match liftoff() { Err(e) => quit(&e), _ => {} }
@@ -49,6 +50,11 @@ fn liftoff() -> Result<(),String> {
 
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
     load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
+
+    match cli_parser.threads {
+        Some(x) => { rayon::ThreadPoolBuilder::new().num_threads(x).build_global().unwrap(); }
+        None => { rayon::ThreadPoolBuilder::new().num_threads(30).build_global().unwrap(); }
+    }
 
     return match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
