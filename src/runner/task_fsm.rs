@@ -22,9 +22,6 @@
 // particularly needed for SSH modes of the program
 // ===================================================================================
 
-//use crate::tasks::response::{TaskStatus,TaskResponse};
-//use crate::playbooks::visitor::PlaybookVisitor;
-//use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
 use crate::connection::no::NoFactory;
 use crate::registry::list::Task;
@@ -32,7 +29,6 @@ use crate::connection::connection::Connection;
 use crate::tasks::handle::TaskHandle;
 use crate::playbooks::traversal::RunState;
 use crate::tasks::request::TaskRequest;
-//use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use crate::tasks::response::{TaskStatus,TaskResponse};
 use std::sync::{Arc,RwLock,Mutex};
@@ -40,7 +36,7 @@ use std::collections::HashMap;
 
 // run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
 
-pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: bool) -> Result<(), String> {
+pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool) -> Result<(), String> {
 
     // syntax check first, always
     let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
@@ -109,7 +105,6 @@ fn run_task_on_host(
 
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
-    let task_ptr = Arc::new(task);
     let vrc = task.dispatch(&handle, &TaskRequest::validate());
     match vrc {
         Ok(ref x) => match x.status {
@@ -117,7 +112,7 @@ fn run_task_on_host(
             TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
             _ => { panic!("module internal fsm state invalid (on verify)") }
         },
-        Err(ref x) => { return vrc }
+        Err(ref _x) => { return vrc }
     }
 
     let query = TaskRequest::query();

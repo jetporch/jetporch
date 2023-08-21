@@ -121,7 +121,7 @@ pub trait PlaybookVisitor {
     fn on_task_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
     }
 
-    fn on_host_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+    fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         println!("! host: {} => running", host2.name);
     }
@@ -161,7 +161,7 @@ pub trait PlaybookVisitor {
         }
     }
 
-    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, _task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         println!("{color_red}! host failed: {}{color_reset}", host2.name);
         context.write().unwrap().increment_failed_for_host(&host2.name);
@@ -184,13 +184,12 @@ pub trait PlaybookVisitor {
 pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     
     let ctx = context.read().unwrap();
-    let play_name = ctx.get_play_name();
 
     let seen_hosts = ctx.get_hosts_seen_count();
     let role_ct = ctx.get_role_count();
     let task_ct = ctx.get_task_count(); 
     let action_ct = ctx.get_total_attempted_count();
-    let action_hosts = ctx.get_hosts_attempted_count();
+    //let action_hosts = ctx.get_hosts_attempted_count();
     let created_ct = ctx.get_total_creation_count();
     let created_hosts = ctx.get_hosts_creation_count();
     let modified_ct = ctx.get_total_modified_count();

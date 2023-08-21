@@ -42,7 +42,7 @@ impl LocalFactory {
 }
 
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
+    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
         return Ok(Arc::new(Mutex::new(LocalConnection::new())));
     }
 }
@@ -73,13 +73,13 @@ impl Connection for LocalConnection {
                 Some(status) => Err(handle.command_failed(request, CommandResult { out: convert_out(&x.stdout), rc: status })),
                 _            => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 418 }))
             },
-            Err(x) => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 404 }))
+            Err(_x) => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 404 }))
         }
     }
 
     // FIXME: this signature will change
     // FIXME: should return some type of result object
-    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+    fn put_file(&self, _data: String, _remote_path: String, _mode: Option<i32>) {
     }
 
 }

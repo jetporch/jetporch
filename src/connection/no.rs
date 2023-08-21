@@ -41,7 +41,7 @@ impl NoFactory {
 }
 
 impl ConnectionFactory for NoFactory {
-    fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
+    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
         return Ok(Arc::new(Mutex::new(NoConnection::new())));
     }
 }
@@ -61,12 +61,12 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+   fn run_command(&self, _handle: &TaskHandle, _request: &Arc<TaskRequest>, _cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
        panic!("NoConnection may only be used for syntax checking");
    }
 
    // FIXME: this signature will change
-   fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+   fn put_file(&self, _data: String, _remote_path: String, _mode: Option<i32>) {
        panic!("NoConnection may only be used for syntax checking");
    }
 }

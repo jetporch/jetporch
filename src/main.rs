@@ -24,7 +24,6 @@ mod modules;
 mod runner;
 mod tasks;
 
-use std::path::PathBuf;
 use crate::util::io::{quit};
 use crate::inventory::inventory::Inventory;
 use crate::inventory::loading::{load_inventory};

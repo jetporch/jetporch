@@ -83,8 +83,8 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     run_state.visitor.read().unwrap().on_play_start(&run_state.context);
 
     // load the basic setup details before dealing with tasks
-    load_play_vars(run_state, play);
-    load_play_vars_files(run_state, play);
+    load_play_vars(run_state, play)?;
+    load_play_vars_files(run_state, play)?;
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
     validate_hosts(run_state, play, &hosts)?;
@@ -93,13 +93,13 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     // support for serialization of push configuration
     // in non-push modes the batch size is irrelevant
     let batch_size_num = play.batch_size.unwrap_or(0);
-    let (batch_size, batch_count, batches) = get_host_batches(run_state, play, batch_size_num, hosts);
+    let (_batch_size, batch_count, batches) = get_host_batches(run_state, play, batch_size_num, hosts);
 
     // process each batch task/handlers seperately
     for batch_num in 0..batch_count {
         let hosts = batches.get(&batch_num).unwrap();
         run_state.visitor.read().unwrap().on_batch(batch_num, batch_count, hosts.len());
-        handle_batch(run_state, play, hosts);
+        handle_batch(run_state, play, hosts)?;
     }
     
     // we're done, generate our summary/report & output
@@ -145,7 +145,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
 
 // ==============================================================================
 
-fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: bool) -> Result<(), String> {
+fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handlers: bool) -> Result<(), String> {
 
     run_state.context.write().unwrap().set_task(&task);
     run_state.visitor.read().unwrap().on_task_start(&run_state.context);
@@ -188,7 +188,7 @@ fn process_role(run_state: &Arc<RunState>, play: &Play, role: &Role, are_handler
 
 // ============================================================================
 
-fn get_host_batches(run_state: &Arc<RunState>, play: &Play, batch_size: usize, hosts: Vec<Arc<RwLock<Host>>>) 
+fn get_host_batches(_run_state: &Arc<RunState>, _play: &Play, _batch_size: usize, hosts: Vec<Arc<RwLock<Host>>>) 
     -> (usize, usize, HashMap<usize, Vec<Arc<RwLock<Host>>>>) {
 
     // partition a list of hosts into a number of batches.
@@ -210,7 +210,6 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
 
     // given a list of group names, return a vector of all hosts selected by those groups.
     let groups = &play.groups;
-    let inventory = run_state.inventory.read().unwrap();
     let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
     for group in groups.iter() {
         let group_object = run_state.inventory.read().unwrap().get_group(&group.clone());
@@ -219,7 +218,7 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
             results.insert(k.clone(), Arc::clone(&v));
         }
     }
-    return results.iter().map(|(k,v)| Arc::clone(&v)).collect();
+    return results.iter().map(|(_k,v)| Arc::clone(&v)).collect();
 }
 
 // ==============================================================================
@@ -243,7 +242,7 @@ fn validate_groups(run_state: &Arc<RunState>, play: &Play) -> Result<(), String>
 
 // ==============================================================================
 
-fn validate_hosts(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<Host>>>) -> Result<(), String> {
+fn validate_hosts(_run_state: &Arc<RunState>, _play: &Play, hosts: &Vec<Arc<RwLock<Host>>>) -> Result<(), String> {
     
     // given a list of a hosts, verify there is at least one host, otherwise the play should fail
     
@@ -255,7 +254,7 @@ fn validate_hosts(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock
 
 // ==============================================================================
 
-fn load_play_vars(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
+fn load_play_vars(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // record play variables into the context
     return Err(String::from("not implemented"));
@@ -263,7 +262,7 @@ fn load_play_vars(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> 
 
 // ==============================================================================
 
-fn load_play_vars_files(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
+fn load_play_vars_files(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // record play variables into the context (from disk)
     return Err(String::from("not implemented"));
@@ -271,7 +270,7 @@ fn load_play_vars_files(run_state: &Arc<RunState>, play: &Play) -> Result<(), St
 
 // ==============================================================================
 
-fn find_role(run_state: &Arc<RunState>, play: &Play, rolename: String) -> Result<PathBuf, String> {
+fn find_role(run_state: &Arc<RunState>, _play: &Play, rolename: String) -> Result<PathBuf, String> {
 
     // given a role name, return the location...
     // FIXME: not sure why the tuple is in the return type here
@@ -297,7 +296,7 @@ fn find_role(run_state: &Arc<RunState>, play: &Play, rolename: String) -> Result
 // ==============================================================================
 
 
-fn load_defaults_directory_for_role(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
+fn load_defaults_directory_for_role(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // loads a defaults directory into context
     // TODO: check the context, we a role might be involved, in which case, look there also
@@ -311,7 +310,7 @@ fn load_defaults_directory_for_role(run_state: &Arc<RunState>, play: &Play) -> R
 
 // ==============================================================================
 
-fn load_external_modules(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
+fn load_external_modules(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
 
     // makes an external module findable by adding to the search path
     // TODO: check the context, if we are in a role the path is different
@@ -331,7 +330,7 @@ fn load_external_modules(run_state: &Arc<RunState>, play: &Play) -> Result<(), S
 
 // ==============================================================================
 
-fn load_tasks_directory_for_role(run_state: &Arc<RunState>, play: &Play, are_handlers: bool) -> Result<(), String> {
+fn load_tasks_directory_for_role(_run_state: &Arc<RunState>, _play: &Play, _are_handlers: bool) -> Result<(), String> {
 
     // this should read main.yaml in the role and run all tasks within it.
 

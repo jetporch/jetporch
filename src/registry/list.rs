@@ -34,7 +34,7 @@ use crate::tasks::request::TaskRequest;
 use crate::tasks::common::IsTask;
 use std::sync::Arc;
 
-// ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (1)
+// ADD NEW MODULES HERE, KEEP ALPHABETIZED
 
 use crate::modules::echo::Echo;
 use crate::modules::shell::Shell;
@@ -43,7 +43,7 @@ use crate::modules::shell::Shell;
 #[serde(rename_all="lowercase")]
 pub enum Task {
 
-    // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (2)
+    // ADD NEW MODULES HERE, KEEP ALPHABETIZED
     Echo(Echo),
     Shell(Shell),
 
@@ -53,24 +53,18 @@ impl Task {
 
     pub fn get_property(&self, property: TaskProperty) -> String { 
         return match self {
-            
-            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (3) 
+            // ADD NEW MODULES HERE, KEEP ALPHABETIZED 
             Task::Echo(x) => x.get_property(property), 
             Task::Shell(x) => x.get_property(property), 
-
-            _ => { panic!("module properties not registered"); },
         };
     }
 
     // FIXME: dispatch($self, mode: TASK_ACTION) -> Result<(), String>
     pub fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
         return match self {
-            
-            // ADD NEW MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (4) 
+            // ADD NEW MODULES HERE, KEEP ALPHABETIZED
             Task::Echo(x)  => x.dispatch(handle, request), 
             Task::Shell(x) => x.dispatch(handle, request), 
-
-            _ => { panic!("module dispatch not registered"); },
         };
     }
 

@@ -92,9 +92,7 @@ impl IsTask for Shell {
                 return result;
             },
     
-            _ => {
-                return Err(handle.not_supported(&request));
-            }
+            _ => { return Err(handle.not_supported(&request)); }
     
         }
     }

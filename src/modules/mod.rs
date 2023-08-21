@@ -14,6 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/** ADD MODULES HERE, DE-ALPHABETIZE ON PENALTY OF DEATH (0) **/
+/** ADD MODULES HERE, KEEP ALPHABETIZED **/
 pub mod echo;
 pub mod shell;

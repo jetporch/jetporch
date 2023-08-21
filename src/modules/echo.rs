@@ -83,9 +83,7 @@ impl IsTask for Echo {
                 return Ok(handle.is_passive(&request))
             },
 
-            _ => {
-                return Err(handle.not_supported(&request));
-            }
+            _ => { return Err(handle.not_supported(&request)); }
         
         }
     }

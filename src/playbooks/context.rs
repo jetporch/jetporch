@@ -176,7 +176,7 @@ impl PlaybookContext {
 
     // FIXME: move to runstate???
 
-    pub fn get_ssh_remote_user(&self, host: &Arc<RwLock<Host>>) -> String {
+    pub fn get_ssh_remote_user(&self, _host: &Arc<RwLock<Host>>) -> String {
         // FIXME: default only if host doesn't have an answer in blended variables
         // FIXME: we can also see if there is a value set on the play
         return match &self.ssh_remote_user {
@@ -187,7 +187,7 @@ impl PlaybookContext {
 
     // FIXME: move to runstate???
 
-    pub fn get_ssh_remote_port(&self, host: &Arc<RwLock<Host>>) -> usize {
+    pub fn get_ssh_remote_port(&self, _host: &Arc<RwLock<Host>>) -> usize {
         // FIXME: default only if host doesn't have an answer in blended variables
         // FIXME: we can also see if there is a value set on the play
         return 22usize;
@@ -265,9 +265,6 @@ impl PlaybookContext {
         return self.passive_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
 
-    pub fn get_hosts_attempted_count(&self) -> usize {
-        return self.attempted_count_for_host.keys().len();
-    }
     pub fn get_hosts_creation_count(&self) -> usize {
         return self.created_count_for_host.keys().len();
     }

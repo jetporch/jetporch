@@ -134,7 +134,6 @@ impl Connection for SshConnection {
         channel.read_to_string(&mut s).unwrap();
         let _w = channel.wait_close();
         let exit_status = channel.exit_status().unwrap();
-        let empty = String::from("");
         if exit_status == 0 {
             return Ok(handle.command_ok(request, CommandResult { out: s.clone(), rc: exit_status }));
         } else {

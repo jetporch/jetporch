@@ -53,7 +53,7 @@ impl Host {
     }
 
     pub fn get_group_names(&self) -> Vec<String> {
-        return self.get_groups().iter().map(|(k,v)| k.clone()).collect();
+        return self.get_groups().iter().map(|(k,_v)| k.clone()).collect();
     }
 
     pub fn add_group(&mut self, name: &String, group: Arc<RwLock<Group>>) {
@@ -73,7 +73,7 @@ impl Host {
     }
 
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
-        return self.get_ancestor_groups(20usize).iter().map(|(k,v)| k.clone()).collect();
+        return self.get_ancestor_groups(20usize).iter().map(|(k,_v)| k.clone()).collect();
     }
 
     pub fn get_variables(&self) -> String {

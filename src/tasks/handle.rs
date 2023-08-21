@@ -80,7 +80,7 @@ impl TaskHandle {
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
-    pub fn is_failed(&self, request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
+    pub fn is_failed(&self, _request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
             changes: Arc::new(None),
@@ -95,7 +95,7 @@ impl TaskHandle {
         return self.is_failed(request, &String::from("not supported"));
     }
 
-    pub fn command_failed(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+    pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse {
             status: TaskStatus::Failed,
             changes: Arc::new(None),
@@ -105,7 +105,7 @@ impl TaskHandle {
         return response;
     }
 
-    pub fn command_ok(&self, request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+    pub fn command_ok(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         let response = Arc::new(TaskResponse {
             status: TaskStatus::IsExecuted,
             changes: Arc::new(None),
