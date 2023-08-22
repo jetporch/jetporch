@@ -36,7 +36,7 @@ impl CommonLogic {
         if input.is_none() {
             return Ok(None);
         }
-        let input2 = input.unwrap();
+        let input2 = input.as_ref().unwrap();
         return Ok(Some(Self {
             changed_when: handle.template_option(request, &input2.changed_when)?,
             delay: handle.template_option(request, &input2.delay)?,

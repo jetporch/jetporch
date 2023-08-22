@@ -40,7 +40,7 @@ impl Echo {
 impl IsTask for Echo {
 
     fn get_module(&self) -> String { String::from("Echo") }
-    fn get_name(&self) -> Option<String> { self.name }
+    fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     

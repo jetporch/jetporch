@@ -78,7 +78,7 @@ impl TaskHandle {
         if template.is_none() {
             return Ok(None);
         }
-        let result = self.template(request, &template.unwrap())?;
+        let result = self.template(request, template.as_ref().unwrap())?;
         return Ok(Some(result));
     }
 
