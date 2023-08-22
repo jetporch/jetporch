@@ -18,6 +18,13 @@ use handlebars::Handlebars;
 use handlebars::RenderError;
 use std::collections::HashMap;
 use serde_yaml;
+use once_cell::sync::Lazy;
+
+static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
+    let mut h = Handlebars::new();
+    h.set_strict_mode(true);
+    return h;
+});
 
 pub struct Templar {
 }
@@ -25,17 +32,13 @@ pub struct Templar {
 impl Templar {
 
     pub fn new() -> Self {
-        Self {
-        }
+        return Self {
+        };
     }
 
     pub fn render(&self, template: &String, data: HashMap<String,serde_yaml::Value>) -> Result<String, String> {
-        //let value_result = HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&yaml); 
-        //if value_result.is_err() {
-        //    return Err("internal error: YAML deserialization of internal state failed");
-        //}
-        let handlebars = Handlebars::new();
-        let result : Result<String, RenderError> = handlebars.render_template(template, &data);
+        //let handlebars = Handlebars::new();
+        let result : Result<String, RenderError> = HANDLEBARS.render_template(template, &data);
         return match result {
             Ok(x) => Ok(x),
             Err(y) => Err(format!("Template error: line {:?}: {}", y.line_no, y.desc))
