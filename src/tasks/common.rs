@@ -19,36 +19,12 @@ use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
 
-//==========================================================
-// Common parameters for all tasks
-
-pub enum TaskProperty {
-    ChangedWhen,
-    Delay,
-    Name,
-    Register,
-    Retry,
-    When,
-}
-
-//==========================================================
-// Methods we can call on a task
-
 pub trait IsTask { 
-    fn get_property(&self, property: TaskProperty) -> String;
+
+    fn get_module(&self) -> String;
+    fn get_name(&self) -> Option<String>;
+
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
+
 }
 
-pub fn get_property_or_default(property: &Option<String>, default: &String) -> String {
-    return match property { 
-        Some(x) => x.clone(), 
-        _ => default.clone()
-    }
-}
-
-pub fn get_property(property: &Option<String>) -> String {
-    return match property { 
-        Some(x) => x.clone(), 
-        _ => String::from("") 
-    }
-}

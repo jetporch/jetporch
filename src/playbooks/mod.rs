@@ -18,3 +18,4 @@ pub mod language;
 pub mod context;
 pub mod visitor;
 pub mod traversal;
+pub mod templar;

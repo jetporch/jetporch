@@ -17,6 +17,7 @@
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
+use crate::tasks::logic::CommonLogic;
 use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
@@ -29,7 +30,6 @@ pub struct TaskHandle {
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
 }
-
 
 static OUTPUT_LOCK: Lazy<Mutex<i32>> = Lazy::new(|| Mutex::new(0));
 
@@ -56,19 +56,31 @@ impl TaskHandle {
     // to make module code nicer.
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
-        // FIXME should visitor debug take a reference?
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message.clone());
     }
 
     pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
         OUTPUT_LOCK.lock();
-        // this later may be modified to acquire a lock and keep messages together
         for message in messages.iter() {
             self.debug(request, &message);
         }
     }
 
+    pub fn template(&self, request: &Arc<TaskRequest>, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(self.is_failed(request, &y))
+        }
+    }
 
+    pub fn template_option(&self, request: &Arc<TaskRequest>, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        if template.is_none() {
+            return Ok(None);
+        }
+        let result = self.template(request, &template.unwrap())?;
+        return Ok(Some(result));
+    }
 
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
@@ -78,9 +90,10 @@ impl TaskHandle {
             status: TaskStatus::Failed, 
             changes: Arc::new(None),
             msg: Some(msg.clone()), 
-            command_result: None
+            command_result: None,
+            logic: Arc::new(None)
         });
-        // FIXME: make a function for this
+        // FIXME: make some alternative constructors to reduce boilerplate
         return response;
     }
 
@@ -93,7 +106,8 @@ impl TaskHandle {
             status: TaskStatus::Failed,
             changes: Arc::new(None),
             msg: None,
-            command_result: Some(result)
+            command_result: Some(result),
+            logic: Arc::new(None)
         });
         return response;
     }
@@ -103,18 +117,20 @@ impl TaskHandle {
             status: TaskStatus::IsExecuted,
             changes: Arc::new(None),
             msg: None,
-            command_result: Some(result)
+            command_result: Some(result),
+            logic: Arc::new(None)
         });
         return response;
     }
 
-    pub fn is_validated(&self, request: &Arc<TaskRequest>, ) -> Arc<TaskResponse> {
+    pub fn is_validated(&self, request: &Arc<TaskRequest>, logic: &Arc<Option<CommonLogic>>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsValidated, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None
+            command_result: None,
+            logic: Arc::clone(logic)
         });
         return response;
     }
@@ -125,7 +141,8 @@ impl TaskHandle {
             status: TaskStatus::IsMatched, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None
+            command_result: None,
+            logic: Arc::new(None)
         });
         return response;
     }
@@ -138,7 +155,8 @@ impl TaskHandle {
             status: TaskStatus::IsExecuted, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None)
         });
         return response;
     }
@@ -150,7 +168,8 @@ impl TaskHandle {
             status: TaskStatus::IsExecuted, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None)
         });
         return response;
     }
@@ -161,7 +180,8 @@ impl TaskHandle {
             status: TaskStatus::IsRemoved, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None) 
         });
         return response;
     }
@@ -172,7 +192,8 @@ impl TaskHandle {
             status: TaskStatus::IsPassive, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None) 
         });
         return response;
     }
@@ -183,7 +204,8 @@ impl TaskHandle {
             status: TaskStatus::IsModified, 
             changes: Arc::clone(&changes), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None) 
         });
         return response;
     }
@@ -195,7 +217,8 @@ impl TaskHandle {
             status: TaskStatus::NeedsCreation, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None) 
         });
         return response;
     }
@@ -206,7 +229,9 @@ impl TaskHandle {
             status: TaskStatus::NeedsModification, 
             changes: Arc::clone(&changes), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None)
+ 
         });
         return response;
     }
@@ -217,7 +242,8 @@ impl TaskHandle {
             status: TaskStatus::NeedsRemoval, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None, 
+            logic: Arc::new(None),
         });
         return response;
     }
@@ -228,7 +254,8 @@ impl TaskHandle {
             status: TaskStatus::NeedsExecution, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None) 
         });
         return response;
     }
@@ -239,7 +266,8 @@ impl TaskHandle {
             status: TaskStatus::NeedsPassive, 
             changes: Arc::new(None), 
             msg: None,
-            command_result: None 
+            command_result: None,
+            logic: Arc::new(None)
         });
         return response;
     }

@@ -14,73 +14,51 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::common::{TaskProperty,IsTask,get_property,get_property_or_default};
-use crate::tasks::handle::TaskHandle;
-use crate::tasks::response::TaskResponse;
-use crate::tasks::request::{TaskRequestType,TaskRequest};
-use std::sync::Arc;
+use crate::tasks::*;
+//use std::sync::Arc;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
-
-// =======================================================================
-// MODULE STRUCTURE
-// =======================================================================
-
-static MODULE_NAME : &'static str = "Echo";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
 pub struct Echo {
-
-    // ** MODULE SPECIFIC PARAMETERS ****
-    pub msg: String,
-
-    // *** COMMON MODULE BOILERPLATE ****
-    pub changed_when: Option<String>,
-    pub delay: Option<String>,
     pub name: Option<String>,
-    pub register: Option<String>,
-    pub retry: Option<String>,
-    pub when: Option<String>
+    pub msg: String,
+    pub with: Option<CommonLogic>
+}
+
+impl Echo {
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Echo, Arc<TaskResponse>> {
+        return Ok(Echo {
+            name: self.name.clone(),
+            msg: handle.template(&request, &self.msg)?,
+            with: CommonLogic::template(&handle, &request, &self.with)?
+        });
+    }
 }
 
 impl IsTask for Echo {
 
-    // =======================================================================
-    // FIELD ACCESS BOILERPLATE
-    // =======================================================================
+    fn get_module(&self) -> String { String::from("Echo") }
+    fn get_name(&self) -> Option<String> { self.name }
 
-    fn get_property(&self, property: TaskProperty) -> String { 
-        return match property {
-            TaskProperty::ChangedWhen => get_property(&self.changed_when),
-            TaskProperty::Delay => get_property(&self.delay),
-            TaskProperty::Register => get_property(&self.register),
-            TaskProperty::Retry => get_property(&self.retry),
-            TaskProperty::Name => get_property_or_default(&self.name, &String::from(MODULE_NAME)),
-            TaskProperty::When => get_property(&self.when), 
-        }
-    }
-
-    // =======================================================================
-    // MODULE SPECIFIC IMPLEMENTATION
-    // =======================================================================
-
-    /** MODULE SPECIFIC IMPLEMENTATION **/
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
             TaskRequestType::Validate => {
-                return Ok(handle.is_validated(&request));
+                let evaluated = self.evaluate(handle, request)?;
+                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with)));
             },
 
             TaskRequestType::Query => {
-                return Ok(handle.needs_passive(&request))
+                return Ok(handle.needs_passive(&request));
             },
 
             TaskRequestType::Passive => {
-                handle.debug(&request, &self.msg);
-                return Ok(handle.is_passive(&request))
+                let evaluated = self.evaluate(handle, request)?;
+                handle.debug(&request, &evaluated.msg);
+                return Ok(handle.is_passive(&request));
             },
 
             _ => { return Err(handle.not_supported(&request)); }

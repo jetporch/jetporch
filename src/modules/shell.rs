@@ -14,66 +14,44 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::common::{TaskProperty,IsTask,get_property,get_property_or_default};
-use crate::tasks::handle::TaskHandle;
-use crate::tasks::response::TaskResponse;
-use crate::tasks::request::{TaskRequestType,TaskRequest};
-use crate::connection::command::cmd_info;
+use crate::tasks::*;
 use std::sync::Arc;
+use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
-
-// =======================================================================
-// MODULE STRUCTURE
-// =======================================================================
-
-static MODULE_NAME : &'static str = "Shell";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="shell",deny_unknown_fields)]
 pub struct Shell {
-
-    // ** MODULE SPECIFIC PARAMETERS ****
+    pub name: Option<String>,
     pub cmd: String,
     pub verbose: Option<bool>,
+    pub with: Option<CommonLogic>,
+}
 
-    // *** COMMON MODULE BOILERPLATE ****
-    pub changed_when: Option<String>,
-    pub delay: Option<String>,
-    pub name: Option<String>,
-    pub register: Option<String>,
-    pub retry: Option<String>,
-    pub when: Option<String>
+impl Shell {
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Shell, Arc<TaskResponse>> {
+        return Ok(Shell {
+            name: self.name.clone(),
+            cmd: handle.template(&request, &self.cmd)?,
+            verbose: self.verbose,
+            with: CommonLogic::template(&handle, &request, &self.with)?
+        });
+    }
 }
 
 impl IsTask for Shell {
 
-    // =======================================================================
-    // FIELD ACCESS BOILERPLATE
-    // =======================================================================
+    fn get_module(&self) -> String { String::from("Shell") }
+    fn get_name(&self) -> Option<String> { self.name }
 
-    fn get_property(&self, property: TaskProperty) -> String { 
-        return match property {
-            TaskProperty::ChangedWhen => get_property(&self.changed_when),
-            TaskProperty::Delay => get_property(&self.delay),
-            TaskProperty::Register => get_property(&self.register),
-            TaskProperty::Retry => get_property(&self.retry),
-            TaskProperty::Name => get_property_or_default(&self.name, &String::from(MODULE_NAME)),
-            TaskProperty::When => get_property(&self.when), 
-        }
-    }
-
-    // =======================================================================
-    // MODULE SPECIFIC IMPLEMENTATION
-    // =======================================================================
-
-    /** MODULE SPECIFIC IMPLEMENTATION **/
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
             TaskRequestType::Validate => {
-                return Ok(handle.is_validated(&request));
+                let evaluated = self.evaluate(handle, request)?;
+                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with)));
             },
 
             TaskRequestType::Query => {
@@ -81,9 +59,11 @@ impl IsTask for Shell {
             },
     
             TaskRequestType::Execute => {
-                let result = handle.run(&request, &self.cmd.clone());
+                let evaluated = self.evaluate(handle, request)?;
+                let result = handle.run(&request, &evaluated.cmd.clone());
                 let (rc, out) = cmd_info(&result);
 
+                // FIXME: verbosity should be passed to handle.run, then embed this logic there
                 if self.verbose.is_some() && self.verbose.unwrap() {
                     let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
                     handle.debug_lines(&request, &display);

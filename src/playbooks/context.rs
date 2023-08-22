@@ -16,7 +16,6 @@
 
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
-use crate::tasks::common::TaskProperty;
 use std::path::PathBuf;
 use std::collections::{HashMap};
 use crate::inventory::hosts::Host;
@@ -24,11 +23,9 @@ use std::sync::{Arc,RwLock};
 use crate::connection::cache::ConnectionCache;
 use crate::registry::list::Task;
 use crate::util::yaml::blend_variables;
+use crate::playbooks::templar::Templar;
 
 pub struct PlaybookContext {
-
-    // FIXME: needs a .reset() method but keeps failed_hosts and refuses to add hosts to 
-    // the targetted list if they had failures
     
     pub playbook_path: Option<String>,
     pub playbook_directory: Option<String>,
@@ -56,7 +53,8 @@ pub struct PlaybookContext {
     failed_count_for_host:    HashMap<String, usize>,
     
     pub default_remote_user:  Option<String>,
-    pub connection_cache:     RwLock<ConnectionCache>
+    pub connection_cache:     RwLock<ConnectionCache>,
+    pub templar:              RwLock<Templar>,
 
 }
 
@@ -85,7 +83,8 @@ impl PlaybookContext {
             executed_count_for_host:  HashMap::new(),
             passive_count_for_host:   HashMap::new(),
             failed_count_for_host:    HashMap::new(),
-            connection_cache: RwLock::new(ConnectionCache::new())
+            connection_cache:         RwLock::new(ConnectionCache::new()),
+            templar:                  RwLock::new(Templar::new())
             
         }
     }
@@ -116,13 +115,11 @@ impl PlaybookContext {
     }
 
     pub fn fail_host(&mut self, host: &Arc<RwLock<Host>>) {
-        // FIXME - we should really keep all_hosts seperate from unfailed_hosts
         let host2 = host.read().unwrap();
         let hostname = host2.name.clone();
         self.targetted_hosts.remove(&hostname);
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
-
 
     // =================================================================================
     // SIGNPOSTS
@@ -133,7 +130,7 @@ impl PlaybookContext {
     }
 
     pub fn set_task(&mut self, task: &Task) {
-        self.task = Some(task.get_property(TaskProperty::Name)); 
+        self.task = Some(task.get_display_name());
     }
 
     pub fn set_play(&mut self, play: &Play) {
@@ -187,19 +184,19 @@ impl PlaybookContext {
 
     pub fn get_complete_blended_variables_mapping(&self, host: &Arc<RwLock<Host>>) -> HashMap<String, serde_yaml::Value> {
         let mut complete_blended = self.get_complete_blended_variables(host);
-        println!("!XDEBUG blended /{complete_blended}/");
         if complete_blended.eq("null\n") {
-            println!("fixing");
             complete_blended = String::from("unset: true");
         }
         let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&complete_blended).unwrap();
         return vars;
     }
 
+    pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>) -> Result<String,String> {
+        let vars = self.get_complete_blended_variables_mapping(host);
+        return self.templar.read().unwrap().render(template, vars);
+    }
+
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
-        
-        // FIXME: implement a version that uses the context to also include all other variables
-        // which will also be needed by templating... 
         let vars = self.get_complete_blended_variables_mapping(host);
         let host2 = host.read().unwrap();
 
@@ -229,13 +226,10 @@ impl PlaybookContext {
         };
 
         return (remote_hostname, remote_user, remote_port)
-
-
     } 
 
     // ==================================================================================
     // STATISTICS
-    // FIXME: might want to track task count differently from handler count?
 
     pub fn get_role_count(&self) -> usize {
         return self.role_count;
@@ -256,25 +250,31 @@ impl PlaybookContext {
     pub fn increment_attempted_for_host(&mut self, host: &String) {
         *self.attempted_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_created_for_host(&mut self, host: &String) {
         *self.created_count_for_host.entry(host.clone()).or_insert(0) += 1;
         *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_removed_for_host(&mut self, host: &String) {
         *self.removed_count_for_host.entry(host.clone()).or_insert(0) += 1;
         *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_modified_for_host(&mut self, host: &String) {
         *self.modified_count_for_host.entry(host.clone()).or_insert(0) += 1;
         *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_executed_for_host(&mut self, host: &String) {
         *self.executed_count_for_host.entry(host.clone()).or_insert(0) += 1;
         *self.adjusted_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_failed_for_host(&mut self, host: &String) {
         *self.failed_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
+
     pub fn increment_passive_for_host(&mut self, host: &String) {
         *self.passive_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
@@ -282,24 +282,31 @@ impl PlaybookContext {
     pub fn get_total_attempted_count(&self) -> usize {
         return self.attempted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_creation_count(&self) -> usize {
         return self.created_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_modified_count(&self) -> usize{
         return self.modified_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_removal_count(&self) -> usize{
         return self.removed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_executions_count(&self) -> usize {
         return self.executed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_failed_count(&self) -> usize{
         return self.failed_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_adjusted_count(&self) -> usize {
         return self.adjusted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
+
     pub fn get_total_passive_count(&self) -> usize {
         return self.passive_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
@@ -307,24 +314,31 @@ impl PlaybookContext {
     pub fn get_hosts_creation_count(&self) -> usize {
         return self.created_count_for_host.keys().len();
     }
+
     pub fn get_hosts_modified_count(&self) -> usize {
         return self.modified_count_for_host.keys().len();
     }
+
     pub fn get_hosts_removal_count(&self) -> usize {
         return self.removed_count_for_host.keys().len();
     }
+
     pub fn get_hosts_executions_count(&self) -> usize {
         return self.executed_count_for_host.keys().len();
     }
+
     pub fn get_hosts_passive_count(&self) -> usize {
         return self.passive_count_for_host.keys().len();
     }
+
     pub fn get_hosts_failed_count(&self) -> usize {
         return self.failed_count_for_host.keys().len();
     }
+
     pub fn get_hosts_adjusted_count(&self) -> usize {
         return self.adjusted_count_for_host.keys().len();
     }
+
     pub fn get_hosts_seen_count(&self) -> usize {
         return self.seen_hosts.keys().len();
     }

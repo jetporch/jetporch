@@ -27,8 +27,6 @@ use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
 
-// run a task on one or more hosts -- check modes (syntax/normal), or for 'real', on any connection type
-
 pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool) -> Result<(), String> {
 
     // syntax check first, always
@@ -55,10 +53,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     }
 
     // now full traversal across the host loop
-    // FIXME: this is the part that will be parallelized in SSH mode.
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
-
-
     if hosts.len() == 0 {
         return Err(String::from("no hosts remaining"))
     }
@@ -66,7 +61,6 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     for (_,v) in hosts {
         host_objects.push(Arc::clone(&v));
     }
-
 
     let total : i64 = host_objects.par_iter().map(|host| {
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
@@ -77,12 +71,9 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
                 let task_response = run_task_on_host(&run_state,&connection,&host,task,false);
                 let real_response = task_response.as_ref().expect("task response has data");
                 if task_response.is_err() {
-                    // FIXME: visitor does not need locks around it!
                     run_state.context.write().unwrap().fail_host(&host);
                     run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &real_response, &host);
                 } else {
-                    // BOOKMARK:
-                    // FIXME: record the amount of changes and modifications performed and number of hosts with changes/modifications
                     run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &real_response, &host);
                 }
             },
@@ -99,7 +90,6 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
 
 
 // the "on this host" method body from fsm_run_task
-
 fn run_task_on_host(
     run_state: &Arc<RunState>, 
     connection: &Arc<Mutex<dyn Connection>>,
@@ -114,6 +104,10 @@ fn run_task_on_host(
     let vrc = task.dispatch(&handle, &TaskRequest::validate());
     match vrc {
         Ok(ref x) => match x.status {
+
+            // FIXME: TODO:: isValidated means that vrc.logic contains a CommonLogic reference which we
+            // can/must use to modify operations below, including possibly skipping them.
+
             TaskStatus::IsValidated => { if syntax { return vrc; } },
             TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
             _ => { panic!("module internal fsm state invalid (on verify)") }
@@ -231,6 +225,9 @@ fn run_task_on_host(
         },
     }
     */
+
+    // FIXME: apply logic to result here
+
     return result;
 
 }

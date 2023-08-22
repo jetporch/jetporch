@@ -17,6 +17,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::connection::command::CommandResult;
+use crate::tasks::logic::CommonLogic;
 
 #[derive(Debug,PartialEq)]
 pub enum TaskStatus {
@@ -42,6 +43,7 @@ pub struct TaskResponse {
     pub changes: Arc<Option<HashMap<String, String>>>,
     pub msg: Option<String>,
     pub command_result: Option<CommandResult>,
+    pub logic: Arc<Option<CommonLogic>>
 }
 
 impl TaskResponse {
