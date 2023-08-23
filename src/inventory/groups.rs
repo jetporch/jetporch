@@ -19,13 +19,15 @@ use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
 use crate::inventory::hosts::Host;
 use std::sync::RwLock;
+use serde_yaml;
+use serde_yaml::Value::Mapping;
 
 pub struct Group {
     pub name : String,
     pub subgroups : HashMap<String, Arc<RwLock<Self>>>,
     pub parents : HashMap<String, Arc<RwLock<Self>>>,
     pub hosts : HashMap<String, Arc<RwLock<Host>>>,
-    pub variables : String
+    pub variables : serde_yaml::Mapping
 }
 
 impl Group {
@@ -36,7 +38,8 @@ impl Group {
             subgroups : HashMap::new(),
             parents : HashMap::new(),
             hosts : HashMap::new(),
-            variables :String::new()
+            variables : serde_yaml::Mapping::new()
+
         }
     }
 
@@ -168,25 +171,45 @@ impl Group {
         return self.get_descendant_hosts().iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    pub fn get_variables(&self) -> String {
+    pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
 
-    pub fn set_variables(&mut self, yaml_string: &String) {
-        self.variables.clear();
-        self.variables.push_str(&yaml_string.clone());
+    pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
+        self.variables = variables.clone();
     }
 
-    pub fn get_blended_variables(&self) -> String {
-        let mut blended = String::from("");
+    pub fn get_blended_variables(&self) -> serde_yaml::Mapping {
+        let mut blended : serde_yaml::Value = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let ancestors = self.get_ancestor_groups(20);
         for (_k,v) in ancestors.iter() {
-            let theirs = v.read().unwrap().get_variables();
-            blended = blend_variables(&theirs.clone(), &blended.clone());
+            let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().unwrap().get_variables());
+            blend_variables(&mut blended, theirs);
         }
-        let mine = self.get_variables();
-        return blend_variables(&mine.clone(), &blended.clone());
+        let mine = serde_yaml::Value::from(self.get_variables());
+        blend_variables(&mut blended, mine);
+        return match blended {
+            serde_yaml::Value::Mapping(x) => x,
+            _ => panic!("get_blended_variables produced a non-mapping (1)")
+        }
     }
+
+    pub fn get_variables_yaml(&self) -> Result<String,String> {
+        let result = serde_yaml::to_string(&self.get_variables());
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(String::from("error loading variables"))
+        }
+    }
+
+    pub fn get_blended_variables_yaml(&self) -> Result<String,String> {
+        let result = serde_yaml::to_string(&self.get_blended_variables());
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(String::from("error loading blended variables"))
+        }
+    }
+
 
 }
 

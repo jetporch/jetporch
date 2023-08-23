@@ -19,13 +19,16 @@ use crate::util::yaml::{blend_variables};
 use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
+use serde_yaml;
 //use crate::tasks::request::TaskRequest;
 //use crate::tasks::response::TaskResponse;
+use serde_yaml::Value::Mapping;
+
 
 pub struct Host {
     pub name : String,
-    pub variables : String,
-    pub groups : HashMap<String,Arc<RwLock<Group>>>,
+    pub variables : serde_yaml::Mapping,
+    pub groups : HashMap<String, Arc<RwLock<Group>>>,
     //pub history: Vec<(Arc<TaskRequest>,Arc<TaskResponse>)>,
 }
 
@@ -34,7 +37,7 @@ impl Host {
     pub fn new(name: &String) -> Self {
         Self {
             name: name.clone(),
-            variables: String::new(),
+            variables : serde_yaml::Mapping::new(),
             groups: HashMap::new(),
             //history: Vec::new(),
         }
@@ -76,35 +79,43 @@ impl Host {
         return self.get_ancestor_groups(20usize).iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    pub fn get_variables(&self) -> String {
+    pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
 
-    pub fn set_variables(&mut self, yaml_string: &String) {
-        self.variables.clear();
-        self.variables.push_str(&yaml_string.clone());
+    pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
+        self.variables = variables.clone();
     }
 
-    pub fn get_blended_variables(&self) -> String {
-        let mut blended = String::from("");
-        for (_k,ancestor) in self.get_ancestor_groups(10usize).into_iter() {
-            let theirs = ancestor.read().unwrap().get_variables();
-            blended = blend_variables(&theirs, &blended);
+    pub fn get_blended_variables(&self) -> serde_yaml::Mapping {
+        let mut blended : serde_yaml::Value = serde_yaml::Value::from(serde_yaml::Mapping::new());
+        let ancestors = self.get_ancestor_groups(20);
+        for (_k,v) in ancestors.iter() {
+            let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().unwrap().get_variables());
+            blend_variables(&mut blended, theirs);
         }
-        let mine = self.get_variables();
-        return blend_variables(&mine, &blended);
+        let mine = serde_yaml::Value::from(self.get_variables());
+        blend_variables(&mut blended, mine);
+        return match blended {
+            serde_yaml::Value::Mapping(x) => x,
+            _ => panic!("get_blended_variables produced a non-mapping (1)")
+        }
     }
 
-    pub fn get_blended_variables_mapping(&self) -> HashMap<String, serde_yaml::Value> {
-        let blended = self.get_blended_variables();
-        let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&blended).unwrap();
-        return vars;
+    pub fn get_variables_yaml(&self) -> Result<String, String> {
+        let result = serde_yaml::to_string(&self.get_variables());
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(String::from("error loading variables"))
+        }
     }
 
-    //pub fn record_task_response(&mut self, task_request: &Arc<TaskRequest>, task_response: &Arc<TaskResponse>) {
-        //self.history.push((Arc::clone(&task_request), Arc::clone(&task_response)));
-    //}
-
-
+    pub fn get_blended_variables_yaml(&self) -> Result<String,String> {
+        let result = serde_yaml::to_string(&self.get_blended_variables());
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(String::from("error loading blended variables"))
+        }
+    }
 
 }

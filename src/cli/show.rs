@@ -40,8 +40,8 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
 
     let parents               : Vec<String> = host.get_group_names();
     let ancestors             : Vec<String> = host.get_ancestor_group_names();
-    let host_variables        = host.get_variables();
-    let blended_variables     = host.get_blended_variables();
+    let host_variables        = host.get_variables_yaml()?;
+    let blended_variables     = host.get_blended_variables_yaml()?;
     
     let ancestor_string = ancestors.join(", ");
     let parents_string  = parents.join(", ");
@@ -86,8 +86,8 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     let descendant_hosts     : Vec<String>  = group.get_descendant_host_names();
     let child_hosts          : Vec<String>  = group.get_direct_host_names();
 
-    let group_variables        = group.get_variables();
-    let blended_variables      = group.get_blended_variables();
+    let group_variables        = group.get_variables_yaml()?;
+    let blended_variables      = group.get_blended_variables_yaml()?;
     let descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
     let child_hosts_count      = String::from(format!("{}", child_hosts.len()));
     

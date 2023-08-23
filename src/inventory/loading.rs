@@ -162,15 +162,15 @@ fn load_vars_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path, is_group
         
         // serialize the vars again just to make them easier to store/output elsewhere
         // this will also remove any comments and shorten things up
-        let yaml_string = &serde_yaml::to_string(&yaml_result).unwrap();
+        //let yaml_string = &serde_yaml::to_string(&yaml_result).unwrap();
         match is_group {
             true  => {
                 let group = inv.get_group(&base_name.clone());
-                group.write().unwrap().set_variables(&yaml_string.clone());
+                group.write().unwrap().set_variables(yaml_result);
             }
             false => {
                 let host = inv.get_host(&base_name);
-                host.write().unwrap().set_variables(&yaml_string);
+                host.write().unwrap().set_variables(yaml_result);
             }
         }
         Ok(())

@@ -46,9 +46,9 @@ impl Inventory {
         self.associate_subgroup(group_name, subgroup_name);
     }
 
-    pub fn store_group_variables(&mut self, group_name: &String, yaml_string: &String) {
+    pub fn store_group_variables(&mut self, group_name: &String, mapping: serde_yaml::Mapping) {
         let group = self.get_group(group_name);
-        group.write().unwrap().set_variables(&yaml_string.clone());
+        group.write().unwrap().set_variables(mapping);
     }
 
     pub fn store_group(&mut self, group: &String) {
@@ -71,9 +71,9 @@ impl Inventory {
         group.write().unwrap().add_host(host_name, Arc::clone(&host));
     }
 
-    pub fn store_host_variables(&mut self, host_name: &String, yaml_string: &String) {
+    pub fn store_host_variables(&mut self, host_name: &String, mapping: serde_yaml::Mapping) {
         let host = self.get_host(host_name);
-        host.write().unwrap().set_variables(&yaml_string.clone());
+        host.write().unwrap().set_variables(mapping);
     }
 
     pub fn create_host(&mut self, host_name: &String) {

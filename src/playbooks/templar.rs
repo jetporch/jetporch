@@ -18,9 +18,9 @@ use std::collections::HashMap;
 use serde_yaml;
 use once_cell::sync::Lazy;
 
-use std::io::Write;
-use handlebars::{Handlebars, HelperDef, RenderContext, Helper, Context, JsonRender, HelperResult, Output, RenderError};
-use handlebars::Renderable;
+//use std::io::Write;
+use handlebars::{Handlebars,RenderError}; //, HelperDef, RenderContext, Helper, Context, JsonRender, HelperResult, Output, RenderError};
+//use handlebars::Renderable;
 
 static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     let mut hb = Handlebars::new();
@@ -38,7 +38,7 @@ impl Templar {
         };
     }
 
-    pub fn render(&self, template: &String, data: HashMap<String,serde_yaml::Value>) -> Result<String, String> {
+    pub fn render(&self, template: &String, data: serde_yaml::Mapping) -> Result<String, String> {
         //let handlebars = Handlebars::new();
         let result : Result<String, RenderError> = HANDLEBARS.render_template(template, &data);
         return match result {
@@ -47,7 +47,7 @@ impl Templar {
         }
     }
 
-    pub fn test_cond(&self, expr: &String, data: HashMap<String,serde_yaml::Value>) -> Result<bool, String> {
+    pub fn test_cond(&self, expr: &String, data: serde_yaml::Mapping) -> Result<bool, String> {
         // see https://docs.rs/handlebars/latest/handlebars/
         let template = format!("{{{{#if {expr} }}}}true{{{{ else }}}}false{{{{/if}}}}");
         let result = self.render(&template, data);

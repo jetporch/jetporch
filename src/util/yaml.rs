@@ -85,25 +85,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
 }
 
-// left takes on values from right
-pub fn blend_variables(left_shark: &String, right_shark: &String) -> String {
-    let l = left_shark.clone();
-    let r = right_shark.clone();
-    let mut left: serde_yaml::Value = serde_yaml::from_str(&l).unwrap();
-    let right: serde_yaml::Value = serde_yaml::from_str(&r).unwrap();
-    merge_yaml(&mut left, right);
-    let yaml_string = &serde_yaml::to_string(&left).unwrap();
-    return yaml_string.clone();
-}
-
-// ==============================================================================================================
-// PRIVATE
-// ==============================================================================================================
-
-// adapted from
-// https://stackoverflow.com/questions/67727239/how-to-combine-including-nested-array-values-two-serde-yamlvalue-objects
-
-fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
+pub fn blend_variables(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
  
     /* saving these notes as useful for template code probably
     println!("~");
@@ -150,7 +132,7 @@ fn merge_yaml(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
                     a.insert(k.to_owned(), v.to_owned());
                 }
                 else { 
-                    merge_yaml(&mut a[&k], v); 
+                    blend_variables(&mut a[&k], v); 
                 }
 
             }

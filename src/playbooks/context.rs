@@ -171,20 +171,24 @@ impl PlaybookContext {
     // ==================================================================================
     // VARIABLES
 
-    pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>) -> String  {
+    pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>) -> serde_yaml::Mapping  {
         // !!!
         // !!!
         // FIXME: load in defaults then inventory then vars/vars_files - keep role vars seperate
         // !!!
         // !!!
-        let blended = String::from("");
+        let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let host_blended = host.read().unwrap().get_blended_variables();
         //let context_blended = context.read().get_blended_variables();
-        let blended2 = blend_variables(&host_blended, &blended);
+        let blended2 = blend_variables(&mut blended, serde_yaml::Value::Mapping(host_blended));
         //blended = blend_variables(&host_blended, &context_blended);
-        return blended2
+        return match blended {
+            serde_yaml::Value::Mapping(x) => x,
+            _ => panic!("get_blended_variables produced a non-mapping (1)")
+        }
     }
 
+    /*
     pub fn get_complete_blended_variables_mapping(&self, host: &Arc<RwLock<Host>>) -> HashMap<String, serde_yaml::Value> {
         let mut complete_blended = self.get_complete_blended_variables(host);
         if complete_blended.eq("null\n") {
@@ -193,19 +197,20 @@ impl PlaybookContext {
         let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&complete_blended).unwrap();
         return vars;
     }
+    */
 
     pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>) -> Result<String,String> {
-        let vars = self.get_complete_blended_variables_mapping(host);
+        let vars = self.get_complete_blended_variables(host);
         return self.templar.read().unwrap().render(template, vars);
     }
 
     pub fn test_cond(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {
-        let vars = self.get_complete_blended_variables_mapping(host);
+        let vars = self.get_complete_blended_variables(host);
         return self.templar.read().unwrap().test_cond(expr, vars);
     }
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
-        let vars = self.get_complete_blended_variables_mapping(host);
+        let vars = self.get_complete_blended_variables(host);
         let host2 = host.read().unwrap();
 
         let remote_hostname = match vars.contains_key(&String::from("jet_ssh_remote_hostname")) {
