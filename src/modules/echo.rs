@@ -24,7 +24,8 @@ use serde::{Deserialize};
 pub struct Echo {
     pub name: Option<String>,
     pub msg: String,
-    pub with: Option<CommonLogic>
+    pub with: Option<PreLogic>,
+    pub and: Option<PostLogic>
 }
 
 impl Echo {
@@ -32,7 +33,8 @@ impl Echo {
         return Ok(Echo {
             name: self.name.clone(),
             msg: handle.template(&request, &self.msg)?,
-            with: CommonLogic::template(&handle, &request, &self.with)?
+            with: PreLogic::template(&handle, &request, &self.with)?,
+            and: PostLogic::template(&handle, &request, &self.and)?
         });
     }
 }
@@ -48,7 +50,7 @@ impl IsTask for Echo {
 
             TaskRequestType::Validate => {
                 let evaluated = self.evaluate(handle, request)?;
-                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with)));
+                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with), &Arc::new(evaluated.and)));
             },
 
             TaskRequestType::Query => {

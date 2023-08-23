@@ -14,16 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use handlebars::Handlebars;
-use handlebars::RenderError;
 use std::collections::HashMap;
 use serde_yaml;
 use once_cell::sync::Lazy;
 
+use std::io::Write;
+use handlebars::{Handlebars, HelperDef, RenderContext, Helper, Context, JsonRender, HelperResult, Output, RenderError};
+use handlebars::Renderable;
+
 static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
-    let mut h = Handlebars::new();
-    h.set_strict_mode(true);
-    return h;
+    let mut hb = Handlebars::new();
+    hb.set_strict_mode(true);
+    return hb;
 });
 
 pub struct Templar {
@@ -43,6 +45,22 @@ impl Templar {
             Ok(x) => Ok(x),
             Err(y) => Err(format!("Template error: line {:?}: {}", y.line_no, y.desc))
         }
+    }
+
+    pub fn test_cond(&self, expr: &String, data: HashMap<String,serde_yaml::Value>) -> Result<bool, String> {
+        // see https://docs.rs/handlebars/latest/handlebars/
+        let template = format!("{{{{#if {expr} }}}}true{{{{ else }}}}false{{{{/if}}}}");
+        let result = self.render(&template, data);
+        match result {
+            Ok(x) => { 
+                if x.as_str().eq("true") {
+                    return Ok(true);
+                } else {
+                    return Ok(false);
+                }
+            },
+            Err(x) => { return Err(format!("failed to parse cond: {}", expr)) }
+        };
     }
 
 }

@@ -24,7 +24,7 @@ pub use std::sync::Arc;
 pub use crate::connection::command::cmd_info;
 
 pub use crate::tasks::common::{IsTask};
-pub use crate::tasks::logic::CommonLogic;
+pub use crate::tasks::logic::{PreLogic,PostLogic};
 pub use crate::tasks::handle::TaskHandle;
 pub use crate::tasks::response::TaskResponse;
 pub use crate::tasks::request::{TaskRequestType,TaskRequest};

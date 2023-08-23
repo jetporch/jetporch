@@ -25,6 +25,9 @@ use crate::registry::list::Task;
 use crate::util::yaml::blend_variables;
 use crate::playbooks::templar::Templar;
 
+// the playbook context keeps track of where we are in a playbook
+// execution and various results/stats along the way
+
 pub struct PlaybookContext {
     
     pub playbook_path: Option<String>,
@@ -194,6 +197,11 @@ impl PlaybookContext {
     pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>) -> Result<String,String> {
         let vars = self.get_complete_blended_variables_mapping(host);
         return self.templar.read().unwrap().render(template, vars);
+    }
+
+    pub fn test_cond(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {
+        let vars = self.get_complete_blended_variables_mapping(host);
+        return self.templar.read().unwrap().test_cond(expr, vars);
     }
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {

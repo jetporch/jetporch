@@ -15,8 +15,6 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
-use std::sync::Arc;
-use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 
@@ -26,7 +24,8 @@ pub struct Shell {
     pub name: Option<String>,
     pub cmd: String,
     pub verbose: Option<bool>,
-    pub with: Option<CommonLogic>,
+    pub with: Option<PreLogic>,
+    pub and: Option<PostLogic>
 }
 
 impl Shell {
@@ -35,7 +34,8 @@ impl Shell {
             name: self.name.clone(),
             cmd: handle.template(&request, &self.cmd)?,
             verbose: self.verbose,
-            with: CommonLogic::template(&handle, &request, &self.with)?
+            with: PreLogic::template(&handle, &request, &self.with)?,
+            and: PostLogic::template(&handle, &request, &self.and)?
         });
     }
 }
@@ -51,7 +51,7 @@ impl IsTask for Shell {
 
             TaskRequestType::Validate => {
                 let evaluated = self.evaluate(handle, request)?;
-                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with)));
+                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with), &Arc::new(evaluated.and)));
             },
 
             TaskRequestType::Query => {
@@ -64,6 +64,7 @@ impl IsTask for Shell {
                 let (rc, out) = cmd_info(&result);
 
                 // FIXME: verbosity should be passed to handle.run, then embed this logic there
+                // methods in handle should be able to check verbosity levels.
                 if self.verbose.is_some() && self.verbose.unwrap() {
                     let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
                     handle.debug_lines(&request, &display);

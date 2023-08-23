@@ -21,8 +21,11 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
-use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset};
+use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
+
+// the visitor is a trait with lots of default implementation that can be overridden
+// for various CLI commands. It is called extensively during playbook traversal
 
 pub trait PlaybookVisitor : Send + Sync {
 
@@ -31,11 +34,11 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn debug(&self, message: String) {
-        println!("{color_cyan}| debug | {}{color_reset}", message.clone());
+        println!("{color_cyan}  ..... (debug) : {}{color_reset}", message.clone());
     }
 
     fn debug_host(&self, host: &Arc<RwLock<Host>>, message: String) {
-        println!("{color_cyan}| ..... {} | {}{color_reset}", host.read().unwrap().name, message.clone());
+        println!("{color_cyan}  ..... {} : {}{color_reset}", host.read().unwrap().name, message.clone());
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -114,7 +117,7 @@ pub trait PlaybookVisitor : Send + Sync {
 
     fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("! host: {} => running", host2.name);
+        println!("… {} => running", host2.name);
     }
 
     // FIXME: this pattern of the visitor accessing the context is cleaner than the FSM code that accesses both in sequence, so do
@@ -126,35 +129,44 @@ pub trait PlaybookVisitor : Send + Sync {
         context.increment_attempted_for_host(&host2.name);
         match &task_response.status {
             TaskStatus::IsCreated  =>  { 
-                println!("{color_blue}! host: {} => ok (created){color_reset}",  &host2.name); 
+                println!("{color_blue}✓ {} => created{color_reset}",  &host2.name); 
                 context.increment_created_for_host(&host2.name);  
             },
             TaskStatus::IsRemoved  =>  { 
-                println!("{color_blue}! host: {} => ok (removed){color_reset}",  &host2.name); 
+                println!("{color_blue}✓ {} => removed{color_reset}",  &host2.name); 
                 context.increment_removed_for_host(&host2.name);  
             },
             TaskStatus::IsModified =>  { 
-                println!("{color_blue}! host: {} => ok (modified){color_reset}", &host2.name); 
+                println!("{color_blue}✓ {} => modified{color_reset}", &host2.name); 
                 context.increment_modified_for_host(&host2.name); 
             },
             TaskStatus::IsExecuted =>  { 
-                println!("{color_blue}! host: {} => ok (executed){color_reset}", &host2.name); 
+                println!("{color_blue}✓ {} => complete{color_reset}", &host2.name); 
                 context.increment_executed_for_host(&host2.name); 
             },
             TaskStatus::IsPassive  =>  { 
-                println!("{color_green}! host: {} => ok (no effect) {color_reset}", &host2.name); 
+                // println!("{color_green}! host: {} => ok (no effect) {color_reset}", &host2.name); 
                 context.increment_passive_for_host(&host2.name); 
             }
             TaskStatus::IsMatched  =>  { 
-                println!("{color_green}! host: {} => ok (no changes) {color_reset}", &host2.name); 
+                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name); 
+            } 
+            TaskStatus::IsSkipped  =>  { 
+                println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name); 
             } 
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }
 
-    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, _task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
-        println!("{color_red}! host failed: {}{color_reset}", host2.name);
+        if task_response.msg.is_some() {
+            let msg = &task_response.msg;
+            println!("{color_red}! host failed: {}: {}, {color_reset}", host2.name, msg.as_ref().unwrap());
+        } else {
+            println!("{color_red}! host failed: {}, {color_reset}", host2.name);
+        }
+
         context.write().unwrap().increment_failed_for_host(&host2.name);
         //println!("> task failed on host: {}", host);
     }

@@ -69,12 +69,21 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
                 let task_response = run_task_on_host(&run_state,&connection,&host,task,false);
-                let real_response = task_response.as_ref().expect("task response has data");
-                if task_response.is_err() {
-                    run_state.context.write().unwrap().fail_host(&host);
-                    run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &real_response, &host);
-                } else {
-                    run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &real_response, &host);
+                
+                //if real_response.is_err() {
+
+                //}
+
+                //let real_response = task_response.as_ref().expect("task response has data");
+
+                match task_response {
+                    Ok(x) => {
+                        run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
+                    }
+                    Err(x) => {
+                        run_state.context.write().unwrap().fail_host(&host);
+                        run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
+                    },
                 }
             },
             Err(x) => {
@@ -101,14 +110,45 @@ fn run_task_on_host(
 
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
-    let vrc = task.dispatch(&handle, &TaskRequest::validate());
+    let validate = TaskRequest::validate();
+    let vrc = task.dispatch(&handle, &validate);
     match vrc {
         Ok(ref x) => match x.status {
 
             // FIXME: TODO:: isValidated means that vrc.logic contains a CommonLogic reference which we
             // can/must use to modify operations below, including possibly skipping them.
 
-            TaskStatus::IsValidated => { if syntax { return vrc; } },
+            TaskStatus::IsValidated => { 
+                
+                if syntax { 
+                    println!("SYNTAX!");
+                    return vrc; 
+                }
+                
+                if x.with.is_some() {
+                    // handle 'cond' statement to decide if the task should be skipped
+                    // FIXME: move to function
+                    let logic = Arc::clone(&x.with);
+                    // LOL, Rust
+                    let cond = &logic.as_ref().as_ref().unwrap().cond;
+                    if cond.is_some() {
+                        let cond_value = &cond.as_ref().unwrap();
+                        let test = handle.test_cond(&validate, &cond_value);
+                        match test {
+                            Ok(testp) => { 
+                                if testp == false {
+                                    return Ok(handle.is_skipped(&Arc::clone(&validate)));
+                                }
+                            },
+                            Err(template_err) => {
+                                return Err(template_err);
+                            }
+                        };
+                    }
+                    // ALSO need to process sudo here and other 'with' statements.
+                }
+        
+            },
             TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
             _ => { panic!("module internal fsm state invalid (on verify)") }
         },
@@ -215,18 +255,8 @@ fn run_task_on_host(
             _ => { panic!("module returned a non-failure code inside an Err: {:?}", x); }
         }
     };
-    /*
-    match result {
-        Ok(ref x) =>  { 
-            host.write().unwrap().record_task_response(&Arc::clone(&request), &x); 
-        },
-        Err(ref x) => { 
-            host.write().unwrap().record_task_response(&Arc::clone(&request), x); 
-        },
-    }
-    */
 
-    // FIXME: apply logic to result here
+    // FIXME: apply post-logic ("and") to result here (in function)
 
     return result;
 

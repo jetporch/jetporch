@@ -17,6 +17,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+// task requests are objects given to modules (and the task FSM) that
+// describe what questions we are asking of them. In the case of 
+// modifications, this includes the list (map) of parameters to change
+// as returned by the query request
+
 #[derive(PartialEq)]
 pub enum TaskRequestType {
     Validate,

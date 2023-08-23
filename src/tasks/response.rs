@@ -17,7 +17,11 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::connection::command::CommandResult;
-use crate::tasks::logic::CommonLogic;
+use crate::tasks::logic::{PreLogic,PostLogic};
+
+// task responses are returns from module calls - they are not
+// created directly but by helper functions in handle.rs, see
+// the various modules for examples/usage
 
 #[derive(Debug,PartialEq)]
 pub enum TaskStatus {
@@ -29,6 +33,7 @@ pub enum TaskStatus {
     IsExecuted,
     IsPassive,
     IsMatched,
+    IsSkipped,
     NeedsCreation,
     NeedsRemoval,
     NeedsModification,
@@ -43,13 +48,12 @@ pub struct TaskResponse {
     pub changes: Arc<Option<HashMap<String, String>>>,
     pub msg: Option<String>,
     pub command_result: Option<CommandResult>,
-    pub logic: Arc<Option<CommonLogic>>
+    pub with: Arc<Option<PreLogic>>,
+    pub and: Arc<Option<PostLogic>>
 }
 
 impl TaskResponse {
     pub fn is_failed(&self) -> bool {
         return self.status == TaskStatus::Failed;
     }
-
-    // possible methods for getting change counts, etc?
 }

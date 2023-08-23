@@ -17,13 +17,18 @@
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskResponse, TaskStatus};
-use crate::tasks::logic::CommonLogic;
+use crate::tasks::logic::{PreLogic,PostLogic};
 use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
 use crate::connection::command::CommandResult;
 use once_cell::sync::Lazy;
+
+// task handles are given to modules to give them shortcuts to work with the jet system
+// actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
+// are mostly module authors don't need to think about how things work as much.  This is
+// especially true for the finite state machine that executes tasks.
 
 pub struct TaskHandle {
     run_state: Arc<RunState>, 
@@ -82,19 +87,22 @@ impl TaskHandle {
         return Ok(Some(result));
     }
 
+    pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
+        let result = self.run_state.context.read().unwrap().test_cond(expr, &self.host);
+        return match result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(self.is_failed(request, &y))
+        }
+    }
+
     // ================================================================================
     // RETURN WRAPPERS FOR EVERY TASK REQUEST TYPE
 
     pub fn is_failed(&self, _request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
-            changes: Arc::new(None),
-            msg: Some(msg.clone()), 
-            command_result: None,
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: Some(msg.clone()), command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        // FIXME: make some alternative constructors to reduce boilerplate
-        return response;
     }
 
     pub fn not_supported(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
@@ -102,174 +110,126 @@ impl TaskHandle {
     }
 
     pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
-        let response = Arc::new(TaskResponse {
+        return Arc::new(TaskResponse {
             status: TaskStatus::Failed,
-            changes: Arc::new(None),
-            msg: None,
-            command_result: Some(result),
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
     pub fn command_ok(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
-        let response = Arc::new(TaskResponse {
+        return Arc::new(TaskResponse {
             status: TaskStatus::IsExecuted,
-            changes: Arc::new(None),
-            msg: None,
-            command_result: Some(result),
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
-    pub fn is_validated(&self, request: &Arc<TaskRequest>, logic: &Arc<Option<CommonLogic>>) -> Arc<TaskResponse> {
+    pub fn is_validated(&self, request: &Arc<TaskRequest>, with: &Arc<Option<PreLogic>>, and: &Arc<Option<PostLogic>>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsValidated, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::clone(logic)
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::clone(with), and: Arc::clone(and)
+        });
+    }
+
+    pub fn is_skipped(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
+        assert!(request.request_type == TaskRequestType::Validate, "is_skipped response can only be returned for a validation request");
+        let response = Arc::new(TaskResponse { 
+            status: TaskStatus::IsSkipped, 
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
         return response;
     }
 
     pub fn is_matched(&self, request: &Arc<TaskRequest>, ) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "is_matched response can only be returned for a query request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsMatched, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
-
-    // FIXME: reduce boilerplate in all of these...
 
     pub fn is_created(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Create, "is_executed response can only be returned for a creation request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsExecuted, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
     
     // see also command_ok for shortcuts, as used in the shell module.
     pub fn is_executed(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Execute, "is_executed response can only be returned for a creation request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsExecuted, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
     
     pub fn is_removed(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Remove, "is_removed response can only be returned for a remove request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsRemoved, 
             changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None) 
+            msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
     pub fn is_passive(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Passive, "is_passive response can only be returned for a passive request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsPassive, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None) 
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
     
     pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Modify, "is_modified response can only be returned for a modification request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::IsModified, 
             changes: Arc::clone(&changes), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None) 
+            msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
     pub fn needs_creation(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_creation response can only be returned for a query request");
-
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsCreation, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None) 
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None), 
         });
-        return response;
     }
     
     pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_modification response can only be returned for a query request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsModification, 
             changes: Arc::clone(&changes), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None)
- 
+            msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None) 
         });
-        return response;
     }
     
     pub fn needs_removal(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_removal response can only be returned for a query request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None, 
-            logic: Arc::new(None),
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
     pub fn needs_execution(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_execution response can only be returned for a query request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsExecution, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None) 
+            changes: Arc::new(None), msg: None, command_result: None,with: Arc::new(None),and: Arc::new(None)
         });
-        return response;
     }
     
     pub fn needs_passive(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_passive response can only be returned for a query request");
-        let response = Arc::new(TaskResponse { 
+        return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsPassive, 
-            changes: Arc::new(None), 
-            msg: None,
-            command_result: None,
-            logic: Arc::new(None)
+            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
-        return response;
     }
 
 }

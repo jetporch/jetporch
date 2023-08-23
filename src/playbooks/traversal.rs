@@ -29,6 +29,12 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Arc,RwLock};
 
+// traversal code walks a playbook and does "things" to it, different behaviors
+// are available, see cli/playbooks.rs.  The RunState encapsulates common
+// parameters to avoid functions taking extremely large signatures, but it should
+// not be thought of as a pseudo-global, for instance modules are eventually
+// only given access to the context and visitor portions.
+
 pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,

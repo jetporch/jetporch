@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::time::Duration;
+use std::net::{SocketAddr, ToSocketAddrs};
 use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
@@ -47,19 +49,17 @@ impl ConnectionFactory for SshFactory {
         if hostname1.eq("localhost") {
             return Ok(Arc::new(Mutex::new(LocalConnection::new())));
         } else {
-            let (mut hostname2, mut user, mut port) = (String::from(""), String::from(""), 22);
-
             {
                 let cache = ctx.connection_cache.read().unwrap();
                 if cache.has_connection(host) {
                     let conn : Arc<Mutex<dyn Connection>> = cache.get_connection(host);
                     return Ok(conn)
                 }
-                (hostname2, user, port) = ctx.get_ssh_connection_details(host);
-                if hostname2.eq("localhost") {
-                    // FIXME: we could probably make it cache these as well, but there's probably not much point.
-                    return Ok(Arc::new(Mutex::new(LocalConnection::new())));
-                }
+            }
+            let (hostname2, user, port) = ctx.get_ssh_connection_details(host);
+            if hostname2.eq("localhost") {
+                // FIXME: we could probably make it cache these as well, but there's probably not much point.
+                return Ok(Arc::new(Mutex::new(LocalConnection::new())));
             }
             let mut conn = SshConnection::new(&hostname2.clone(), &user, port);
             return match conn.connect() {
@@ -95,7 +95,6 @@ impl Connection for SshConnection {
     
 
         // Almost all APIs require a `Session` to be available
-        println!("**** ssh connection time");
         let session = Session::new().unwrap();
 
         let mut agent = session.agent().unwrap();
@@ -112,11 +111,24 @@ impl Connection for SshConnection {
  
         // Connect to the local SSH server
 
-        let connect_str = format!("{host}:{port}", host=self.host, port=self.port.to_string());
+        let seconds = Duration::from_secs(10);
 
+        let connect_str = format!("{host}:{port}", host=self.host, port=self.port.to_string());
+        let mut addrs_iter = connect_str.as_str().to_socket_addrs();
+
+        let mut addrs_iter2 = match addrs_iter {
+            Err(x) => { return Err(String::from("unable to resolve")); },
+            Ok(y) => y,
+        };
+        
         // FIXME: don't eat error info
 
-        let tcp = match TcpStream::connect(connect_str) {
+        let addr = addrs_iter2.next();
+        if ! addr.is_some() {
+            return Err(String::from("unable to resolve(2)"));
+        }
+
+        let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) {
             Ok(x) => x,
             _ => { return Err(format!("SSH connection attempt failed for {}:{}", self.host, self.port)); }
         };
@@ -124,6 +136,7 @@ impl Connection for SshConnection {
             Ok(x) => x,
             _ => { return Err(String::from("SSH session failed")); }
         };
+
         sess.set_tcp_stream(tcp);
         match sess.handshake() {
             Ok(_) => {},
@@ -134,6 +147,7 @@ impl Connection for SshConnection {
             Ok(_) => {},
             _ => { return Err(String::from("SSH userauth_agent failed")); }
         };
+
         // FIXME: should return somehow instead and handle it
         if !(sess.authenticated()) {
             return Err("failed to authenticate".to_string());
