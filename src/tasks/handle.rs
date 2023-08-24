@@ -23,7 +23,6 @@ use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
 use crate::connection::command::CommandResult;
-use once_cell::sync::Lazy;
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
@@ -35,8 +34,6 @@ pub struct TaskHandle {
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
 }
-
-static OUTPUT_LOCK: Lazy<Mutex<i32>> = Lazy::new(|| Mutex::new(0));
 
 impl TaskHandle {
 
@@ -61,21 +58,21 @@ impl TaskHandle {
     // to make module code nicer.
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
-        self.run_state.visitor.read().unwrap().debug_host(&self.host, message.clone());
+        self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
 
     pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
-        OUTPUT_LOCK.lock();
-        for message in messages.iter() {
-            self.debug(request, &message);
-        }
+        self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
 
     pub fn template(&self, request: &Arc<TaskRequest>, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         return match result {
             Ok(x) => Ok(x),
-            Err(y) => Err(self.is_failed(request, &y))
+            Err(y) => {
+                println!("XDEBUG: A TEMPLATE ERROR2!");
+                Err(self.is_failed(request, &y))
+            }
         }
     }
 
@@ -83,8 +80,14 @@ impl TaskHandle {
         if template.is_none() {
             return Ok(None);
         }
-        let result = self.template(request, template.as_ref().unwrap())?;
-        return Ok(Some(result));
+        let result = self.template(request, template.as_ref().unwrap());
+        return match result { 
+            Ok(x) => Ok(Some(x)), 
+            Err(y) => {
+                println!("XDEBUG: still an error!");
+                Err(y)
+            } 
+        };
     }
 
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
@@ -112,7 +115,7 @@ impl TaskHandle {
     pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         return Arc::new(TaskResponse {
             status: TaskStatus::Failed,
-            changes: Arc::new(None), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
+            changes: Arc::new(None), msg: Some(String::from("command failed")), command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
         });
     }
 

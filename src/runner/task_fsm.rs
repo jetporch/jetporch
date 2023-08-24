@@ -30,18 +30,22 @@ use rayon::prelude::*;
 pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool) -> Result<(), String> {
 
     // syntax check first, always
+    /*
     let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
     let no_connection = NoFactory::new().get_connection(&run_state.context, &tmp_localhost).unwrap();
     let syntax_check_result = run_task_on_host(run_state,&no_connection,&tmp_localhost,task, true);
     match syntax_check_result {
-        Ok(scr_ok) => match scr_ok.status {
-            TaskStatus::IsValidated => { 
-                if run_state.visitor.read().unwrap().is_syntax_only() { return Ok(()); }
-            }, 
-            _ => { panic!("module returned invalid response to syntax check (1): {:?}", scr_ok.as_ref()) }
+        Ok(scr_ok) => { //match scr_ok.status {
+            //TaskStatus::IsValidated => { 
+            //    if run_state.visitor.read().unwrap().is_syntax_only() { return Ok(()); }
+            //}, 
+            //_ => { panic!("module returned invalid response to syntax check (1): {:?}", scr_ok.as_ref()) }
         },
         Err(scr_err) => match scr_err.status {
+
             TaskStatus::Failed => { 
+                println!("XDEBUG: Position 0");
+
                 return Err(format!("parameters conflict: {}", scr_err.msg.as_ref().unwrap()));
             },
             _ => { panic!("module returned invalid response to syntax check (2): {:?}", scr_err.as_ref()) },
@@ -51,16 +55,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     if syntax {
         return Ok(())
     }
+    */
 
-    // now full traversal across the host loop
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
-    if hosts.len() == 0 {
-        return Err(String::from("no hosts remaining"))
-    }
+    if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
     let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
-    for (_,v) in hosts {
-        host_objects.push(Arc::clone(&v));
-    }
+    for (_,v) in hosts { host_objects.push(Arc::clone(&v)); }
 
     let total : i64 = host_objects.par_iter().map(|host| {
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
@@ -68,26 +68,23 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,task,false);
+                let task_response = run_task_on_host(&run_state,&connection,&host,task);
                 
-                //if real_response.is_err() {
-
-                //}
-
-                //let real_response = task_response.as_ref().expect("task response has data");
-
                 match task_response {
                     Ok(x) => {
                         run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
                     }
                     Err(x) => {
+                        println!("XDEBUG: Position 2");
                         run_state.context.write().unwrap().fail_host(&host);
                         run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
                     },
                 }
             },
             Err(x) => {
-                run_state.visitor.read().unwrap().debug_host(&host, x);
+                println!("XDEBUG: Position 3");
+
+                run_state.visitor.read().unwrap().debug_host(&host, &x);
                 run_state.context.write().unwrap().fail_host(&host);
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
             }
@@ -103,8 +100,7 @@ fn run_task_on_host(
     run_state: &Arc<RunState>, 
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>, 
-    task: &Task,
-    syntax: bool) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    task: &Task) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
     // FIXME: break into smaller functions...
 
@@ -119,12 +115,7 @@ fn run_task_on_host(
             // can/must use to modify operations below, including possibly skipping them.
 
             TaskStatus::IsValidated => { 
-                
-                if syntax { 
-                    println!("SYNTAX!");
-                    return vrc; 
-                }
-                
+                                
                 if x.with.is_some() {
                     // handle 'cond' statement to decide if the task should be skipped
                     // FIXME: move to function

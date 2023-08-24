@@ -168,9 +168,9 @@ impl Connection for SshConnection {
         let _w = channel.wait_close();
         let exit_status = channel.exit_status().unwrap();
         if exit_status == 0 {
-            return Ok(handle.command_ok(request, CommandResult { out: s.clone(), rc: exit_status }));
+            return Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: exit_status }));
         } else {
-            return Err(handle.command_failed(request, CommandResult { out: s.clone(), rc: exit_status }));
+            return Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: exit_status }));
         }
     }
 

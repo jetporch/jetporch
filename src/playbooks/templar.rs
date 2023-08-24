@@ -39,8 +39,12 @@ impl Templar {
         //let handlebars = Handlebars::new();
         let result : Result<String, RenderError> = HANDLEBARS.render_template(template, &data);
         return match result {
-            Ok(x) => Ok(x),
-            Err(y) => Err(format!("Template error: line {:?}: {}", y.line_no, y.desc))
+            Ok(x) => {
+                Ok(x)
+            },
+            Err(y) => {
+                Err(format!("Template error: {}", y.desc))
+            }
         }
     }
 
@@ -56,7 +60,9 @@ impl Templar {
                     return Ok(false);
                 }
             },
-            Err(x) => { return Err(format!("failed to parse cond: {}", expr)) }
+            Err(x) => { 
+                return Err(format!("failed to parse cond: {}", expr)) 
+            }
         };
     }
 

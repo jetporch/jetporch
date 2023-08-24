@@ -30,6 +30,10 @@ pub struct Echo {
 
 impl Echo {
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Echo, Arc<TaskResponse>> {
+
+        let msg = handle.template(&request, &self.msg)?;
+        println!("XDEBUG: MSG={}", msg);
+
         return Ok(Echo {
             name: self.name.clone(),
             msg: handle.template(&request, &self.msg)?,
@@ -50,6 +54,7 @@ impl IsTask for Echo {
 
             TaskRequestType::Validate => {
                 let evaluated = self.evaluate(handle, request)?;
+                println!("IS TASK VALIDATED OK?");
                 return Ok(handle.is_validated(&request, &Arc::new(evaluated.with), &Arc::new(evaluated.and)));
             },
 

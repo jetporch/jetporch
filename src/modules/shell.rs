@@ -30,13 +30,19 @@ pub struct Shell {
 
 impl Shell {
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Shell, Arc<TaskResponse>> {
-        return Ok(Shell {
+        let req1 = handle.template(&request, &self.cmd)?;
+        //match req1 {
+        //    Ok(x) =>{ println!("NO GOOD"); 1 },
+        //    Err(y) => { println!("GOOD"); 2 }
+        //};
+        let shell = Shell {
             name: self.name.clone(),
             cmd: handle.template(&request, &self.cmd)?,
             verbose: self.verbose,
             with: PreLogic::template(&handle, &request, &self.with)?,
             and: PostLogic::template(&handle, &request, &self.and)?
-        });
+        };
+        return Ok(shell);
     }
 }
 
@@ -62,13 +68,6 @@ impl IsTask for Shell {
                 let evaluated = self.evaluate(handle, request)?;
                 let result = handle.run(&request, &evaluated.cmd.clone());
                 let (rc, out) = cmd_info(&result);
-
-                // FIXME: verbosity should be passed to handle.run, then embed this logic there
-                // methods in handle should be able to check verbosity levels.
-                if self.verbose.is_some() && self.verbose.unwrap() {
-                    let display = vec![ format!("rc: {}",rc), format!("out: {}", out) ];
-                    handle.debug_lines(&request, &display);
-                }
 
                 return result;
             },

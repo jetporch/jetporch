@@ -85,7 +85,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
 
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
-            handle_play(&run_state, play);
+            handle_play(&run_state, play)?;
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
         run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
@@ -186,7 +186,10 @@ fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handle
 
     // launch a task, possibly using the thread pool
     // this method contains all logic for module dispatch and result handling
-    fsm_run_task(run_state, task, are_handlers)?; 
+
+    if !run_state.visitor.read().unwrap().is_syntax_only() {
+        fsm_run_task(run_state, task, are_handlers)?; 
+    }
 
     return Ok(());
 }
@@ -341,7 +344,7 @@ fn find_role(run_state: &Arc<RunState>, _play: &Play, rolename: String) -> Resul
     // given a role name, return the location...
     // FIXME: not sure why the tuple is in the return type here
 
-    run_state.visitor.read().unwrap().debug(String::from("finding role..."));
+    run_state.visitor.read().unwrap().debug(&String::from("finding role..."));
 
     // look in context.get_roles_paths() and also in "./roles" (that first) for a role with the right name.
     // if not found, raise an error

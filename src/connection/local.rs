@@ -63,11 +63,11 @@ impl Connection for LocalConnection {
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
             Ok(x) => match x.status.code() {
-                Some(0)      => Ok(handle.command_ok(request, CommandResult { out: convert_out(&x.stdout), rc: 0 })),
-                Some(status) => Err(handle.command_failed(request, CommandResult { out: convert_out(&x.stdout), rc: status })),
-                _            => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 418 }))
+                Some(0)      => Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: convert_out(&x.stdout), rc: 0 })),
+                Some(status) => Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: convert_out(&x.stdout), rc: status })),
+                _            => Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))
             },
-            Err(_x) => Err(handle.command_failed(request, CommandResult { out: String::from(""), rc: 404 }))
+            Err(_x) => Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))
         }
     }
 

@@ -19,6 +19,7 @@ use crate::tasks::response::TaskResponse;
 
 #[derive(Debug)]
 pub struct CommandResult {
+    pub cmd: String,
     pub out: String,
     pub rc: i32
 }

@@ -23,6 +23,8 @@ use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
+use once_cell::unsync::Lazy;
+use std::sync::Mutex;
 
 // the visitor is a trait with lots of default implementation that can be overridden
 // for various CLI commands. It is called extensively during playbook traversal
@@ -33,12 +35,19 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("----------------------------------------------------------");
     }
 
-    fn debug(&self, message: String) {
-        println!("{color_cyan}  ..... (debug) : {}{color_reset}", message.clone());
+    fn debug(&self, message: &String) {
+        println!("{color_cyan}  ..... (debug) : {}{color_reset}", message);
     }
 
-    fn debug_host(&self, host: &Arc<RwLock<Host>>, message: String) {
-        println!("{color_cyan}  ..... {} : {}{color_reset}", host.read().unwrap().name, message.clone());
+    fn debug_host(&self, host: &Arc<RwLock<Host>>, message: &String) {
+        println!("{color_cyan}  ..... {} : {}{color_reset}", host.read().unwrap().name, message);
+    }
+
+    fn debug_lines(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, messages: &Vec<String>) {
+        let lock = context.write().unwrap();
+        for message in messages.iter() {
+            self.debug_host(host, &message);
+        }
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -162,7 +171,19 @@ pub trait PlaybookVisitor : Send + Sync {
         let host2 = host.read().unwrap();
         if task_response.msg.is_some() {
             let msg = &task_response.msg;
-            println!("{color_red}! host failed: {}: {}, {color_reset}", host2.name, msg.as_ref().unwrap());
+            if task_response.command_result.is_some() {
+                { 
+                    let cmd_result = task_response.command_result.as_ref().unwrap();
+                    let lock = context.write().unwrap();
+                    // FIXME: add similar output for verbose modes above
+                    println!("{color_red}! {} => failed", host2.name);
+                    println!("    cmd: {}", cmd_result.cmd);
+                    println!("    out: {}", cmd_result.out);
+                    println!("    rc: {}{color_reset}", cmd_result.rc);
+                }
+            } else { 
+                println!("{color_red}! host failed: {}: {}, {color_reset}", host2.name, msg.as_ref().unwrap());
+            }
         } else {
             println!("{color_red}! host failed: {}, {color_reset}", host2.name);
         }
