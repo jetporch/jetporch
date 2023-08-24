@@ -24,6 +24,7 @@ use crate::connection::cache::ConnectionCache;
 use crate::registry::list::Task;
 use crate::util::yaml::blend_variables;
 use crate::playbooks::templar::Templar;
+use std::ops::Deref;
 
 // the playbook context keeps track of where we are in a playbook
 // execution and various results/stats along the way
@@ -54,8 +55,13 @@ pub struct PlaybookContext {
     executed_count_for_host:  HashMap<String, usize>,
     passive_count_for_host:   HashMap<String, usize>,
     failed_count_for_host:    HashMap<String, usize>,
+
+    pub defaults_storage:        RwLock<serde_yaml::Mapping>,
+    pub vars_storage:            RwLock<serde_yaml::Mapping>,
+    pub role_defaults_storage:   RwLock<serde_yaml::Mapping>,
+
     
-    pub default_remote_user:  Option<String>,
+    pub default_remote_user:  Option<String>, // FIXME: wire this up
     pub connection_cache:     RwLock<ConnectionCache>,
     pub templar:              RwLock<Templar>,
 
@@ -87,7 +93,10 @@ impl PlaybookContext {
             passive_count_for_host:   HashMap::new(),
             failed_count_for_host:    HashMap::new(),
             connection_cache:         RwLock::new(ConnectionCache::new()),
-            templar:                  RwLock::new(Templar::new())
+            templar:                  RwLock::new(Templar::new()),
+            defaults_storage:         RwLock::new(serde_yaml::Mapping::new()),
+            vars_storage:             RwLock::new(serde_yaml::Mapping::new()),
+            role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new())
             
         }
     }
@@ -172,32 +181,23 @@ impl PlaybookContext {
     // VARIABLES
 
     pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>) -> serde_yaml::Mapping  {
-        // !!!
-        // !!!
-        // FIXME: load in defaults then inventory then vars/vars_files - keep role vars seperate
-        // !!!
-        // !!!
         let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
-        let host_blended = host.read().unwrap().get_blended_variables();
-        //let context_blended = context.read().get_blended_variables();
-        let blended2 = blend_variables(&mut blended, serde_yaml::Value::Mapping(host_blended));
-        //blended = blend_variables(&host_blended, &context_blended);
+        let src1 = self.defaults_storage.read().unwrap();
+        //.deref();
+        let src1a = src1.deref();
+        blend_variables(&mut blended, serde_yaml::Value::Mapping(src1a.clone()));
+        let src2 = host.read().unwrap().get_blended_variables();
+        blend_variables(&mut blended, serde_yaml::Value::Mapping(src2));
+        let src3 = self.vars_storage.read().unwrap();
+        let src3a = src3.deref();
+        //.deref();
+
+        blend_variables(&mut blended, serde_yaml::Value::Mapping(src3a.clone()));
         return match blended {
             serde_yaml::Value::Mapping(x) => x,
-            _ => panic!("get_blended_variables produced a non-mapping (1)")
-        }
+            _ => panic!("unexpected, get_blended_variables produced a non-mapping (3)")
+        };
     }
-
-    /*
-    pub fn get_complete_blended_variables_mapping(&self, host: &Arc<RwLock<Host>>) -> HashMap<String, serde_yaml::Value> {
-        let mut complete_blended = self.get_complete_blended_variables(host);
-        if complete_blended.eq("null\n") {
-            complete_blended = String::from("unset: true");
-        }
-        let mut vars: HashMap<String,serde_yaml::Value> = serde_yaml::from_str(&complete_blended).unwrap();
-        return vars;
-    }
-    */
 
     pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>) -> Result<String,String> {
         let vars = self.get_complete_blended_variables(host);

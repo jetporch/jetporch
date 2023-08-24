@@ -24,10 +24,13 @@ use crate::runner::task_fsm::fsm_run_task;
 use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use crate::util::io::{jet_file_open,directory_as_string};
-use crate::util::yaml::show_yaml_error_in_context;
+use crate::util::yaml::{blend_variables,show_yaml_error_in_context};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Arc,RwLock};
+use std::path::Path;
+use std::ops::Deref;
+use std::env;
 
 // traversal code walks a playbook and does "things" to it, different behaviors
 // are available, see cli/playbooks.rs.  The RunState encapsulates common
@@ -67,12 +70,28 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
             return Err(format!("edit the file and try again?"));
         }   
 
+        let p1 = env::current_dir().expect("could not get current directory");
+        let previous = p1.as_path();
+        
+
+        println!("PP: {}", playbook_path.display());
+        let pbdirname = directory_as_string(playbook_path);
+        println!("dirname: {}", pbdirname);
+        let pbdir = Path::new(&pbdirname);
+        if pbdirname.eq(&String::from("")) {
+        } else {
+            env::set_current_dir(&pbdir).expect("could not chdir into playbook directory");
+        }
+
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
             handle_play(&run_state, play);
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
         run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
+
+        env::set_current_dir(&previous).expect("could not restore previous directory");
+
 
     }
     run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
@@ -87,7 +106,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     // configure the current playbook context
     {
         let mut ctx = run_state.context.write().unwrap();
-        ctx.set_play(&play);
+        ctx.set_play(play);
         // FIXME: this shouldn't be set here
         //ctx.set_remote_user(&play, run_state.default_user.clone());
         ctx.unset_role();
@@ -100,6 +119,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
     validate_hosts(run_state, play, &hosts)?;
+    load_vars_into_context(run_state, play);
     load_external_modules(run_state, play)?;
 
     // support for serialization of push configuration
@@ -267,19 +287,52 @@ fn validate_hosts(_run_state: &Arc<RunState>, _play: &Play, hosts: &Vec<Arc<RwLo
 
 // ==============================================================================
 
-fn load_play_vars(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
+fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
 
-    // record play variables into the context
-    return Err(String::from("play vars: not implemented"));
+    let ctx = run_state.context.write().unwrap();
+
+    // BOOKMARK ------ VVVVVVVVVVVVVVVV ---- FIXME
+    // FIXME: use these - not the context versions - and set into context at the end.
+
+    let mut ctx_vars_storage = serde_yaml::Value::from(serde_yaml::Mapping::new());
+    let mut ctx_defaults_storage = serde_yaml::Value::from(serde_yaml::Mapping::new());
+    
+    if play.vars.is_some() {
+        let vars = play.vars.as_ref().unwrap();
+        blend_variables(&mut ctx_vars_storage, serde_yaml::Value::Mapping(vars.clone()));
+    }
+
+    if play.vars_files.is_some() {
+        let vars_files = play.vars_files.as_ref().unwrap();
+        for pathname in vars_files {
+            let path = Path::new(&pathname);
+            let vars_file = jet_file_open(&path)?;
+            let vars_file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(vars_file);
+            if vars_file_parse_result.is_err() {
+                show_yaml_error_in_context(&vars_file_parse_result.unwrap_err(), &path);
+                return Err(format!("edit the file and try again?"));
+            }
+            blend_variables(&mut ctx_vars_storage, serde_yaml::Value::Mapping(vars_file_parse_result.unwrap()));
+        }
+    }
+
+    if play.defaults.is_some() {
+        let defaults = play.defaults.as_ref().unwrap();
+        blend_variables(&mut ctx_defaults_storage, serde_yaml::Value::Mapping(defaults.clone()));
+    }
+
+    match ctx_vars_storage {
+        serde_yaml::Value::Mapping(x) => { *ctx.vars_storage.write().unwrap() = x },
+        _ => panic!("unexpected, get_blended_variables produced a non-mapping (1)")
+    }
+    match ctx_defaults_storage {
+        serde_yaml::Value::Mapping(x) => { *ctx.defaults_storage.write().unwrap() = x },
+        _ => panic!("unexpected, get_blended_variables produced a non-mapping (1)")
+    }
+
+    return Ok(());
 }
 
-// ==============================================================================
-
-fn load_play_vars_files(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
-
-    // record play variables into the context (from disk)
-    return Err(String::from("vars files: not implemented"));
-}
 
 // ==============================================================================
 

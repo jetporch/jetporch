@@ -14,13 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
 use serde_yaml;
 use once_cell::sync::Lazy;
 
-//use std::io::Write;
-use handlebars::{Handlebars,RenderError}; //, HelperDef, RenderContext, Helper, Context, JsonRender, HelperResult, Output, RenderError};
-//use handlebars::Renderable;
+use handlebars::{Handlebars,RenderError};
 
 static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     let mut hb = Handlebars::new();

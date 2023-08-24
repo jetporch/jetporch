@@ -20,7 +20,6 @@ use std::sync::Arc;
 use crate::inventory::hosts::Host;
 use std::sync::RwLock;
 use serde_yaml;
-use serde_yaml::Value::Mapping;
 
 pub struct Group {
     pub name : String,

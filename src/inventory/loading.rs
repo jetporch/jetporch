@@ -52,8 +52,10 @@ pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Arc<R
     for inventory_path_buf in inventory_paths.read().unwrap().iter() {
         let inventory_path = inventory_path_buf.as_path();
         if inventory_path.is_dir() {
+            
             let groups_pathbuf      = inventory_path_buf.join("groups");
             let groups_path         = groups_pathbuf.as_path();
+
             if groups_path.exists() && groups_path.is_dir() {
                 load_on_disk_inventory_tree(inventory, true, &inventory_path)?;
             } else {
