@@ -15,7 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::time::Duration;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{ToSocketAddrs};
 use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;

@@ -190,8 +190,6 @@ impl PlaybookContext {
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src2));
         let src3 = self.vars_storage.read().unwrap();
         let src3a = src3.deref();
-        //.deref();
-
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src3a.clone()));
         return match blended {
             serde_yaml::Value::Mapping(x) => x,

@@ -15,7 +15,6 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::connection::factory::ConnectionFactory;
-use crate::connection::no::NoFactory;
 use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::tasks::handle::TaskHandle;
@@ -28,34 +27,6 @@ use std::collections::HashMap;
 use rayon::prelude::*;
 
 pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool) -> Result<(), String> {
-
-    // syntax check first, always
-    /*
-    let tmp_localhost = Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
-    let no_connection = NoFactory::new().get_connection(&run_state.context, &tmp_localhost).unwrap();
-    let syntax_check_result = run_task_on_host(run_state,&no_connection,&tmp_localhost,task, true);
-    match syntax_check_result {
-        Ok(scr_ok) => { //match scr_ok.status {
-            //TaskStatus::IsValidated => { 
-            //    if run_state.visitor.read().unwrap().is_syntax_only() { return Ok(()); }
-            //}, 
-            //_ => { panic!("module returned invalid response to syntax check (1): {:?}", scr_ok.as_ref()) }
-        },
-        Err(scr_err) => match scr_err.status {
-
-            TaskStatus::Failed => { 
-                println!("XDEBUG: Position 0");
-
-                return Err(format!("parameters conflict: {}", scr_err.msg.as_ref().unwrap()));
-            },
-            _ => { panic!("module returned invalid response to syntax check (2): {:?}", scr_err.as_ref()) },
-        }
-    };
-    let syntax = run_state.visitor.read().unwrap().is_syntax_only();
-    if syntax {
-        return Ok(())
-    }
-    */
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
@@ -75,15 +46,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
                         run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
                     }
                     Err(x) => {
-                        println!("XDEBUG: Position 2");
                         run_state.context.write().unwrap().fail_host(&host);
                         run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
                     },
                 }
             },
             Err(x) => {
-                println!("XDEBUG: Position 3");
-
                 run_state.visitor.read().unwrap().debug_host(&host, &x);
                 run_state.context.write().unwrap().fail_host(&host);
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
@@ -111,8 +79,7 @@ fn run_task_on_host(
     match vrc {
         Ok(ref x) => match x.status {
 
-            // FIXME: TODO:: isValidated means that vrc.logic contains a CommonLogic reference which we
-            // can/must use to modify operations below, including possibly skipping them.
+            // FIXME: TODO:: move into function
 
             TaskStatus::IsValidated => { 
                                 
@@ -148,6 +115,7 @@ fn run_task_on_host(
 
     let query = TaskRequest::query();
     let qrc = task.dispatch(&handle, &TaskRequest::query());
+
     let (request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
             TaskStatus::IsMatched => {

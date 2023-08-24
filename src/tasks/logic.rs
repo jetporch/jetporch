@@ -25,50 +25,66 @@ use serde::Deserialize;
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
-pub struct PreLogic {
+pub struct PreLogicInput {
+    pub cond: Option<String>,
+    pub sudo: Option<String>
+}
+
+#[derive(Debug)]
+pub struct PreLogicEvaluated {
     pub cond: Option<String>,
     pub sudo: Option<String>
 }
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
-pub struct PostLogic {
+pub struct PostLogicInput {
+    pub changed_when: Option<String>,
+    pub delay: Option<String>,
+    pub failed_when: Option<String>,
+    pub ignore_errors: Option<String>,
+    pub save: Option<String>,
+    pub retry: Option<String>
+}
+
+#[derive(Debug)]
+pub struct PostLogicEvaluated {
     pub changed_when: Option<String>,
     pub delay: Option<i64>,
     pub failed_when: Option<String>,
-    pub ignore_errors: Option<bool>,
+    pub ignore_errors: bool,
     pub save: Option<String>,
     pub retry: Option<i64>
 }
 
-impl PreLogic {
+impl PreLogicInput {
 
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PreLogic>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PreLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
-        return Ok(Some(Self {
-            cond: input2.cond.clone(), // templated elsewhere
-            sudo: handle.template_option(request, &input2.sudo)?,
+        return Ok(Some(PreLogicEvaluated {
+            cond:         input2.cond.clone(), // templated elsewhere!
+            sudo:         handle.template_string_option(request, &String::from("sudo"), &input2.sudo)?,
         }));
     }
 }
 
-impl PostLogic {
+impl PostLogicInput {
 
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogic>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
-        return Ok(Some(Self {
-            changed_when: handle.template_option(request, &input2.changed_when)?,
-            delay: input2.delay.clone(),
-            failed_when: handle.template_option(request, &input2.failed_when)?,
-            ignore_errors: input2.ignore_errors.clone(),
-            save: handle.template_option(request, &input2.save)?,
-            retry: input2.retry.clone(),
+        return Ok(Some(PostLogicEvaluated {
+            changed_when:  handle.template_string_option(request, &String::from("changed_when"), &input2.changed_when)?,
+            delay:         handle.template_integer_option(request, &String::from("delay"), &input2.delay)?,
+            failed_when:   handle.template_string_option(request, &String::from("failed_when"), &input2.failed_when)?,
+            ignore_errors: handle.template_boolean_option(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            save:          handle.template_string_option(request, &String::from("save"), &input2.save)?,
+            retry:         handle.template_integer_option(request, &String::from("retry"), &input2.retry)?,
         }));
     }
 }

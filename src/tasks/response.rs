@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 use crate::connection::command::CommandResult;
-use crate::tasks::logic::{PreLogic,PostLogic};
+use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
 
 // task responses are returns from module calls - they are not
 // created directly but by helper functions in handle.rs, see
@@ -48,8 +48,8 @@ pub struct TaskResponse {
     pub changes: Arc<Option<HashMap<String, String>>>,
     pub msg: Option<String>,
     pub command_result: Option<CommandResult>,
-    pub with: Arc<Option<PreLogic>>,
-    pub and: Arc<Option<PostLogic>>
+    pub with: Arc<Option<PreLogicEvaluated>>,
+    pub and: Arc<Option<PostLogicEvaluated>>
 }
 
 impl TaskResponse {

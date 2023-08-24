@@ -16,8 +16,8 @@
 
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
-use crate::tasks::response::{TaskResponse, TaskStatus};
-use crate::tasks::logic::{PreLogic,PostLogic};
+use crate::tasks::response::{TaskStatus, TaskResponse};
+use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
 use crate::inventory::hosts::Host;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
@@ -65,29 +65,69 @@ impl TaskHandle {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
 
-    pub fn template(&self, request: &Arc<TaskRequest>, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         return match result {
             Ok(x) => Ok(x),
             Err(y) => {
-                println!("XDEBUG: A TEMPLATE ERROR2!");
                 Err(self.is_failed(request, &y))
             }
         }
     }
 
-    pub fn template_option(&self, request: &Arc<TaskRequest>, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+    pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         if template.is_none() {
             return Ok(None);
         }
-        let result = self.template(request, template.as_ref().unwrap());
+        let result = self.template_string(request, field, &template.as_ref().unwrap());
         return match result { 
             Ok(x) => Ok(Some(x)), 
             Err(y) => {
-                println!("XDEBUG: still an error!");
-                Err(y)
+                Err(self.is_failed(request, &format!("field ({}) template error: {:?}", field, y)))
             } 
         };
+    }
+
+    pub fn template_integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
+        let st = self.template_string(request, field, template)?;
+        let num = st.parse::<i64>();
+        match num {
+            Ok(num) => Ok(num),
+            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+        }
+    }
+
+    pub fn template_integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
+        if template.is_none() {
+            return Ok(None);
+        }
+        let st = self.template_string(request, field, &template.as_ref().unwrap())?;
+        let num = st.parse::<i64>();
+        match num {
+            Ok(num) => Ok(Some(num)),
+            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+        }
+    }
+
+    pub fn template_boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        let st = self.template_string(request,field, template)?;
+        let x = st.parse::<bool>();
+        match x {
+            Ok(x) => Ok(x),
+            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+        }
+    }
+
+    pub fn template_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        if template.is_none() {
+            return Ok(false);
+        }
+        let st = self.template_string(request, field, &template.as_ref().unwrap())?;
+        let x = st.parse::<bool>();
+        match x {
+            Ok(x) => Ok(x),
+            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+        }
     }
 
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
@@ -126,7 +166,7 @@ impl TaskHandle {
         });
     }
 
-    pub fn is_validated(&self, request: &Arc<TaskRequest>, with: &Arc<Option<PreLogic>>, and: &Arc<Option<PostLogic>>) -> Arc<TaskResponse> {
+    pub fn is_validated(&self, request: &Arc<TaskRequest>, with: &Arc<Option<PreLogicEvaluated>>, and: &Arc<Option<PostLogicEvaluated>>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsValidated, 

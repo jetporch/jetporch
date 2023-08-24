@@ -18,37 +18,38 @@ use crate::tasks::*;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 
+const MODULE: &'static str = "Shell";
+
 #[derive(Deserialize,Debug)]
 #[serde(tag="shell",deny_unknown_fields)]
 pub struct Shell {
     pub name: Option<String>,
     pub cmd: String,
-    pub verbose: Option<bool>,
-    pub with: Option<PreLogic>,
-    pub and: Option<PostLogic>
+    pub with: Option<PreLogicInput>,
+    pub and: Option<PostLogicInput>
+}
+
+struct Evaluated {
+    pub name: String,
+    pub cmd: String,
+    pub with: Option<PreLogicEvaluated>,
+    pub and: Option<PostLogicEvaluated>
 }
 
 impl Shell {
-    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Shell, Arc<TaskResponse>> {
-        let req1 = handle.template(&request, &self.cmd)?;
-        //match req1 {
-        //    Ok(x) =>{ println!("NO GOOD"); 1 },
-        //    Err(y) => { println!("GOOD"); 2 }
-        //};
-        let shell = Shell {
-            name: self.name.clone(),
-            cmd: handle.template(&request, &self.cmd)?,
-            verbose: self.verbose,
-            with: PreLogic::template(&handle, &request, &self.with)?,
-            and: PostLogic::template(&handle, &request, &self.and)?
-        };
-        return Ok(shell);
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Evaluated, Arc<TaskResponse>> {
+        return Ok(Evaluated {
+            name: self.name.clone().unwrap_or(String::from("MODULE")),
+            cmd:  handle.template_string(&request, &String::from("cmd"), &self.cmd)?,
+            with: PreLogicInput::template(&handle, &request, &self.with)?,
+            and:  PostLogicInput::template(&handle, &request, &self.and)?
+        });
     }
 }
 
 impl IsTask for Shell {
 
-    fn get_module(&self) -> String { String::from("Shell") }
+    fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
@@ -67,8 +68,7 @@ impl IsTask for Shell {
             TaskRequestType::Execute => {
                 let evaluated = self.evaluate(handle, request)?;
                 let result = handle.run(&request, &evaluated.cmd.clone());
-                let (rc, out) = cmd_info(&result);
-
+                //let (rc, out) = cmd_info(&result);
                 return result;
             },
     

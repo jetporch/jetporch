@@ -23,8 +23,6 @@ use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
-use once_cell::unsync::Lazy;
-use std::sync::Mutex;
 
 // the visitor is a trait with lots of default implementation that can be overridden
 // for various CLI commands. It is called extensively during playbook traversal

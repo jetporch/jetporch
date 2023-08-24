@@ -26,5 +26,12 @@ pub trait IsTask {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
 
+    fn get_display_name(&self) -> String {
+        return match self.get_name() {
+            Some(x) => x,
+            _ => self.get_module()
+        }
+    }
+
 }
 

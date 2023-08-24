@@ -22,7 +22,7 @@ use std::sync::RwLock;
 use serde_yaml;
 //use crate::tasks::request::TaskRequest;
 //use crate::tasks::response::TaskResponse;
-use serde_yaml::Value::Mapping;
+//use serde_yaml::Value::Mapping;
 
 
 pub struct Host {

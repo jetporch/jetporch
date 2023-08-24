@@ -15,37 +15,41 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
-//use std::sync::Arc;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
+
+const MODULE: &'static str = "Echo";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
 pub struct Echo {
     pub name: Option<String>,
     pub msg: String,
-    pub with: Option<PreLogic>,
-    pub and: Option<PostLogic>
+    pub with: Option<PreLogicInput>,
+    pub and: Option<PostLogicInput>
+}
+
+struct Evaluated {
+    pub name: String,
+    pub msg: String,
+    pub with: Option<PreLogicEvaluated>,
+    pub and: Option<PostLogicEvaluated>
 }
 
 impl Echo {
-    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Echo, Arc<TaskResponse>> {
-
-        let msg = handle.template(&request, &self.msg)?;
-        println!("XDEBUG: MSG={}", msg);
-
-        return Ok(Echo {
-            name: self.name.clone(),
-            msg: handle.template(&request, &self.msg)?,
-            with: PreLogic::template(&handle, &request, &self.with)?,
-            and: PostLogic::template(&handle, &request, &self.and)?
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Evaluated, Arc<TaskResponse>> {
+        return Ok(Evaluated {
+            name: self.name.clone().unwrap_or(String::from(MODULE)),
+            msg:  handle.template_string(&request, &String::from("msg"), &self.msg)?,
+            with: PreLogicInput::template(&handle, &request, &self.with)?,
+            and:  PostLogicInput::template(&handle, &request, &self.and)?
         });
     }
 }
 
 impl IsTask for Echo {
 
-    fn get_module(&self) -> String { String::from("Echo") }
+    fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
@@ -54,7 +58,6 @@ impl IsTask for Echo {
 
             TaskRequestType::Validate => {
                 let evaluated = self.evaluate(handle, request)?;
-                println!("IS TASK VALIDATED OK?");
                 return Ok(handle.is_validated(&request, &Arc::new(evaluated.with), &Arc::new(evaluated.and)));
             },
 
