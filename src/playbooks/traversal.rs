@@ -74,9 +74,9 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         let previous = p1.as_path();
         
 
-        println!("PP: {}", playbook_path.display());
+        //println!("PP: {}", playbook_path.display());
         let pbdirname = directory_as_string(playbook_path);
-        println!("dirname: {}", pbdirname);
+        //println!("dirname: {}", pbdirname);
         let pbdir = Path::new(&pbdirname);
         if pbdirname.eq(&String::from("")) {
         } else {
@@ -85,7 +85,10 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
 
         let plays: Vec<Play> = parsed.unwrap();
         for play in plays.iter() {
-            handle_play(&run_state, play)?;
+            match handle_play(&run_state, play) {
+                Ok(_) => {},
+                Err(s) => { break; }
+            }
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
         run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
@@ -127,17 +130,35 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     let batch_size_num = play.batch_size.unwrap_or(0);
     let (_batch_size, batch_count, batches) = get_host_batches(run_state, play, batch_size_num, hosts);
 
+    let mut failed: bool = false;
+    let mut failure_message: String = String::new();
+
     // process each batch task/handlers seperately
     for batch_num in 0..batch_count {
+        if failed {
+            break;
+        }
         let hosts = batches.get(&batch_num).unwrap();
         run_state.visitor.read().unwrap().on_batch(batch_num, batch_count, hosts.len());
-        handle_batch(run_state, play, hosts)?;
+        match handle_batch(run_state, play, hosts) {
+            Ok(_) => {},
+            Err(s) => {
+                failed = true;
+                failure_message.clear();
+                failure_message.push_str(&s.clone());
+            }
+        }
         run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
     }
     
-    // we're done, generate our summary/report & output
-    run_state.visitor.read().unwrap().on_play_stop(&run_state.context);
-    return Ok(())
+    // we're done, generate our summary/report & output regardless of failures
+    run_state.visitor.read().unwrap().on_play_stop(&run_state.context, failed);
+    
+    if failed {
+        return Err(failure_message.clone());
+    } else {
+        return Ok(())
+    }
 }
 
 // ==============================================================================
@@ -188,7 +209,7 @@ fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handle
     // this method contains all logic for module dispatch and result handling
 
     if !run_state.visitor.read().unwrap().is_syntax_only() {
-        fsm_run_task(run_state, task, are_handlers)?; 
+        fsm_run_task(run_state, task, are_handlers)?;
     }
 
     return Ok(());

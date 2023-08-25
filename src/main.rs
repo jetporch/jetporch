@@ -31,6 +31,7 @@ use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
 use crate::cli::playbooks::{playbook_syntax_scan,playbook_ssh,playbook_local}; // FIXME: check modes coming
 use std::sync::{Arc,RwLock};
+use std::process;
 use rayon;
 
 fn main() {
@@ -56,14 +57,20 @@ fn liftoff() -> Result<(),String> {
         None => { rayon::ThreadPoolBuilder::new().num_threads(30).build_global().unwrap(); }
     }
 
-    return match cli_parser.mode {
-        cli::parser::CLI_MODE_SHOW   => handle_show(&inventory, &cli_parser),
+    let exit_status = match cli_parser.mode {
+        cli::parser::CLI_MODE_SHOW   => match handle_show(&inventory, &cli_parser) {
+            Ok(_) => 0,
+            Err(s) => {
+                println!("{}", s);
+                1
+            }
+        }
         cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser.playbook_paths),
         cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths, cli_parser.default_user),
         cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser.playbook_paths),
-
-        _ => Err(String::from("invalid CLI mode"))
-    }
+        _ => { println!("invalid CLI mode"); 1 }
+    };
+    process::exit(exit_status);
 
 }
 

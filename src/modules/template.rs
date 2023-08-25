@@ -18,33 +18,39 @@ use crate::tasks::*;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 
-const MODULE: &'static str = "Shell";
+const MODULE: &'static str = "Template";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="shell",deny_unknown_fields)]
-pub struct ShellTask {
+#[serde(tag="template",deny_unknown_fields)]
+pub struct TemplateTask {
     pub name: Option<String>,
-    pub cmd: String,
+    pub src: String,
+    pub dest: String,
+    pub attributes: Option<FileAttributesInput>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
-struct ShellAction {
+struct TemplateAction {
     pub name: String,
-    pub cmd: String,
+    pub src: String,
+    pub dest: String,
+    pub attributes: Option<FileAttributesEvaluated>,
 }
 
-
-impl IsTask for ShellTask {
+impl IsTask for TemplateTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+        let src_path_str = handle.template_string(&request, &String::from("src"), &self.src)?;
         return Ok(
             EvaluatedTask {
-                action: Arc::new(ShellAction {
-                    name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    cmd:  handle.template_string(&request, &String::from("cmd"), &self.cmd)?,
+                action: Arc::new(TemplateAction {
+                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
+                    src:        src_path_str.clone(), // FIXME: working on it! handle.find_path(&request, SearchPaths::Templates, src_path_str)?,
+                    dest:       handle.template_string(&request, &String::from("dest"), &self.dest)?,
+                    attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
@@ -54,21 +60,35 @@ impl IsTask for ShellTask {
 
 }
 
-impl IsAction for ShellAction {
-    
+impl IsAction for TemplateAction {
+
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
+
             TaskRequestType::Query => {
-                return Ok(handle.needs_execution(&request));
+                // FIXME -- return is_matched or not
+                // see if file exists, sha1sum, modes/etc etc, common tools in tasks/files.rs make sense
+                // Ok(handle.needs_creation(&request));
+                return Err(handle.not_supported(&request));
             },
-    
-            TaskRequestType::Execute => {
-                let result = handle.run(&request, &self.cmd.clone());
-                //let (rc, out) = cmd_info(&result);
-                return result;
-            },
+
+            TaskRequestType::Create => {
+                // FIXME
+                return Ok(handle.is_created(&request));
+            }
+
+            TaskRequestType::Modify => {
+                // FIXME -- requests.changes should be a hashset
+                return Err(handle.not_supported(&request));
+
+                //return Ok(handle.is_modified(&request, request.changes));
+
+            }
+            // NeedsModification
+
+
     
             _ => { return Err(handle.not_supported(&request)); }
     

@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::connection::factory::ConnectionFactory;
 use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::tasks::handle::TaskHandle;
@@ -22,6 +21,7 @@ use crate::playbooks::traversal::RunState;
 use crate::tasks::request::TaskRequest;
 use crate::inventory::hosts::Host;
 use crate::tasks::response::{TaskStatus,TaskResponse};
+use crate::tasks::logic::PreLogicInput;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
@@ -75,46 +75,24 @@ fn run_task_on_host(
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
-    let vrc = task.dispatch(&handle, &validate);
-    match vrc {
-        Ok(ref x) => match x.status {
-
-            // FIXME: TODO:: move into function
-
-            TaskStatus::IsValidated => { 
-                                
-                if x.with.is_some() {
-                    // handle 'cond' statement to decide if the task should be skipped
-                    // FIXME: move to function
-                    let logic = Arc::clone(&x.with);
-                    // LOL, Rust
-                    let cond = &logic.as_ref().as_ref().unwrap().cond;
-                    if cond.is_some() {
-                        let cond_value = &cond.as_ref().unwrap();
-                        let test = handle.test_cond(&validate, &cond_value);
-                        match test {
-                            Ok(testp) => { 
-                                if testp == false {
-                                    return Ok(handle.is_skipped(&Arc::clone(&validate)));
-                                }
-                            },
-                            Err(template_err) => {
-                                return Err(template_err);
-                            }
-                        };
-                    }
-                    // ALSO need to process sudo here and other 'with' statements.
-                }
-        
-            },
-            TaskStatus::Failed => { panic!("module implementation returned a failed inside an Ok result") },
-            _ => { panic!("module internal fsm state invalid (on verify)") }
-        },
-        Err(ref _x) => { return vrc }
+    let evaluated = task.evaluate(&handle, &validate)?;
+    let action = evaluated.action;
+    let pre_logic = evaluated.with;
+    
+    if pre_logic.is_some() {
+        let logic = pre_logic.as_ref().as_ref().unwrap();
+        if ! logic.cond {
+            return Ok(handle.is_skipped(&Arc::clone(&validate)));
+        }
     }
 
+    // this looks like overkill but there's a lot of extra checking to make sure modules
+    // don't return the wrong states, even when returning an error, to prevent
+    // unpredictability in the program
+
+    // FIXME: break up into smaller functions
     let query = TaskRequest::query();
-    let qrc = task.dispatch(&handle, &TaskRequest::query());
+    let qrc = action.dispatch(&handle, &TaskRequest::query());
 
     let (request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
@@ -124,10 +102,11 @@ fn run_task_on_host(
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
                     let req = TaskRequest::create();
-                    let crc = task.dispatch(&handle, &req);
+                    let crc = action.dispatch(&handle, &req);
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {
                             TaskStatus::IsCreated => (req, crc),
+                            // these are all module coding errors, should they occur, and cannot happen in normal operation
                             _ => { panic!("module internal fsm state invalid (on create): {:?}", crc); }
                         },
                         Err(ref crc_err) => match crc_err.status {
@@ -141,7 +120,7 @@ fn run_task_on_host(
             TaskStatus::NeedsRemoval => match modify_mode {
                 true => {
                     let req = TaskRequest::remove();
-                    let rrc = task.dispatch(&handle, &req);
+                    let rrc = action.dispatch(&handle, &req);
                     match rrc {
                         Ok(ref rrc_ok) => match rrc_ok.status {
                             TaskStatus::IsRemoved => (req, rrc),
@@ -158,7 +137,7 @@ fn run_task_on_host(
             TaskStatus::NeedsModification => match modify_mode {
                 true => {
                     let req = TaskRequest::modify(Arc::clone(&qrc_ok.changes));
-                    let mrc = task.dispatch(&handle, &req);
+                    let mrc = action.dispatch(&handle, &req);
                     match mrc {
                         Ok(ref mrc_ok) => match mrc_ok.status {
                             TaskStatus::IsModified => (req, mrc),
@@ -175,7 +154,7 @@ fn run_task_on_host(
             TaskStatus::NeedsExecution => match modify_mode {
                 true => {
                     let req = TaskRequest::execute();
-                    let erc = task.dispatch(&handle, &req);
+                    let erc = action.dispatch(&handle, &req);
                     match erc {
                         Ok(ref erc_ok) => match erc_ok.status {
                             TaskStatus::IsExecuted => (req, erc),
@@ -192,7 +171,7 @@ fn run_task_on_host(
             TaskStatus::NeedsPassive => match modify_mode {
                 true => {
                     let req = TaskRequest::passive();
-                    let prc = task.dispatch(&handle, &req);
+                    let prc = action.dispatch(&handle, &req);
                     match prc {
                         Ok(ref prc_ok) => match prc_ok.status {
                             TaskStatus::IsPassive => (req, prc),

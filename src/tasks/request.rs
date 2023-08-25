@@ -100,6 +100,7 @@ impl TaskRequest {
         )
     }
 
+    // FIXME, hashset?
     pub fn get_requested_changes(&self) -> Arc<Option<HashMap<String, String>>>  {
         assert!(self.request_type == TaskRequestType::Modify, "accessing change request parameters outside of TaskRequestType::Modify");
         return Arc::clone(&self.changes);

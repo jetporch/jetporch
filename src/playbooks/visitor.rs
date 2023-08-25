@@ -79,14 +79,20 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("> role stop: {}", role.as_ref().unwrap());
     }
 
-    fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>, failed: bool) {
+        // failed occurs if *ALL* hosts in a play have failed
         let ctx = context.read().unwrap();
         let play_name = ctx.get_play_name();
         self.banner();
-        println!("> playbook stop: {}", play_name);
+        if ! failed {
+            println!("> play complete: {}", play_name);
+        } else {
+            println!("{color_red}> play failed: {}{color_reset}", play_name);
+
+        }
     }
 
-    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> Result<(),()>{
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
 
@@ -99,12 +105,13 @@ pub trait PlaybookVisitor : Send + Sync {
                 (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
             ];
             two_column_table(&String::from("Play"), &play_name.clone(), &elements);
+            // playbook would have failed earlier were it not ok.
         } else {
             println!("----------------------------------------------------------");
-            println!("> done."); // FIXME: show time here
             println!("");
             show_playbook_summary(context);
         }
+        return Ok(());
     }
 
     fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -196,11 +203,20 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("{color_red}! connection failed to host: {}{color_reset}", host2.name);
     }
 
+    fn get_exit_status(&self, context: &Arc<RwLock<PlaybookContext>>) -> i32 {
+        let failed_hosts = context.read().unwrap().get_hosts_failed_count();
+        return match failed_hosts {
+            0 => 0,
+            _ => 1
+        };
+    }
+
     fn is_syntax_only(&self) -> bool;
 
     fn is_check_mode(&self) -> bool;
 
 }
+
 
 
 pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {

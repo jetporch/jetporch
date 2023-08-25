@@ -14,199 +14,223 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::time::Duration;
-use std::net::{ToSocketAddrs};
+
 use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::local::LocalConnection;
-use crate::tasks::handle::TaskHandle;
-use crate::tasks::request::TaskRequest;
-use crate::tasks::response::TaskResponse;
+use crate::tasks::*;
 use crate::inventory::hosts::Host;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::RwLock;
+use crate::Inventory;
+use std::sync::{Arc,Mutex,RwLock};
 use ssh2::Session;
 use std::io::{Read,Write};
 use std::net::TcpStream;
 use std::path::Path;
+use std::time::Duration;
+use std::net::{ToSocketAddrs};
 
-pub struct SshFactory {}
+pub struct SshFactory {
+    local_connection: Arc<Mutex<dyn Connection>>,
+    //inventory: Arc<RwLock<Inventory>>
+}
 
 impl SshFactory { 
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
+        // NOTE: we should never use the connection to get *back* to the host object to read variables
+        // because this host object is not the object from inventory.
+
+        let host = inventory.read().unwrap().get_host(&String::from("localhost"));
+        Self {
+            //inventory: Arc::clone(&inventory),
+            local_connection: Arc::new(Mutex::new(LocalConnection::new(&Arc::clone(&host))))
+        } 
     }
 }
 
 impl ConnectionFactory for SshFactory {
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
-        let host_obj = host.read().unwrap();
         let ctx = context.read().unwrap();
-        let hostname1 = host_obj.name.clone();
+        let hostname1 = host.read().unwrap().name.clone();
         if hostname1.eq("localhost") {
-            return Ok(Arc::new(Mutex::new(LocalConnection::new())));
-        } else {
-            {
-                let cache = ctx.connection_cache.read().unwrap();
-                if cache.has_connection(host) {
-                    let conn : Arc<Mutex<dyn Connection>> = cache.get_connection(host);
-                    return Ok(conn)
-                }
+            let conn = Arc::clone(&self.local_connection);
+            return Ok(conn);
+        } 
+
+        {
+            let cache = ctx.connection_cache.read().unwrap();
+            if cache.has_connection(host) {
+                let conn = cache.get_connection(host);
+                return Ok(conn);
             }
-            let (hostname2, user, port) = ctx.get_ssh_connection_details(host);
-            if hostname2.eq("localhost") {
-                // FIXME: we could probably make it cache these as well, but there's probably not much point.
-                return Ok(Arc::new(Mutex::new(LocalConnection::new())));
-            }
-            let mut conn = SshConnection::new(&hostname2.clone(), &user, port);
-            return match conn.connect() {
-                Ok(_)  => { 
-                    let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
-                    ctx.connection_cache.write().unwrap().add_connection(&host, &Arc::clone(&conn2));
-                    Ok(conn2)
-                },
-                Err(x) => { Err(x) } 
-            }
+        }
+
+        let (hostname2, user, port) = ctx.get_ssh_connection_details(host);      
+        if hostname2.eq("localhost") { 
+            let conn = Arc::clone(&self.local_connection);
+            return Ok(conn); 
+        }
+
+        let mut conn = SshConnection::new(Arc::clone(&host), &user, port);
+        return match conn.connect() {
+            Ok(_)  => { 
+                let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
+                ctx.connection_cache.write().unwrap().add_connection(&Arc::clone(&host), &Arc::clone(&conn2));
+                Ok(conn2)
+            },
+            Err(x) => { Err(x) } 
         }
     }
 }
 
 pub struct SshConnection {
-    pub host: String,
+    pub host: Arc<RwLock<Host>>,
     pub username: String,
     pub port: i64,
     pub session: Option<Session>,
 }
 
 impl SshConnection {
-    pub fn new(host: &String, username: &String, port: i64, ) -> Self {
-        Self { host: host.clone(), username: username.clone(), port: port, session: None }
+    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, ) -> Self {
+        Self { host: Arc::clone(&host), username: username.clone(), port: port, session: None }
     }
 }
 
 impl Connection for SshConnection {
 
-   fn connect(&mut self) -> Result<(), String> {
+    fn connect(&mut self) -> Result<(), String> {
 
-       // derived from docs at https://docs.rs/ssh2/latest/ssh2/
-    
+        if self.session.is_some() {
+            return Ok(());
+        }
 
-        // Almost all APIs require a `Session` to be available
-        let session = Session::new().unwrap();
+        // derived from docs at https://docs.rs/ssh2/latest/ssh2/
+        let session = match Session::new() { Ok(x) => x, Err(y) => { return Err(String::from("failed to attach to session")); } };
+        let mut agent = match session.agent() { Ok(x) => x, Err(y) => { return Err(String::from("failed to acquire SSH-agent")); } };
+        
 
-        let mut agent = session.agent().unwrap();
- 
         // Connect the agent and request a list of identities
-        agent.connect().unwrap();
-    
+        match agent.connect() { Ok(x) => {}, Err(y)  => { return Err(String::from("failed to connect to SSH-agent")) }}
         //agent.list_identities().unwrap();
         //for identity in agent.identities().unwrap() {
         //    println!("{}", identity.comment());
         //    let _pubkey = identity.blob();
         //}
- 
+
  
         // Connect to the local SSH server
-
         let seconds = Duration::from_secs(10);
 
-        let connect_str = format!("{host}:{port}", host=self.host, port=self.port.to_string());
-        let mut addrs_iter = connect_str.as_str().to_socket_addrs();
+        assert!(!self.host.read().unwrap().name.eq("localhost"));
 
-        let mut addrs_iter2 = match addrs_iter {
-            Err(x) => { return Err(String::from("unable to resolve")); },
-            Ok(y) => y,
-        };
+        let connect_str = format!("{host}:{port}", host=self.host.read().unwrap().name, port=self.port.to_string());
         
-        // FIXME: don't eat error info
 
+        // connect with timeout requires SocketAddr objects instead of just connection strings
+        let mut addrs_iter = connect_str.as_str().to_socket_addrs();
+        
+        // check for errors
+        let mut addrs_iter2 = match addrs_iter { Err(x) => { return Err(String::from("unable to resolve")); }, Ok(y) => y };
         let addr = addrs_iter2.next();
-        if ! addr.is_some() {
-            return Err(String::from("unable to resolve(2)"));
+        if ! addr.is_some() { return Err(String::from("unable to resolve(2)"));  }
+        
+
+        // actually connect here
+        let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) { Ok(x) => x, _ => { 
+            return Err(format!("SSH connection attempt failed for {}:{}", self.host.read().unwrap().name, self.port)); } };
+        
+
+        // new session & handshake
+        let mut sess = match Session::new() { Ok(x) => x, _ => { return Err(String::from("SSH session failed")); } };
+        sess.set_tcp_stream(tcp);
+        match sess.handshake() { Ok(_) => {}, _ => { return Err(String::from("SSH handshake failed")); } } ;
+        
+
+        // try to authenticate with the first identity in the agent.
+        match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(String::from("SSH userauth_agent failed")); } };
+        if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
+        
+
+        // OS detection
+        let uname_result = run_command_low_level(&sess, &String::from("uname -a"));
+        match uname_result {
+            Ok((rc,out)) => {
+                {
+                    match self.host.write().unwrap().set_os_info(&out.clone()) {
+                        Ok(x) => {},
+                        Err(y) => return Err(format!("failed to set OS info"))
+                    }
+                }
+                //match result2 { Ok(_) => {}, Err(s) => { return Err(s.to_string()) } }
+            },
+            Err((rc,out)) => return Err(format!("uname -a command failed: rc={}, out={}", rc,out))
         }
 
-        let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) {
-            Ok(x) => x,
-            _ => { return Err(format!("SSH connection attempt failed for {}:{}", self.host, self.port)); }
-        };
-        let mut sess = match Session::new() {
-            Ok(x) => x,
-            _ => { return Err(String::from("SSH session failed")); }
-        };
 
-        sess.set_tcp_stream(tcp);
-        match sess.handshake() {
-            Ok(_) => {},
-            _ => { return Err(String::from("SSH handshake failed")); }
-        } ;
-        // Try to authenticate with the first identity in the agent.
-        match sess.userauth_agent(&self.username) {
-            Ok(_) => {},
-            _ => { return Err(String::from("SSH userauth_agent failed")); }
-        };
 
-        // FIXME: should return somehow instead and handle it
-        if !(sess.authenticated()) {
-            return Err("failed to authenticate".to_string());
-        };
-
+        // we are connected and the OS was identified ok, so save the session
         self.session = Some(sess);
-        return Ok(());
 
+        return Ok(());
     }
 
     fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        let mut channel = self.session.as_ref().unwrap().channel_session().unwrap();
-        // FIXME: eventually this will need to insert sudo/elevation level details as well
-        let actual_cmd = format!("{} 2>&1", cmd);
-        channel.exec(&actual_cmd).unwrap();
-        let mut s = String::new();
-        channel.read_to_string(&mut s).unwrap();
-        let _w = channel.wait_close();
-        let exit_status = channel.exit_status().unwrap();
-        if exit_status == 0 {
-            return Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: exit_status }));
-        } else {
-            return Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: exit_status }));
+        match run_command_low_level(&self.session.as_ref().unwrap(), cmd) {
+            Ok((rc,s)) => {
+                return Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }));
+            }, 
+            Err((rc,s)) => {
+                return Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }));
+            }
         }
     }
-
-    // Make sure we succeeded
  
  
     // test pushing a file
-    // FIXME: this signature will change
-
+    // FIXME: this signature will change -- needs testing
     fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
-
         // FIXME: all to the unwrap() calls should be caught
-
+        // FIXME: we should take the mode as input
         let mut real_mode: i32 = 0o644;
         if mode.is_some() {
             real_mode = mode.unwrap();
         }
         let data_size = data.len() as u64;
-
-
         // Write the file
         let mut remote_file = self.session.as_ref().unwrap().scp_send(
-            Path::new(&remote_path),
-            real_mode, 
-            data_size, 
-            None
+            Path::new(&remote_path), real_mode, data_size, None
         ).unwrap();
         remote_file.write(data.as_bytes()).unwrap(); // was b"foo"
- 
         // Close the channel and wait for the whole content to be transferred
         remote_file.send_eof().unwrap();
         remote_file.wait_eof().unwrap();
         remote_file.close().unwrap();
         remote_file.wait_close().unwrap();
-  
     }
+}
+
+fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String),(i32,String)> {
+    // FIXME: catch all these unwraps and return nice errors here
+
+    let mut channel = session.channel_session().unwrap();
+    let actual_cmd = format!("{} 2>&1", cmd);
+
+    match channel.exec(&actual_cmd) { Ok(x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+    let mut s = String::new();
+
+    match channel.read_to_string(&mut s) { Ok(x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+
+    let _w = channel.wait_close();
+
+    let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
+
+    if exit_status == 0 {
+        return Ok((exit_status, s.clone()));
+    } else {
+        return Err((exit_status, s.clone()));
+    }
+}
 
     // IT WOULD BE NICE TO STREAM!
     // also look at main crate docs for subsystem example?
@@ -243,7 +267,7 @@ impl Connection for SshConnection {
    */
 
 
-}
+
 
 // SHELL may look like this:
 /*
@@ -260,3 +284,4 @@ println!("{}", s);
 https://stackoverflow.com/questions/74512626/how-can-i-run-a-sequence-of-commands-using-ssh2-rs
 
 */
+

@@ -22,58 +22,55 @@ const MODULE: &'static str = "Echo";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="echo",deny_unknown_fields)]
-pub struct Echo {
+pub struct EchoTask {
     pub name: Option<String>,
     pub msg: String,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
-
-struct Evaluated {
+struct EchoAction {
     pub name: String,
     pub msg: String,
-    pub with: Option<PreLogicEvaluated>,
-    pub and: Option<PostLogicEvaluated>
 }
 
-impl Echo {
-    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Evaluated, Arc<TaskResponse>> {
-        return Ok(Evaluated {
-            name: self.name.clone().unwrap_or(String::from(MODULE)),
-            msg:  handle.template_string(&request, &String::from("msg"), &self.msg)?,
-            with: PreLogicInput::template(&handle, &request, &self.with)?,
-            and:  PostLogicInput::template(&handle, &request, &self.and)?
-        });
-    }
-}
-
-impl IsTask for Echo {
+impl IsTask for EchoTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
-    
-        match request.request_type {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+        return Ok(
+            EvaluatedTask {
+                action: Arc::new(EchoAction {
+                    name: self.name.clone().unwrap_or(String::from(MODULE)),
+                    msg:  handle.template_string(&request, &String::from("msg"), &self.msg)?,
+                }),
+                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+            }
+        );
+    }
+}
 
-            TaskRequestType::Validate => {
-                let evaluated = self.evaluate(handle, request)?;
-                return Ok(handle.is_validated(&request, &Arc::new(evaluated.with), &Arc::new(evaluated.and)));
-            },
+impl IsAction for EchoAction {
+
+    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
+
+        match request.request_type {
 
             TaskRequestType::Query => {
                 return Ok(handle.needs_passive(&request));
             },
 
             TaskRequestType::Passive => {
-                let evaluated = self.evaluate(handle, request)?;
-                handle.debug(&request, &evaluated.msg);
+                handle.debug(&request, &self.msg);
                 return Ok(handle.is_passive(&request));
             },
 
             _ => { return Err(handle.not_supported(&request)); }
-        
+
         }
+
     }
 
 }

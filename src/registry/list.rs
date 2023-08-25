@@ -21,18 +21,21 @@ use std::sync::Arc;
 // note: there is some repetition in this module that we would rather not have
 // however, it comes from a conflict between polymorphic dispatch macros + traits
 // and a lack of data-inheritance in structs. please ignore it the best you can 
-// and this may be improved later.
+// and this may be improved later. If there was no Enum, we could have
+// polymorphic dispatch, but traversal would lose a lot of serde benefits.
 
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED
-use crate::modules::echo::Echo;
-use crate::modules::shell::Shell;
+use crate::modules::echo::EchoTask;
+use crate::modules::shell::ShellTask;
+use crate::modules::template::TemplateTask;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED
-    Echo(Echo),
-    Shell(Shell),
+    Echo(EchoTask),
+    Shell(ShellTask),
+    Template(TemplateTask),
 }
 
 impl Task {
@@ -40,32 +43,34 @@ impl Task {
     pub fn get_module(&self) -> String {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
-            Task::Echo(x) => x.get_module(), 
-            Task::Shell(x) => x.get_module(), 
+            Task::Echo(x)     => x.get_module(), 
+            Task::Shell(x)    => x.get_module(), 
+            Task::Template(x) => x.get_module(), 
         };
     }
 
     pub fn get_name(&self) -> Option<String> {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
-            Task::Echo(x) => x.get_name(), 
-            Task::Shell(x) => x.get_name(), 
+            Task::Echo(x)     => x.get_name(), 
+            Task::Shell(x)    => x.get_name(), 
+            Task::Template(x) => x.get_name(), 
         };
     }
 
-    pub fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
-        // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+        // ADD NEW MODULES HERE, KEEP ALPHABETIZE
         return match self {
-            Task::Echo(x)  => x.dispatch(handle, request), 
-            Task::Shell(x) => x.dispatch(handle, request), 
+            Task::Echo(x)     => x.evaluate(handle, request), 
+            Task::Shell(x)    => x.evaluate(handle, request), 
+            Task::Template(x) => x.evaluate(handle, request), 
         };
     }
+
+    // ==== END MODULE REGISTRY CONFIG ====
 
     pub fn get_display_name(&self) -> String {
-        return match self.get_name() {
-            Some(x) => x,
-            _ => self.get_module()
-        }
+        return match self.get_name() { Some(x) => x, _ => self.get_module()  }
     }
 
 }

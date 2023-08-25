@@ -33,7 +33,22 @@ impl Inventory {
     }
 
     pub fn get_host(&self, host_name: &String) -> Arc<RwLock<Host>> {
-        return Arc::clone(self.hosts.get(host_name).unwrap());
+
+        // an explicit fetch of a host is sometimes performed by the connection plugin
+        // which does not bother with the has_host check. If localhost is not in inventory
+        // we don't need any variables from it.
+
+        if self.has_host(host_name) {
+            println!("RETURNING REAL HOST");
+            let host = self.hosts.get(host_name).unwrap();
+            return Arc::clone(&host);
+        }
+        else if host_name.eq("localhost") {
+            println!("RETURNING FAKE HOST");
+            return Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
+        } else {
+            panic!("internal error: code should call has_host before get_host");
+        }
     }
 
     // ==============================================================================================================

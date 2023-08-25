@@ -18,13 +18,20 @@ use crate::tasks::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
+use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
+
+pub struct EvaluatedTask {
+    pub action: Arc<dyn IsAction>,
+    pub with: Arc<Option<PreLogicEvaluated>>,
+    pub and: Arc<Option<PostLogicEvaluated>>
+}
 
 pub trait IsTask { 
 
     fn get_module(&self) -> String;
     fn get_name(&self) -> Option<String>;
 
-    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>>;
 
     fn get_display_name(&self) -> String {
         return match self.get_name() {
@@ -33,5 +40,10 @@ pub trait IsTask {
         }
     }
 
+}
+
+pub trait IsAction {
+
+    fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
 }
 

@@ -42,7 +42,7 @@ impl PlaybookVisitor for LiveVisitor {
     fn is_check_mode(&self)     -> bool { return false; }
 }
 
-pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> Result<(), String> {
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
@@ -51,31 +51,40 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),
         default_user: None
     });
-    return playbook_traversal(&run_state);
+    return match playbook_traversal(&run_state) {
+        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
+        Err(_) => 1
+    };
 }
 
-pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, default_user: Option<String>) -> Result<(), String> {
+pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, default_user: Option<String>) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
-        connection_factory: Arc::new(RwLock::new(SshFactory::new())),
+        connection_factory: Arc::new(RwLock::new(SshFactory::new(inventory))),
         default_user: default_user
     });
-    return playbook_traversal(&run_state);
+    return match playbook_traversal(&run_state) {
+        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
+        Err(_) => 1
+    };
 }
 
-pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> Result<(), String> {
+pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new())),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
-        connection_factory: Arc::new(RwLock::new(LocalFactory::new())),
+        connection_factory: Arc::new(RwLock::new(LocalFactory::new(inventory))),
         default_user: None
     });
-    return playbook_traversal(&run_state);
+    return match playbook_traversal(&run_state) {
+        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
+        Err(_) => 1
+    };
 }
 
 // FIXME: add check modes for SSH and local

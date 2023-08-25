@@ -76,9 +76,7 @@ impl TaskHandle {
     }
 
     pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        if template.is_none() {
-            return Ok(None);
-        }
+        if template.is_none() { return Ok(None); }
         let result = self.template_string(request, field, &template.as_ref().unwrap());
         return match result { 
             Ok(x) => Ok(Some(x)), 
@@ -98,9 +96,7 @@ impl TaskHandle {
     }
 
     pub fn template_integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
-        if template.is_none() {
-            return Ok(None);
-        }
+        if template.is_none() { return Ok(None); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
         let num = st.parse::<i64>();
         match num {
@@ -119,9 +115,7 @@ impl TaskHandle {
     }
 
     pub fn template_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
-        if template.is_none() {
-            return Ok(false);
-        }
+        if template.is_none() { return Ok(false); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         match x {
@@ -163,14 +157,6 @@ impl TaskHandle {
         return Arc::new(TaskResponse {
             status: TaskStatus::IsExecuted,
             changes: Arc::new(None), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
-        });
-    }
-
-    pub fn is_validated(&self, request: &Arc<TaskRequest>, with: &Arc<Option<PreLogicEvaluated>>, and: &Arc<Option<PostLogicEvaluated>>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequestType::Validate, "is_validated response can only be returned for a validation request");
-        return Arc::new(TaskResponse { 
-            status: TaskStatus::IsValidated, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::clone(with), and: Arc::clone(and)
         });
     }
 

@@ -26,34 +26,43 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::process::Command;
+use crate::Inventory;
 
-pub struct LocalFactory {}
+pub struct LocalFactory {
+    local_connection: Arc<Mutex<dyn Connection>>,
+    inventory: Arc<RwLock<Inventory>>
+}
 
 impl LocalFactory { 
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
+        let host = inventory.read().unwrap().get_host(&String::from("localhost"));
+        Self {
+            inventory: Arc::clone(&inventory),
+            local_connection: Arc::new(Mutex::new(LocalConnection::new(&Arc::clone(&host))))
+        } 
     }
 }
-
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
-        return Ok(Arc::new(Mutex::new(LocalConnection::new())));
+    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
+        let conn : Arc<Mutex<dyn Connection>> = Arc::clone(&self.local_connection);
+        return Ok(conn);
     }
 }
-
 
 pub struct LocalConnection {
+    host: Arc<RwLock<Host>>
 }
 
 impl LocalConnection {
-    pub fn new() -> Self {
-        Self { }
+    pub fn new(host: &Arc<RwLock<Host>>) -> Self {
+        Self { host: Arc::clone(&host) }
     }
 }
 
 impl Connection for LocalConnection {
 
     fn connect(&mut self) -> Result<(),String> {
+        detect_os(&self.host);
         return Ok(());
     }
 
@@ -71,17 +80,40 @@ impl Connection for LocalConnection {
         }
     }
 
-    // FIXME: this signature will change
-    // FIXME: should return some type of result object
+    // FIXME: implement, this signature will change, should return some type of result object
     fn put_file(&self, _data: String, _remote_path: String, _mode: Option<i32>) {
     }
 
 }
 
-// the input type is NOT string
 fn convert_out(output: &Vec<u8>) -> String {
     return match std::str::from_utf8(output) {
         Ok(val) => val.to_string(),
         Err(_) => String::from("invalid UTF-8 characters in response"),
     };
+}
+
+// connection runs uname -a on connect to check the OS type.
+fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
+    let mut base = Command::new("uname");
+    let command = base.arg("-a");
+    return match command.output() {
+        Ok(x) => match x.status.code() {
+            Some(0)      => { 
+                let out = convert_out(&x.stdout);
+                {
+                    println!("LOCAL LOCK!");
+                    match host.write().unwrap().set_os_info(&out) {
+                        Ok(_) => {},
+                        Err(_) => { return Err((500, String::from("failed to set OS info"))); }
+                    }
+                    println!("LOCAL LOCK CLEAR!");
+                }
+                Ok(())
+            }
+            Some(status) => Err((status, convert_out(&x.stdout))),
+            _            => Err((418, String::from("uname -a failed without status code")))
+        },
+        Err(_x) => Err((418, String::from("uname -a failed without status code")))
+    }
 }

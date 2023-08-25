@@ -32,7 +32,7 @@ pub struct PreLogicInput {
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
-    pub cond: Option<String>,
+    pub cond: bool,
     pub sudo: Option<String>
 }
 
@@ -65,10 +65,14 @@ impl PreLogicInput {
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PreLogicEvaluated {
-            cond:         input2.cond.clone(), // templated elsewhere!
-            sudo:         handle.template_string_option(request, &String::from("sudo"), &input2.sudo)?,
+            cond: match &input2.cond {
+                Some(cond2) => handle.test_cond(request, cond2)?,
+                None        => true
+            },
+            sudo: handle.template_string_option(request, &String::from("sudo"), &input2.sudo)?
         }));
     }
+
 }
 
 impl PostLogicInput {

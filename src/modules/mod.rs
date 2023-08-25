@@ -17,3 +17,4 @@
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 pub mod echo;
 pub mod shell;
+pub mod template;

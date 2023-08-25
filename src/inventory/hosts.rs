@@ -24,11 +24,16 @@ use serde_yaml;
 //use crate::tasks::response::TaskResponse;
 //use serde_yaml::Value::Mapping;
 
+pub enum HostOSType {
+    Linux,
+    MacOS,
+}
 
 pub struct Host {
     pub name : String,
     pub variables : serde_yaml::Mapping,
     pub groups : HashMap<String, Arc<RwLock<Group>>>,
+    pub os_type : Option<HostOSType>,
     //pub history: Vec<(Arc<TaskRequest>,Arc<TaskResponse>)>,
 }
 
@@ -39,8 +44,23 @@ impl Host {
             name: name.clone(),
             variables : serde_yaml::Mapping::new(),
             groups: HashMap::new(),
+            os_type: None
             //history: Vec::new(),
         }
+    }
+
+    // used by connection class on initial connect
+    pub fn set_os_info(&mut self, uname_output: &String) -> Result<(),String> {
+        println!("INSIDE set_os_info");
+        if uname_output.starts_with("Linux") {
+            self.os_type = Some(HostOSType::Linux);
+        } else if uname_output.starts_with("Darwin") {
+            self.os_type = Some(HostOSType::MacOS);
+        } else {
+            return Err(format!("OS Type could not be detected from uname -a: {}", uname_output));
+        }
+        println!("DONE set_os_info");
+        return Ok(());
     }
 
     // ==============================================================================================================

@@ -60,7 +60,7 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
     captioned_display(&String::from("Blended Variables"), &blended_variables);
     println!("");
 
-    Ok(())
+    return Ok(());
 }
 
 // jetp show --inventory <path> # implicit --group all
