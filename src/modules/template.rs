@@ -15,6 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
+use std::path::{PathBuf};
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 
@@ -32,7 +33,7 @@ pub struct TemplateTask {
 }
 struct TemplateAction {
     pub name: String,
-    pub src: String,
+    pub src: PathBuf,
     pub dest: String,
     pub attributes: Option<FileAttributesEvaluated>,
 }
@@ -43,12 +44,12 @@ impl IsTask for TemplateTask {
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        let src_path_str = handle.template_string(&request, &String::from("src"), &self.src)?;
+        let src = handle.template_string(&request, &String::from("src"), &self.src)?;
         return Ok(
             EvaluatedTask {
                 action: Arc::new(TemplateAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    src:        src_path_str.clone(), // FIXME: working on it! handle.find_path(&request, SearchPaths::Templates, src_path_str)?,
+                    src:        handle.find_template_path(request, &String::from("src"), &src)?,
                     dest:       handle.template_string(&request, &String::from("dest"), &self.dest)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
                 }),
@@ -68,6 +69,9 @@ impl IsAction for TemplateAction {
 
 
             TaskRequestType::Query => {
+                println!("TEMPLATE DEBUG: template source path: {}", self.src.display());
+                //stat = handle.stat(self.dest);
+
                 // FIXME -- return is_matched or not
                 // see if file exists, sha1sum, modes/etc etc, common tools in tasks/files.rs make sense
                 // Ok(handle.needs_creation(&request));

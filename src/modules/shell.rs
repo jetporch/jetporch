@@ -63,7 +63,6 @@ impl IsAction for ShellAction {
             TaskRequestType::Query => {
                 return Ok(handle.needs_execution(&request));
             },
-    
             TaskRequestType::Execute => {
                 let result = handle.run(&request, &self.cmd.clone());
                 //let (rc, out) = cmd_info(&result);

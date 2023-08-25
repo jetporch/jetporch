@@ -187,7 +187,7 @@ pub trait PlaybookVisitor : Send + Sync {
                     println!("    rc: {}{color_reset}", cmd_result.rc);
                 }
             } else { 
-                println!("{color_red}! host failed: {}: {}, {color_reset}", host2.name, msg.as_ref().unwrap());
+                println!("{color_red}! host failed: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
             }
         } else {
             println!("{color_red}! host failed: {}, {color_reset}", host2.name);

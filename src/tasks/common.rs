@@ -26,7 +26,7 @@ pub struct EvaluatedTask {
     pub and: Arc<Option<PostLogicEvaluated>>
 }
 
-pub trait IsTask { 
+pub trait IsTask : Send + Sync { 
 
     fn get_module(&self) -> String;
     fn get_name(&self) -> Option<String>;
@@ -42,7 +42,7 @@ pub trait IsTask {
 
 }
 
-pub trait IsAction {
+pub trait IsAction : Send + Sync {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>>;
 }

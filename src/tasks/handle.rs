@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
 use crate::connection::command::CommandResult;
+use std::path::{Path,PathBuf};
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
@@ -46,16 +47,39 @@ impl TaskHandle {
     }
 
     // ================================================================================
-    // CONNECTION INTERACTION
+    // PLAYBOOK UTILS: simplified interactions to make module code nicer.
+
 
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         return self.connection.lock().unwrap().run_command(self, request, cmd);
     }
 
-    // ================================================================================
-    // PLAYBOOK INTERACTION: simplified interactions with the visitor object
-    // to make module code nicer.
+    pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        return self.find_sub_path(&String::from("templates"), request, field, str_path);
+    }
+
+    fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+
+        let mut path = PathBuf::new();
+        path.push(str_path);
+        if path.is_absolute() {
+            if path.is_file() {
+                return Ok(path);
+            } else {
+                return Err(self.is_failed(request, &format!("field ({}): no such file: {}", field, str_path)));
+            }
+        } else {
+            let mut path2 = PathBuf::new();
+            path2.push(prefix);
+            path2.push(str_path);
+            if path2.is_file() {
+                return Ok(path2);
+            } else {
+                return Err(self.is_failed(request, &format!("field field ({}): no such file: {}", field, str_path)));
+            }
+        }
+    }
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);

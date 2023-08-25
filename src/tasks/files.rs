@@ -54,22 +54,26 @@ impl FileAttributesInput {
         if input2.mode.is_some()  { 
             let mode_input = input2.mode.as_ref().unwrap();
             let templated_mode_string = handle.template_string(request, &String::from("mode"), &mode_input)?;
-            if !templated_mode_string.starts_with("0o") {
+            if ! templated_mode_string.starts_with("0o") {
                 return Err(handle.is_failed(request, &String::from(
-                    format!("field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
+                    format!("(a) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
                 )));
             }
+
+            let octal_no_prefix = str::replace(&templated_mode_string, "0o", "");
+
+
             // we may have gotten an 0oJunkString which is still not neccessarily valid
             // we can't use the template call again because we'd be evaluating templates twice, so we do this manually here with parse
-            let integer_mode = templated_mode_string.parse::<i64>();
-            match integer_mode {
+            let decimal_mode = u32::from_str_radix(&octal_no_prefix, 8);
+            match decimal_mode {
                 Ok(x) => { 
-                    // drop the leading 0o for unix commands
-                    final_mode_value = Some(String::from(format!("{:o}", x))) 
+                    final_mode_value = Some(octal_no_prefix);
                 },
                 Err(y) => { 
+                    println!("{}", y);
                     return Err(handle.is_failed(request, &String::from(
-                        format!("field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
+                        format!("(b) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
                     )));
                 }
             };
