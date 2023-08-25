@@ -178,10 +178,10 @@ impl Connection for SshConnection {
     fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         match run_command_low_level(&self.session.as_ref().unwrap(), cmd) {
             Ok((rc,s)) => {
-                return Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }));
+                return Ok(handle.command_ok(request, Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc })));
             }, 
             Err((rc,s)) => {
-                return Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }));
+                return Err(handle.command_failed(request, Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc })));
             }
         }
     }
@@ -225,11 +225,7 @@ fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String)
 
     let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
 
-    if exit_status == 0 {
-        return Ok((exit_status, s.clone()));
-    } else {
-        return Err((exit_status, s.clone()));
-    }
+    return Ok((exit_status, s.clone()));
 }
 
     // IT WOULD BE NICE TO STREAM!

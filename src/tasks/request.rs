@@ -16,6 +16,8 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::tasks::fields::Field;
+use std::collections::HashSet;
 
 // task requests are objects given to modules (and the task FSM) that
 // describe what questions we are asking of them. In the case of 
@@ -35,7 +37,7 @@ pub enum TaskRequestType {
 
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
-    pub changes: Arc<Option<HashMap<String, String>>>
+    pub changes: HashSet<Field>
 }
 
 // most of the various methods in task requests are constructors for different TaskRequest type variants
@@ -46,7 +48,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Validate, 
-                changes: Arc::new(None)
+                changes: HashSet::new()
             }
         )
     }
@@ -54,7 +56,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Query, 
-                changes: Arc::new(None) 
+                changes: HashSet::new() 
             }
         )
     }
@@ -62,7 +64,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Create, 
-                changes: Arc::new(None) 
+                changes: HashSet::new()
             }
         )
     }
@@ -70,15 +72,15 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Remove, 
-                changes: Arc::new(None)
+                changes: HashSet::new()
             }
         )
     }
-    pub fn modify(changes: Arc<Option<HashMap<String, String>>>) -> Arc<Self> {
+    pub fn modify(changes: HashSet<Field>) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Modify, 
-                changes: Arc::clone(&changes) 
+                changes: changes
             }
         )
     }
@@ -86,7 +88,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Execute, 
-                changes: Arc::new(None) 
+                changes: HashSet::new() 
             }
         )
     }
@@ -95,14 +97,14 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Passive, 
-                changes: Arc::new(None) 
+                changes: HashSet::new() 
             }
         )
     }
 
     // FIXME, hashset?
-    pub fn get_requested_changes(&self) -> Arc<Option<HashMap<String, String>>>  {
-        assert!(self.request_type == TaskRequestType::Modify, "accessing change request parameters outside of TaskRequestType::Modify");
-        return Arc::clone(&self.changes);
-    }
+    //pub fn get_requested_changes(&self) -> Arc<Option<HashMap<String, String>>>  {
+    //    assert!(self.request_type == TaskRequestType::Modify, "accessing change request parameters outside of TaskRequestType::Modify");
+    //    return Arc::clone(&self.changes);
+    //}
 }

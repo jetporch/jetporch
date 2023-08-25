@@ -42,6 +42,7 @@ impl Group {
         }
     }
 
+    #[inline]
     pub fn add_subgroup(&mut self, name: &String, subgroup: Arc<RwLock<Group>>) {
         assert!(!name.eq(&self.name));
         self.subgroups.insert(
@@ -50,6 +51,7 @@ impl Group {
         );
     }
 
+    #[inline]
     pub fn add_host(&mut self, name: &String, host: Arc<RwLock<Host>>) {
         self.hosts.insert(
             name.clone(), 
@@ -57,6 +59,7 @@ impl Group {
         );
     }
 
+    #[inline]
     pub fn add_parent(&mut self, name: &String, parent: Arc<RwLock<Group>>) {
         assert!(!name.eq(&self.name));
         self.parents.insert(
@@ -78,6 +81,7 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
         return self.get_ancestor_groups(10usize).iter().map(|(k,_v)| k.clone()).collect();
     }
@@ -105,6 +109,7 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_descendant_group_names(&self) -> Vec<String> {
         return self.get_descendant_groups(10usize).iter().map(|(k,_v)| k.clone()).collect();
     }
@@ -120,6 +125,7 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_parent_group_names(&self) -> Vec<String> {
         return self.get_parent_groups().iter().map(|(k,_v)| k.clone()).collect();
     }
@@ -135,6 +141,7 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_subgroup_names(&self) -> Vec<String> {
         return self.get_subgroups().iter().map(|(k,_v)| k.clone()).collect();
     }
@@ -150,6 +157,7 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_direct_host_names(&self) -> Vec<String> {
         return self.get_direct_hosts().iter().map(|(k,_v)| k.clone()).collect();
     }
@@ -166,14 +174,17 @@ impl Group {
         return results;
     }
 
+    #[inline]
     pub fn get_descendant_host_names(&self) -> Vec<String> {
         return self.get_descendant_hosts().iter().map(|(k,_v)| k.clone()).collect();
     }
 
+    #[inline]
     pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
 
+    #[inline]
     pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
         self.variables = variables.clone();
     }
@@ -193,6 +204,7 @@ impl Group {
         }
     }
 
+    #[inline]
     pub fn get_variables_yaml(&self) -> Result<String,String> {
         let result = serde_yaml::to_string(&self.get_variables());
         return match result {
@@ -201,6 +213,7 @@ impl Group {
         }
     }
 
+    #[inline]
     pub fn get_blended_variables_yaml(&self) -> Result<String,String> {
         let result = serde_yaml::to_string(&self.get_blended_variables());
         return match result {

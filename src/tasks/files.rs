@@ -62,9 +62,8 @@ impl FileAttributesInput {
 
             let octal_no_prefix = str::replace(&templated_mode_string, "0o", "");
 
-
-            // we may have gotten an 0oJunkString which is still not neccessarily valid
-            // we can't use the template call again because we'd be evaluating templates twice, so we do this manually here with parse
+            // we may have gotten an 0oJunkString which is still not neccessarily valid - so check if it's a number
+            // and return the value with the 0o stripped off, for easier use elsewhere
             let decimal_mode = u32::from_str_radix(&octal_no_prefix, 8);
             match decimal_mode {
                 Ok(x) => { 

@@ -18,12 +18,13 @@ use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskStatus, TaskResponse};
 use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
-use crate::inventory::hosts::Host;
-use std::collections::HashMap;
+use crate::inventory::hosts::{Host,HostOSType};
+use std::collections::HashSet;
 use std::sync::{Arc,Mutex,RwLock};
 use crate::playbooks::traversal::RunState;
-use crate::connection::command::CommandResult;
+use crate::connection::command::{CommandResult,cmd_info};
 use std::path::{Path,PathBuf};
+use crate::tasks::fields::Field;
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
@@ -53,6 +54,25 @@ impl TaskHandle {
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         return self.connection.lock().unwrap().run_command(self, request, cmd);
+    }
+
+    pub fn get_os_type(&self) -> HostOSType {
+        let os_type = self.host.read().unwrap().os_type;
+        if os_type.is_none() {
+            panic!("failed to detect OS type for {}, bailing out", self.host.read().name);
+        }
+        return os_type.unwrap();
+    }
+
+    pub fn remote_stat(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
+        let cmd : String = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
+
+        let result = self.run(request, cmd)?;
+        let (rc, out) = cmd_info(&result);
+        return match rc {
+            0 => Ok(out.split_whitespace().nth(0).to_string()),
+            _ => Ok(None),
+        }
     }
 
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
@@ -88,6 +108,38 @@ impl TaskHandle {
     pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
+
+    /*
+    pub fn query_file_attributes(&self, request: &ArcTaskRequest, remote_path: &String, stat_result: &Option<String>, input_checksum: Option<String>, changes: &mut HashSet<String>) {
+
+        if stat_result.is_none() {
+            return Err(handle.is_failed(request, String::from("module coding error: calling query_file_attributes with no remote file")));
+        }
+
+        if input_checksum.is_some() {
+            checksum_src = self.string_checksum(request, remote_path)?;
+            checksum_dest = handle.remote_checksum(request, self.dest)?;
+            if checksum_src != checksum_dest {
+                changes.push(String::from("dest"));
+            }
+        }
+    
+    if self.attributes.is_some() {
+        let attributes = self.attributes.unwrap();
+        let owner = handle.remote_owner(self.dest)?
+        if attributes.owner.is_some() {
+            let owner = handle.remote_owner(self.dest)?;
+            if (owner != attributes.owner.unwrap()) { changes.push(String::from("owner")); }
+        }
+        if attributes.group.is_some()
+            let owner = handle.remote_group(self.dest)?;
+            if (group != attributes.owner.group())  { changes.push(String::from("group")); }
+        }
+        if attributes.mode.is_some() {
+            if (stat_result.unwrap() != attributes.owner.mode) { changes.push(String::from("mode")); }
+        }
+    }
+    */
 
     pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
@@ -162,7 +214,7 @@ impl TaskHandle {
     pub fn is_failed(&self, _request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
         return Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
-            changes: Arc::new(None), msg: Some(msg.clone()), command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: Some(msg.clone()), command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -170,17 +222,17 @@ impl TaskHandle {
         return self.is_failed(request, &String::from("not supported"));
     }
 
-    pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
+    pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: Option<CommandResult>) -> Arc<TaskResponse> {
         return Arc::new(TaskResponse {
             status: TaskStatus::Failed,
-            changes: Arc::new(None), msg: Some(String::from("command failed")), command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: Some(String::from("command failed")), command_result: result, with: Arc::new(None), and: Arc::new(None)
         });
     }
 
     pub fn command_ok(&self, _request: &Arc<TaskRequest>, result: CommandResult) -> Arc<TaskResponse> {
         return Arc::new(TaskResponse {
             status: TaskStatus::IsExecuted,
-            changes: Arc::new(None), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: Some(result), with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -188,7 +240,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Validate, "is_skipped response can only be returned for a validation request");
         let response = Arc::new(TaskResponse { 
             status: TaskStatus::IsSkipped, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
         return response;
     }
@@ -197,7 +249,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "is_matched response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsMatched, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -205,7 +257,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Create, "is_executed response can only be returned for a creation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsExecuted, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
     
@@ -214,7 +266,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Execute, "is_executed response can only be returned for a creation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsExecuted, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
     
@@ -222,7 +274,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Remove, "is_removed response can only be returned for a remove request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsRemoved, 
-            changes: Arc::new(None), 
+            changes: HashSet::new(), 
             msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
@@ -231,15 +283,15 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Passive, "is_passive response can only be returned for a passive request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsPassive, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
     
-    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
+    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: HashSet<Field>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Modify, "is_modified response can only be returned for a modification request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsModified, 
-            changes: Arc::clone(&changes), 
+            changes: changes, 
             msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
@@ -248,15 +300,15 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_creation response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsCreation, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None), 
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None), 
         });
     }
     
-    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: Arc<Option<HashMap<String,String>>>) -> Arc<TaskResponse> {
+    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: HashSet<Field>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_modification response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsModification, 
-            changes: Arc::clone(&changes), 
+            changes: HashSet::new(), 
             msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None) 
         });
     }
@@ -265,7 +317,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_removal response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -273,7 +325,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_execution response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsExecution, 
-            changes: Arc::new(None), msg: None, command_result: None,with: Arc::new(None),and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None,with: Arc::new(None),and: Arc::new(None)
         });
     }
     
@@ -281,7 +333,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_passive response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsPassive, 
-            changes: Arc::new(None), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
+            changes: HashSet::new(), msg: None, command_result: None, with: Arc::new(None), and: Arc::new(None)
         });
     }
 

@@ -18,6 +18,8 @@ use crate::tasks::*;
 use std::path::{PathBuf};
 //#[allow(unused_imports)]
 use serde::{Deserialize};
+use std::sync::Arc;
+use std::collections::HashSet;
 
 const MODULE: &'static str = "Template";
 
@@ -67,32 +69,45 @@ impl IsAction for TemplateAction {
     
         match request.request_type {
 
-
             TaskRequestType::Query => {
-                println!("TEMPLATE DEBUG: template source path: {}", self.src.display());
-                //stat = handle.stat(self.dest);
+                let remote_mode = handle.remote_stat(request, self.dest)?;
+                if remote_mode.is_none() {
+                    println!("XDEBUG: no stat");
+                    return Ok(handle.needs_creation(&request));
+                }
+                else {
+                    println!("DEBUG: got a stat {}", remote_mode.unwrap());
+                }
 
-                // FIXME -- return is_matched or not
-                // see if file exists, sha1sum, modes/etc etc, common tools in tasks/files.rs make sense
-                // Ok(handle.needs_creation(&request));
-                return Err(handle.not_supported(&request));
+                let mut changes : Option<Arc<HashSet<Field>>> = Some(Arc::new(HashSet::new()));
+                /*
+                let local_checksum = self.local_checksum(&self.src)?;
+                handle.query_common_file_attributes(request, &self.dest, &remote_mode, &local_checksum, &mut changes)?;                   
+                
+                if changes.len() > 0 {
+                    return self.handle.needs_modification(changes);
+                }
+                */
+                return Ok(handle.is_matched(request));
             },
 
             TaskRequestType::Create => {
-                // FIXME
+                /*
+                handle.template_remote_file(request, &self.src, &self.dest)?
+                handle.process_all_common_file_attributes(&request)?;
+                */
                 return Ok(handle.is_created(&request));
             }
 
             TaskRequestType::Modify => {
-                // FIXME -- requests.changes should be a hashset
+                /*
+                if changes.contains(String::from(Field.Checksum)) {
+                    handle.template_remote_file(request, &self.src, &self.dest)?
+                }
+                handle.process_common_file_attributes(&request, &request.changes)?;
+                */
                 return Err(handle.not_supported(&request));
-
-                //return Ok(handle.is_modified(&request, request.changes));
-
             }
-            // NeedsModification
-
-
     
             _ => { return Err(handle.not_supported(&request)); }
     

@@ -17,6 +17,7 @@
 use crate::tasks::*;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
+use std::sync::Arc;
 
 const MODULE: &'static str = "Echo";
 

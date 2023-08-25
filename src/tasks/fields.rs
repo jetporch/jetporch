@@ -14,20 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod handle;
-pub mod request;
-pub mod response;
-pub mod common;
-pub mod logic;
-pub mod files;
-pub mod fields;
-pub mod cmd_library;
+// this is here to prevent typos in module code between Query & Modify 
+// match legs. 
 
-pub use crate::connection::command::cmd_info;
-pub use crate::tasks::common::{IsTask,IsAction,EvaluatedTask};
-pub use crate::tasks::logic::{PreLogicInput,PreLogicEvaluated,PostLogicInput,PostLogicEvaluated};
-pub use crate::tasks::handle::TaskHandle;
-pub use crate::tasks::response::TaskResponse;
-pub use crate::tasks::request::{TaskRequestType,TaskRequest};
-pub use crate::tasks::files::{FileAttributesInput,FileAttributesEvaluated};
-pub use crate::tasks::fields::Field;
+// KEEP THESE ALPHABETIZED
+
+#[derive(Clone,Copy,Debug)]
+pub enum Field {
+    Checksum,
+    Group,
+    Mode,
+    Owner,
+}

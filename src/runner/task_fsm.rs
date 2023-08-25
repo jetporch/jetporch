@@ -136,7 +136,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsModification => match modify_mode {
                 true => {
-                    let req = TaskRequest::modify(Arc::clone(&qrc_ok.changes));
+                    let req = TaskRequest::modify(qrc_ok.changes.clone());
                     let mrc = action.dispatch(&handle, &req);
                     match mrc {
                         Ok(ref mrc_ok) => match mrc_ok.status {
@@ -149,7 +149,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_modified(&Arc::clone(&query), Arc::clone(&qrc_ok.changes))))
+                false => (Arc::clone(&query), Ok(handle.is_modified(&Arc::clone(&query), qrc_ok.changes.clone())))
             },
             TaskStatus::NeedsExecution => match modify_mode {
                 true => {

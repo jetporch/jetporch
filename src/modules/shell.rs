@@ -15,8 +15,10 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
+use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
+use std::sync::Arc;
 
 const MODULE: &'static str = "Shell";
 
@@ -63,10 +65,14 @@ impl IsAction for ShellAction {
             TaskRequestType::Query => {
                 return Ok(handle.needs_execution(&request));
             },
+
             TaskRequestType::Execute => {
-                let result = handle.run(&request, &self.cmd.clone());
-                //let (rc, out) = cmd_info(&result);
-                return result;
+                let task_result = handle.run(&request, &self.cmd.clone())?;
+                let (rc, _out) = cmd_info(&task_result);
+                return match rc {
+                    0 => Ok(task_result), 
+                    _ => Err(handle.command_failed(request, task_result.command_result))
+                }
             },
     
             _ => { return Err(handle.not_supported(&request)); }

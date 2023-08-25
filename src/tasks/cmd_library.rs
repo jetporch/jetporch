@@ -14,29 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-use crate::tasks::response::TaskResponse;
+// this is here to prevent typos in module code between Query & Modify 
+// match legs. 
 
-#[derive(Clone,Debug)]
-pub struct CommandResult {
-    pub cmd: String,
-    pub out: String,
-    pub rc: i32
-}
+use crate::inventory::hosts::HostOSType;
 
-pub fn cmd_info(ok: &Arc<TaskResponse>) -> (i32, String) {
-    return extract_cmd_info(&ok);
-}
-
-pub fn cmd_info_ignore_errors(info: &Result<Arc<TaskResponse>,Arc<TaskResponse>>) -> (i32, String) {
-    return match info {
-        Ok(ok) => extract_cmd_info(&ok),
-        Err(err) => extract_cmd_info(&err)
+pub fn get_mode_command(os_type: HostOSType, path: &String) -> String {
+    return match os_type {
+        HostOSType::Linux => String::from(format!("stat --format '%a' {}", path)),
+        HostOSType::MacOS => String::from(format!("stat -f '%A' {}", path)),
     }
 }
-
-fn extract_cmd_info(info: &Arc<TaskResponse>) -> (i32, String) {
-    assert!(info.command_result.is_some(), "called cmd_info on a response that is not a command result");
-    let result = info.command_result.as_ref().unwrap();
-    return (result.rc, result.out.clone());
-}
+        
