@@ -33,17 +33,17 @@ impl ConnectionCache {
     }
 
     pub fn add_connection(&mut self, host:&Arc<RwLock<Host>>, connection: &Arc<Mutex<dyn Connection>>) {
-        let host2 = host.read().unwrap();
+        let host2 = host.read().expect("host read");
         self.connections.insert(host2.name.clone(), Arc::clone(connection));
     }
 
     pub fn has_connection(&self, host: &Arc<RwLock<Host>>) -> bool {
-        let host2 = host.read().unwrap();
+        let host2 = host.read().expect("host read");
         return self.connections.contains_key(&host2.name.clone());
     }
 
     pub fn get_connection(&self, host: &Arc<RwLock<Host>>) -> Arc<Mutex<dyn Connection>> {
-        let host2 = host.read().unwrap();
+        let host2 = host.read().expect("host read");
         return Arc::clone(self.connections.get(&host2.name.clone()).unwrap());
     }
 

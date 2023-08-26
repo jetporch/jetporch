@@ -44,6 +44,8 @@ pub struct TaskRequest {
 // as used by task_fsm.rs. 
 
 impl TaskRequest {
+
+    #[inline]
     pub fn validate() -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -52,6 +54,8 @@ impl TaskRequest {
             }
         )
     }
+
+    #[inline]
     pub fn query() -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -60,6 +64,8 @@ impl TaskRequest {
             }
         )
     }
+
+    #[inline]
     pub fn create() -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -68,6 +74,8 @@ impl TaskRequest {
             }
         )
     }
+
+    #[inline]
     pub fn remove() -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -76,6 +84,8 @@ impl TaskRequest {
             }
         )
     }
+
+    #[inline]
     pub fn modify(changes: HashSet<Field>) -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -84,6 +94,8 @@ impl TaskRequest {
             }
         )
     }
+
+    #[inline]
     pub fn execute() -> Arc<Self> {
         return Arc::new(
             Self { 
@@ -93,6 +105,7 @@ impl TaskRequest {
         )
     }
 
+    #[inline]
     pub fn passive() -> Arc<Self> {
         return Arc::new(
             Self { 

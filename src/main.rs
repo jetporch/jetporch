@@ -50,12 +50,35 @@ fn liftoff() -> Result<(),String> {
     }
 
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
-    load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
+
+    match cli_parser.mode {
+        cli::parser::CLI_MODE_SSH | cli::parser::CLI_MODE_CHECK_SSH | cli::parser::CLI_MODE_SHOW => {
+            load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
+            if ! cli_parser.inventory_set {
+                return Err(String::from("--inventory is required"));
+            }
+            if inventory.read().expect("inventory read").hosts.len() == 0 {
+                return Err(String::from("no hosts found in --inventory"));
+            }
+        },
+        _ => {
+            inventory.write().expect("inventory write").store_host(&String::from("all"), &String::from("localhost"));
+        }
+    };
+
+    match cli_parser.mode {
+        cli::parser::CLI_MODE_SHOW => {},
+        _ => {
+            if ! cli_parser.playbook_set {
+                return Err(String::from("--playbook is required"));
+            }
+        }
+    };
 
     match cli_parser.threads {
-        Some(x) => { rayon::ThreadPoolBuilder::new().num_threads(x).build_global().unwrap(); }
-        None => { rayon::ThreadPoolBuilder::new().num_threads(30).build_global().unwrap(); }
-    }
+        Some(x) => { rayon::ThreadPoolBuilder::new().num_threads(x).build_global().expect("build global"); }
+        None => { rayon::ThreadPoolBuilder::new().num_threads(30).build_global().expect("build global"); }
+    };
 
     let exit_status = match cli_parser.mode {
         cli::parser::CLI_MODE_SHOW   => match handle_show(&inventory, &cli_parser) {
@@ -70,8 +93,10 @@ fn liftoff() -> Result<(),String> {
         cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser.playbook_paths),
         _ => { println!("invalid CLI mode"); 1 }
     };
-    process::exit(exit_status);
-
+    if exit_status != 0 {
+        process::exit(exit_status);
+    }
+    return Ok(());
 }
 
 pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Result<(), String> {

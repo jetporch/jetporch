@@ -52,7 +52,7 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
         default_user: None
     });
     return match playbook_traversal(&run_state) {
-        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
+        Ok(_)  => run_state.visitor.read().expect("visitor read").get_exit_status(&run_state.context),
         Err(_) => 1
     };
 }
@@ -82,7 +82,7 @@ pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<R
         default_user: None
     });
     return match playbook_traversal(&run_state) {
-        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
+        Ok(_)  => run_state.visitor.read().expect("visitor read").get_exit_status(&run_state.context),
         Err(_) => 1
     };
 }

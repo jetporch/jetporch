@@ -71,7 +71,8 @@ impl IsAction for ShellAction {
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {
                     0 => Ok(task_result), 
-                    _ => Err(handle.command_failed(request, task_result.command_result))
+                    // we can unwrap the command_result because we know we have a command
+                    _ =>  Err(handle.command_failed(request, &Arc::clone(&task_result.command_result)))
                 }
             },
     

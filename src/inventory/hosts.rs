@@ -24,6 +24,7 @@ use serde_yaml;
 //use crate::tasks::response::TaskResponse;
 //use serde_yaml::Value::Mapping;
 
+#[derive(Clone,Copy,Debug)]
 pub enum HostOSType {
     Linux,
     MacOS,
@@ -51,7 +52,6 @@ impl Host {
 
     // used by connection class on initial connect
     pub fn set_os_info(&mut self, uname_output: &String) -> Result<(),String> {
-        println!("INSIDE set_os_info");
         if uname_output.starts_with("Linux") {
             self.os_type = Some(HostOSType::Linux);
         } else if uname_output.starts_with("Darwin") {
@@ -59,7 +59,6 @@ impl Host {
         } else {
             return Err(format!("OS Type could not be detected from uname -a: {}", uname_output));
         }
-        println!("DONE set_os_info");
         return Ok(());
     }
 
@@ -90,7 +89,7 @@ impl Host {
         let mut results : HashMap<String, Arc<RwLock<Group>>> = HashMap::new();
         for (k,v) in self.get_groups().into_iter() {
             results.insert(k, Arc::clone(&v));
-            for (k2,v2) in v.read().unwrap().get_ancestor_groups(depth_limit).into_iter() { 
+            for (k2,v2) in v.read().expect("group read").get_ancestor_groups(depth_limit).into_iter() { 
                 results.insert(k2, Arc::clone(&v2)); 
             }
         }

@@ -48,13 +48,16 @@ pub struct TaskResponse {
     pub status: TaskStatus,
     pub changes: HashSet<Field>,
     pub msg: Option<String>,
-    pub command_result: Option<CommandResult>,
+    pub command_result: Arc<Option<CommandResult>>,
     pub with: Arc<Option<PreLogicEvaluated>>,
     pub and: Arc<Option<PostLogicEvaluated>>
 }
 
 impl TaskResponse {
+
+    #[inline]
     pub fn is_failed(&self) -> bool {
         return self.status == TaskStatus::Failed;
     }
+    
 }

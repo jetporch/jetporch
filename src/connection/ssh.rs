@@ -19,7 +19,7 @@ use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
-use crate::connection::local::LocalConnection;
+use crate::connection::local::{LocalConnection,LocalFactory};
 use crate::tasks::*;
 use crate::inventory::hosts::Host;
 use crate::Inventory;
@@ -32,29 +32,27 @@ use std::time::Duration;
 use std::net::{ToSocketAddrs};
 
 pub struct SshFactory {
-    local_connection: Arc<Mutex<dyn Connection>>,
+    local_factory: LocalFactory,
+    localhost: Arc<RwLock<Host>>
+    //local_connection: Arc<Mutex<dyn Connection>>,
     //inventory: Arc<RwLock<Inventory>>
 }
 
 impl SshFactory { 
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
-        // NOTE: we should never use the connection to get *back* to the host object to read variables
-        // because this host object is not the object from inventory.
-
-        let host = inventory.read().unwrap().get_host(&String::from("localhost"));
         Self {
-            //inventory: Arc::clone(&inventory),
-            local_connection: Arc::new(Mutex::new(LocalConnection::new(&Arc::clone(&host))))
+            localhost : inventory.read().expect("inventory read").get_host(&String::from("localhost")),
+            local_factory: LocalFactory::new(inventory)
         } 
     }
 }
 
 impl ConnectionFactory for SshFactory {
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
-        let ctx = context.read().unwrap();
-        let hostname1 = host.read().unwrap().name.clone();
+        let ctx = context.read().expect("context read");
+        let hostname1 = host.read().expect("host read").name.clone();
         if hostname1.eq("localhost") {
-            let conn = Arc::clone(&self.local_connection);
+            let conn = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn);
         } 
 
@@ -68,7 +66,7 @@ impl ConnectionFactory for SshFactory {
 
         let (hostname2, user, port) = ctx.get_ssh_connection_details(host);      
         if hostname2.eq("localhost") { 
-            let conn = Arc::clone(&self.local_connection);
+            let conn = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn); 
         }
 
@@ -76,7 +74,7 @@ impl ConnectionFactory for SshFactory {
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
-                ctx.connection_cache.write().unwrap().add_connection(&Arc::clone(&host), &Arc::clone(&conn2));
+                ctx.connection_cache.write().expect("connection cache write").add_connection(&Arc::clone(&host), &Arc::clone(&conn2));
                 Ok(conn2)
             },
             Err(x) => { Err(x) } 
@@ -122,9 +120,9 @@ impl Connection for SshConnection {
         // Connect to the local SSH server
         let seconds = Duration::from_secs(10);
 
-        assert!(!self.host.read().unwrap().name.eq("localhost"));
+        assert!(!self.host.read().expect("host read").name.eq("localhost"));
 
-        let connect_str = format!("{host}:{port}", host=self.host.read().unwrap().name, port=self.port.to_string());
+        let connect_str = format!("{host}:{port}", host=self.host.read().expect("host read").name, port=self.port.to_string());
         
 
         // connect with timeout requires SocketAddr objects instead of just connection strings
@@ -138,7 +136,7 @@ impl Connection for SshConnection {
 
         // actually connect here
         let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) { Ok(x) => x, _ => { 
-            return Err(format!("SSH connection attempt failed for {}:{}", self.host.read().unwrap().name, self.port)); } };
+            return Err(format!("SSH connection attempt failed for {}:{}", self.host.read().expect("host read").name, self.port)); } };
         
 
         // new session & handshake
@@ -176,12 +174,13 @@ impl Connection for SshConnection {
     }
 
     fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        match run_command_low_level(&self.session.as_ref().unwrap(), cmd) {
+        let result = run_command_low_level(&self.session.as_ref().unwrap(), cmd);
+        match result {
             Ok((rc,s)) => {
-                return Ok(handle.command_ok(request, Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc })));
+                return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }, 
             Err((rc,s)) => {
-                return Err(handle.command_failed(request, Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc })));
+                return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }
         }
     }

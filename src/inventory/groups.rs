@@ -73,7 +73,7 @@ impl Group {
         for (k,v) in self.parents.iter() {
             results.insert(k.clone(), Arc::clone(v));
             if depth_limit > 0 {
-                for (k2,v2) in v.read().unwrap().get_ancestor_groups(depth_limit-1) { 
+                for (k2,v2) in v.read().expect("group read").get_ancestor_groups(depth_limit-1) { 
                     results.insert(k2.clone(),Arc::clone(&v2));
                 }
             }
@@ -94,7 +94,7 @@ impl Group {
                 continue;
             }
             if depth_limit > 0 {
-                for (k2,v2) in v.read().unwrap().get_descendant_groups(depth_limit-1).iter() { 
+                for (k2,v2) in v.read().expect("group read").get_descendant_groups(depth_limit-1).iter() { 
                     results.insert(
                         k2.clone(), 
                         Arc::clone(&v2)
@@ -193,7 +193,7 @@ impl Group {
         let mut blended : serde_yaml::Value = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let ancestors = self.get_ancestor_groups(20);
         for (_k,v) in ancestors.iter() {
-            let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().unwrap().get_variables());
+            let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().expect("group read").get_variables());
             blend_variables(&mut blended, theirs);
         }
         let mine = serde_yaml::Value::from(self.get_variables());

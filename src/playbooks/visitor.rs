@@ -23,6 +23,7 @@ use crate::util::terminal::two_column_table;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
+use crate::connection::command::CommandResult;
 
 // the visitor is a trait with lots of default implementation that can be overridden
 // for various CLI commands. It is called extensively during playbook traversal
@@ -178,7 +179,7 @@ pub trait PlaybookVisitor : Send + Sync {
             let msg = &task_response.msg;
             if task_response.command_result.is_some() {
                 { 
-                    let cmd_result = task_response.command_result.as_ref().unwrap();
+                    let cmd_result = task_response.command_result.as_ref().as_ref().unwrap();
                     let lock = context.write().unwrap();
                     // FIXME: add similar output for verbose modes above
                     println!("{color_red}! {} => failed", host2.name);
@@ -210,6 +211,30 @@ pub trait PlaybookVisitor : Send + Sync {
             _ => 1
         };
     }
+
+    fn on_command_ok(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
+        let host2 = host.read().expect("host read");
+        let lock = context.write().expect("context write");
+        let cmd_result = result.as_ref().as_ref().expect("missing command result");
+        // FIXME: date with verbose CLI flag
+        println!("{color_blue}! {} ... command ok", host2.name);
+        println!("    cmd: {}", cmd_result.cmd);
+        println!("    out: {}", cmd_result.out);
+        println!("    rc: {}{color_reset}", cmd_result.rc);
+    }
+
+    fn on_command_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
+        let host2 = host.read().expect("context read");
+        let lock = context.write().expect("context write");
+        let cmd_result = result.as_ref().as_ref().expect("missing command result");
+
+        // FIXME: date with verbose CLI flag
+        println!("{color_red}! {} ... command failed", host2.name);
+        println!("    cmd: {}", cmd_result.cmd);
+        println!("    out: {}", cmd_result.out);
+        println!("    rc: {}{color_reset}", cmd_result.rc);
+    }
+
 
     fn is_syntax_only(&self) -> bool;
 

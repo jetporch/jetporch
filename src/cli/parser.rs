@@ -25,6 +25,8 @@ use std::sync::{Arc,RwLock};
 pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub inventory_set: bool,
+    pub playbook_set: bool,
     pub mode: u32,
     pub needs_help: bool,
     pub hosts: Vec<String>,
@@ -158,6 +160,8 @@ impl CliParser  {
             batch_size: None,
             default_user: None,
             threads: None,
+            inventory_set: false,
+            playbook_set: false
         }
     }
 
@@ -261,16 +265,23 @@ impl CliParser  {
      }
     
     fn store_playbook_value(&mut self, value: &String) -> Result<(), String> {
+        self.playbook_set = true;
         match parse_paths(value) {
-            Ok(paths)  =>  { *self.playbook_paths.write().unwrap() = paths; }, 
+            Ok(paths)  =>  { *self.playbook_paths.write().expect("playbook paths write") = paths; }, 
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
         }
         return Ok(());
     }
 
     fn store_inventory_value(&mut self, value: &String) -> Result<(), String> {
+
+        self.inventory_set = true;
+        if self.mode == CLI_MODE_LOCAL || self.mode == CLI_MODE_CHECK_LOCAL {
+            return Err(format!("--inventory cannot be specified for local modes"));
+        }
+
         match parse_paths(value) {
-            Ok(paths)  =>  { *self.inventory_paths.write().unwrap() = paths; }, 
+            Ok(paths)  =>  { *self.inventory_paths.write().expect("inventory paths write") = paths; }, 
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_INVENTORY, err_msg)),
         }
         return Ok(());

@@ -27,7 +27,7 @@ use crate::inventory::inventory::Inventory;
 
 pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &String) -> Result<(),String> {
 
-    let inventory = inventory.read().unwrap();
+    let inventory = inventory.read().expect("inventory read");
 
     if !inventory.has_host(&host_name.clone()) {
         return Err(format!("no such host: {}", host_name.clone()));
@@ -68,7 +68,7 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
 
 pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &String) -> Result<(),String> {
 
-    let inventory = inventory.read().unwrap();
+    let inventory = inventory.read().expect("inventory read");
 
     if !inventory.has_group(&group_name.clone()) {
         return Err(format!("no such group: {}", group_name));

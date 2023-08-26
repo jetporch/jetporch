@@ -65,7 +65,7 @@ impl Inventory {
     #[inline]
     pub fn store_group_variables(&mut self, group_name: &String, mapping: serde_yaml::Mapping) {
         let group = self.get_group(group_name);
-        group.write().unwrap().set_variables(mapping);
+        group.write().expect("group write").set_variables(mapping);
     }
 
     #[inline]
@@ -87,8 +87,8 @@ impl Inventory {
     pub fn associate_host_to_group(&self, group_name: &String, host_name: &String) {
         let host = self.get_host(host_name);
         let group = self.get_group(group_name);
-        host.write().unwrap().add_group(group_name, Arc::clone(&group));
-        group.write().unwrap().add_host(host_name, Arc::clone(&host));
+        host.write().expect("host write").add_group(group_name, Arc::clone(&group));
+        group.write().expect("group write").add_host(host_name, Arc::clone(&host));
     }
 
     #[inline]
@@ -132,12 +132,12 @@ impl Inventory {
         {
             let group = self.get_group(group_name);
             let subgroup = self.get_group(subgroup_name);
-            group.write().unwrap().add_subgroup(subgroup_name, Arc::clone(&subgroup));
+            group.write().expect("group write").add_subgroup(subgroup_name, Arc::clone(&subgroup));
         }
         {
             let group = self.get_group(group_name);
             let subgroup = self.get_group(subgroup_name);
-            subgroup.write().unwrap().add_parent(group_name, Arc::clone(&group));
+            subgroup.write().expect("subgroup write").add_parent(group_name, Arc::clone(&group));
         }
     }
 

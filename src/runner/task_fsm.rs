@@ -107,11 +107,11 @@ fn run_task_on_host(
                         Ok(ref crc_ok) => match crc_ok.status {
                             TaskStatus::IsCreated => (req, crc),
                             // these are all module coding errors, should they occur, and cannot happen in normal operation
-                            _ => { panic!("module internal fsm state invalid (on create): {:?}", crc); }
+                            _ => { panic!("(a) module internal fsm state invalid (on create): {:?}", crc); }
                         },
                         Err(ref crc_err) => match crc_err.status {
                             TaskStatus::Failed  => (req, crc),
-                            _ => { panic!("module internal fsm state invalid (on create), {:?}", crc); }
+                            _ => { panic!("(b) module internal fsm state invalid (on create), {:?}", crc); }
                         }
                     }
                 },

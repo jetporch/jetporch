@@ -70,7 +70,7 @@ impl IsAction for TemplateAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                let remote_mode = handle.remote_stat(request, self.dest)?;
+                let remote_mode = handle.remote_stat(request, &self.dest)?;
                 if remote_mode.is_none() {
                     println!("XDEBUG: no stat");
                     return Ok(handle.needs_creation(&request));

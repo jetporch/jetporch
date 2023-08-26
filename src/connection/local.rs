@@ -35,10 +35,12 @@ pub struct LocalFactory {
 
 impl LocalFactory { 
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
-        let host = inventory.read().unwrap().get_host(&String::from("localhost"));
+        let host = inventory.read().expect("inventory read").get_host(&String::from("localhost"));
+        let mut lc = LocalConnection::new(&Arc::clone(&host));
+        lc.connect().expect("connection ok");
         Self {
             inventory: Arc::clone(&inventory),
-            local_connection: Arc::new(Mutex::new(LocalConnection::new(&Arc::clone(&host))))
+            local_connection: Arc::new(Mutex::new(lc))
         } 
     }
 }
@@ -62,8 +64,16 @@ impl LocalConnection {
 impl Connection for LocalConnection {
 
     fn connect(&mut self) -> Result<(),String> {
-        detect_os(&self.host);
-        return Ok(());
+
+        let result = detect_os(&self.host);
+        if result.is_ok() {
+            return Ok(());
+        }
+        else {
+            let (rc, out) = result.unwrap_err();
+            println!("control machine OS detection failed: rc:{}, out:{}", rc, out);
+            return Err(out);
+        }
     }
 
     fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
@@ -72,10 +82,18 @@ impl Connection for LocalConnection {
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
             Ok(x) => match x.status.code() {
-                Some(y)      => Ok(handle.command_ok(request, CommandResult { cmd: cmd.clone(), out: convert_out(&x.stdout), rc: y })),
-                _            => Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))
+                Some(y) => {
+                    let out = convert_out(&x.stdout);
+                    Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: y }))))
+                }
+                _  => {
+                    let out = convert_out(&x.stdout);
+                    Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
+                }
             },
-            Err(_x) => Err(handle.command_failed(request, CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))
+            Err(_x) => {
+                Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))))
+            }
         }
     }
 
@@ -103,7 +121,7 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
                 {
                     println!("LOCAL LOCK!");
                     match host.write().unwrap().set_os_info(&out) {
-                        Ok(_) => {},
+                        Ok(_) => { println!("OS info set ok!") },
                         Err(_) => { return Err((500, String::from("failed to set OS info"))); }
                     }
                     println!("LOCAL LOCK CLEAR!");
