@@ -102,6 +102,7 @@ fn run_task_on_host(
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
                     let req = TaskRequest::create();
+                    println!("CREATE DISPATCH! {:?}", req);
                     let crc = action.dispatch(&handle, &req);
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {

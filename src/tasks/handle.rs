@@ -284,7 +284,7 @@ impl TaskHandle {
     pub fn is_created(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Create, "is_executed response can only be returned for a creation request");
         return Arc::new(TaskResponse { 
-            status: TaskStatus::IsExecuted, 
+            status: TaskStatus::IsCreated, 
             changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }

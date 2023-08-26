@@ -42,14 +42,14 @@ impl PlaybookVisitor for LiveVisitor {
     fn is_check_mode(&self)     -> bool { return false; }
 }
 
-pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> i32 {
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, verbosity:u32) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
-        context: Arc::new(RwLock::new(PlaybookContext::new())),
+        context: Arc::new(RwLock::new(PlaybookContext::new(verbosity))),
         visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),
-        default_user: None
+        default_user: None,
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().expect("visitor read").get_exit_status(&run_state.context),
@@ -57,11 +57,11 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
     };
 }
 
-pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, default_user: Option<String>) -> i32 {
+pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, default_user: Option<String>, verbosity:u32) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
-        context: Arc::new(RwLock::new(PlaybookContext::new())),
+        context: Arc::new(RwLock::new(PlaybookContext::new(verbosity))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(SshFactory::new(inventory))),
         default_user: default_user
@@ -72,11 +72,11 @@ pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwL
     };
 }
 
-pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>) -> i32 {
+pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, verbosity:u32) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(playbook_paths),
-        context: Arc::new(RwLock::new(PlaybookContext::new())),
+        context: Arc::new(RwLock::new(PlaybookContext::new(verbosity))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(LocalFactory::new(inventory))),
         default_user: None

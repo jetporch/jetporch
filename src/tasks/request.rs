@@ -24,7 +24,7 @@ use std::collections::HashSet;
 // modifications, this includes the list (map) of parameters to change
 // as returned by the query request
 
-#[derive(PartialEq)]
+#[derive(Debug,PartialEq)]
 pub enum TaskRequestType {
     Validate,
     Query,
@@ -35,6 +35,7 @@ pub enum TaskRequestType {
     Passive,
 }
 
+#[derive(Debug)]
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
     pub changes: HashSet<Field>

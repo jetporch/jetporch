@@ -88,9 +88,9 @@ fn liftoff() -> Result<(),String> {
                 1
             }
         }
-        cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser.playbook_paths),
-        cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths, cli_parser.default_user),
-        cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser.playbook_paths),
+        cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser.playbook_paths, cli_parser.verbosity),
+        cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser.playbook_paths, cli_parser.default_user, cli_parser.verbosity),
+        cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser.playbook_paths, cli_parser.verbosity),
         _ => { println!("invalid CLI mode"); 1 }
     };
     if exit_status != 0 {

@@ -96,7 +96,10 @@ impl IsAction for TemplateAction {
                 handle.template_remote_file(request, &self.src, &self.dest)?
                 handle.process_all_common_file_attributes(&request)?;
                 */
-                return Ok(handle.is_created(&request));
+                println!("ON CREATE!");
+                let rc = handle.is_created(&request);
+                println!("RETURNING: {:?}", rc);
+                return Ok(rc);
             }
 
             TaskRequestType::Modify => {

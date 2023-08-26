@@ -30,7 +30,9 @@ use std::ops::Deref;
 // execution and various results/stats along the way
 
 pub struct PlaybookContext {
-    
+
+    pub verbosity: u32,
+
     pub playbook_path: Option<String>,
     pub playbook_directory: Option<String>,
     pub play: Option<String>,
@@ -69,8 +71,9 @@ pub struct PlaybookContext {
 
 impl PlaybookContext {
 
-    pub fn new() -> Self {
+    pub fn new(verbosity: u32) -> Self {
         Self {
+            verbosity: verbosity,
             playbook_path: None,
             playbook_directory: None,
             play: None,

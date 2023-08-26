@@ -214,25 +214,26 @@ pub trait PlaybookVisitor : Send + Sync {
 
     fn on_command_ok(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
         let host2 = host.read().expect("host read");
-        let lock = context.write().expect("context write");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
-        // FIXME: date with verbose CLI flag
-        println!("{color_blue}! {} ... command ok", host2.name);
-        println!("    cmd: {}", cmd_result.cmd);
-        println!("    out: {}", cmd_result.out);
-        println!("    rc: {}{color_reset}", cmd_result.rc);
+        if context.read().unwrap().verbosity > 1 {
+            let ctx2 = context.write().unwrap(); // lock for multi-line output
+            println!("{color_blue}! {} ... command ok", host2.name);
+            println!("    cmd: {}", cmd_result.cmd);
+            println!("    out: {}", cmd_result.out);
+            println!("    rc: {}{color_reset}", cmd_result.rc);
+        }
     }
 
     fn on_command_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
         let host2 = host.read().expect("context read");
-        let lock = context.write().expect("context write");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
-
-        // FIXME: date with verbose CLI flag
-        println!("{color_red}! {} ... command failed", host2.name);
-        println!("    cmd: {}", cmd_result.cmd);
-        println!("    out: {}", cmd_result.out);
-        println!("    rc: {}{color_reset}", cmd_result.rc);
+        if context.read().unwrap().verbosity > 1 {
+            let ctx2 = context.write().unwrap(); // lock for multi-line output
+            println!("{color_red}! {} ... command failed", host2.name);
+            println!("    cmd: {}", cmd_result.cmd);
+            println!("    out: {}", cmd_result.out);
+            println!("    rc: {}{color_reset}", cmd_result.rc);
+        }
     }
 
 

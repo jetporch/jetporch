@@ -34,6 +34,7 @@ pub struct CliParser {
     pub batch_size: Option<usize>,
     pub default_user: Option<String>,
     pub threads: Option<usize>,
+    pub verbosity: u32
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -72,6 +73,7 @@ const ARGUMENT_HELP: &'static str = "--help";
 const ARGUMENT_DEFAULT_USER: &'static str = "--default-user";
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
+const ARGUMENT_VERBOSE: &'static str = "-v";
 
 fn show_help() {
 
@@ -91,8 +93,6 @@ fn show_help() {
                       | --- | --- | --- | --- \n\
                       | utility: | | | \n\
                       | | syntax| evaluates input files for errors| no\n\
-                      | | | \n\
-                      | | simulate| simulates playbook execution | no\n\
                       | | | \n\
                       | | show | displays inventory, playbooks, groups, and hosts | no\n\
                       | | | \n\
@@ -118,7 +118,7 @@ fn show_help() {
                        | basics: | | | |\n\
                        | | --playbook path1:path2| specifies automation content| most | - |\n\
                        | | | | |\n\
-                       | | --inventory path1:path2| specifies which systems to manage| most | - |\n\
+                       | | --inventory path1:path2| specifies which systems to manage| ssh | - |\n\
                        | | | | |\n\
                        | | --roles path1:path2| provides additional role search paths| - | most\n\
                        | | | | |\n\
@@ -130,12 +130,8 @@ fn show_help() {
                        | | | | |\n\
                        | | --hosts host1| for use with playbook narrowing or 'show' | - | most\n\
                        | | | | |\n\
-                       | | --tags tag1:tag2| for use with playbook narrowing or 'show' | - | most\n\
-                       | | | |\n\
                        | --- | --- | --- | --- | --- |\n\
                        | advanced: | | | |\n\
-                       | | --batch-size N | how many hosts to configure at once | - | ssh |\n\
-                       | | | |\n\
                        | | --threads N| how many threads to use in SSH operations| - | ssh |\n\
                        | | | |\n\
                        |-|-|-|-|-";
@@ -161,7 +157,8 @@ impl CliParser  {
             default_user: None,
             threads: None,
             inventory_set: false,
-            playbook_set: false
+            playbook_set: false,
+            verbosity: 0
         }
     }
 
@@ -223,12 +220,15 @@ impl CliParser  {
                             ARGUMENT_DEFAULT_USER => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_BATCH_SIZE   => self.store_batch_size_value(&args[arg_count]),
                             ARGUMENT_THREADS      => self.store_threads_value(&args[arg_count]),
+                            ARGUMENT_VERBOSE      => self.increment_verbosity(),
 
                             _                  => Err(format!("invalid flag: {}", argument_str)),
                             
                         };
                         if result.is_err() { return result; }
-                        next_is_value = true;
+                        if ! argument_str.eq(ARGUMENT_VERBOSE) {
+                            next_is_value = true;
+                        }
 
                     } else {
                         next_is_value = false;
@@ -320,6 +320,11 @@ impl CliParser  {
             Ok(n) =>  { self.threads = Some(n); return Ok(()); }
             Err(e) => { return Err(format!("--{}: invalid value", ARGUMENT_THREADS)); }
         }
+    }
+
+    fn increment_verbosity(&mut self) -> Result<(), String> {
+        self.verbosity = self.verbosity + 1;
+        return Ok(())
     }
 
 }
