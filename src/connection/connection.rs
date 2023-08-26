@@ -26,7 +26,7 @@ pub trait Connection : Send + Sync {
 
     // FIXME: add error return objects
     
-    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>);
+    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>>;
 
     /* 
     FIXME: should add, return result
@@ -34,6 +34,5 @@ pub trait Connection : Send + Sync {
     */
 
     fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
-
 
 }

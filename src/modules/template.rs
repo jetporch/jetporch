@@ -70,7 +70,7 @@ impl IsAction for TemplateAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                let remote_mode = handle.remote_stat(request, &self.dest)?;
+                let remote_mode = handle.get_remote_mode(request, &self.dest)?;
                 if remote_mode.is_none() {
                     println!("XDEBUG: no stat");
                     return Ok(handle.needs_creation(&request));
@@ -96,9 +96,18 @@ impl IsAction for TemplateAction {
                 handle.template_remote_file(request, &self.src, &self.dest)?
                 handle.process_all_common_file_attributes(&request)?;
                 */
-                println!("ON CREATE!");
+
+                let remote_put_mode = handle.get_desired_numeric_mode(&request, &self.attributes)?;
+                
+                let template_contents = handle.read_local_file(&request, &self.src)?;
+
+                let data = handle.template_string(&request, &String::from("src"), &template_contents)?;
+                
+                handle.write_remote_data(&request, &data, &self.dest, remote_put_mode)?;
+
+                // handle.process_all_common_file_attributes(&request, &self.attributes)?;
+
                 let rc = handle.is_created(&request);
-                println!("RETURNING: {:?}", rc);
                 return Ok(rc);
             }
 

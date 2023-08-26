@@ -131,8 +131,10 @@ fn show_help() {
                        | | --hosts host1| for use with playbook narrowing or 'show' | - | most\n\
                        | | | | |\n\
                        | --- | --- | --- | --- | --- |\n\
-                       | advanced: | | | |\n\
+                       | additional: | | | |\n\
                        | | --threads N| how many threads to use in SSH operations| - | ssh |\n\
+                       | | | |\n\
+                       | | -v| increments verbosity (can use more than once) | - | most |\n\
                        | | | |\n\
                        |-|-|-|-|-";
 

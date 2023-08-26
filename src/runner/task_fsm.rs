@@ -21,7 +21,7 @@ use crate::playbooks::traversal::RunState;
 use crate::tasks::request::TaskRequest;
 use crate::inventory::hosts::Host;
 use crate::tasks::response::{TaskStatus,TaskResponse};
-use crate::tasks::logic::PreLogicInput;
+//use crate::tasks::logic::PreLogicInput;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;

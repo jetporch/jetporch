@@ -17,7 +17,7 @@
 use crate::connection::connection::Connection;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskStatus, TaskResponse};
-use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
+//use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
 use crate::inventory::hosts::{Host,HostOSType};
 use std::collections::HashSet;
 use std::sync::{Arc,Mutex,RwLock};
@@ -27,6 +27,10 @@ use std::path::{Path,PathBuf};
 use crate::tasks::fields::Field;
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
+use crate::util::io::jet_file_open;
+//use std::fs;
+use std::io::Read;
+use crate::tasks::FileAttributesEvaluated;
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
@@ -49,11 +53,15 @@ impl TaskHandle {
         }
     }
 
+    // returns the context object. Generally module callers shouldn't need to get a hold of this one, but it's a useful place
+    // to grab a write lock when sending multi-line output.
     #[inline]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
 
+    // this visitor is useful for callbacks, though most are handled for the modules by task FSM.  Use sparingly from module
+    // code.
     #[inline]
     pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
@@ -62,12 +70,16 @@ impl TaskHandle {
     // ================================================================================
     // PLAYBOOK UTILS: simplified interactions to make module code nicer.
 
+    // runs an external command and returns a task response
+    // return code and output can be easily extracted by using the cmd_info() function on a task response
+    // we know has command info in it.
     #[inline]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         return self.connection.lock().unwrap().run_command(self, request, cmd);
     }
 
+    // reads the host OS type which is determined at connection time
     pub fn get_os_type(&self) -> HostOSType {
         let os_type = self.host.read().unwrap().os_type;
         if os_type.is_none() {
@@ -76,7 +88,34 @@ impl TaskHandle {
         return os_type.unwrap();
     }
 
-    pub fn remote_stat(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
+    // get the string contents of a local file, this is not really for copy operations but for small files like template sources
+    pub fn read_local_file(&self, request: &Arc<TaskRequest>, path: &Path) -> Result<String, Arc<TaskResponse>> {
+        let mut file = jet_file_open(path);
+        match file {
+            Ok(mut f) => {
+                let mut buffer = String::new();
+                let read_result = f.read_to_string(&mut buffer);
+                match read_result {
+                    Ok(_) => {},
+                    Err(x) => {
+                        return Err(self.is_failed(&request, &format!("unable to read file: {}, {:?}", path.display(), x)));
+                    }
+                };
+                return Ok(buffer.clone());
+            }
+            Err(x) => {
+                return Err(self.is_failed(&request, &format!("unable to open file: {}, {:?}", path.display(), x)));
+            }
+        };
+    }
+    
+    // writes a string (for example, from a template) to a remote file location
+    pub fn write_remote_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+        return self.connection.lock().unwrap().write_data(self, &request, &data.clone(), &path.clone(), mode);
+    }
+
+    // gets the mode of a remote file as an octal string with no prefix
+    pub fn get_remote_mode(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
         let cmd : String = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
 
         let result = self.run(request,&cmd)?;
@@ -88,11 +127,18 @@ impl TaskHandle {
         }
     }
 
+    // gets the numeric octal value of the task object (not to be used with remote files)
+    pub fn get_desired_numeric_mode(&self, request: &Arc<TaskRequest>, attribs: &Option<FileAttributesEvaluated>) -> Result<Option<i32>,Arc<TaskResponse>>{
+        return FileAttributesEvaluated::get_numeric_mode(self, request, attribs); 
+    }
+
+    // given a field name and a path fragment, find a file in where it should normally be found ('./templates')
     #[inline]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         return self.find_sub_path(&String::from("templates"), request, field, str_path);
     }
 
+    // supporting code for functions like find_template_path
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
 
         let mut path = PathBuf::new();
@@ -115,11 +161,16 @@ impl TaskHandle {
         }
     }
 
+    // outputs a debug message to the screen, note that this ignores verbosity levels and is really here
+    // to support modules whose primary purpose is debugging, like echo, and not module programming, where
+    // a temporary println may be more appropriate.
     #[inline]
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
 
+    // similar to debug_lines but acquires a lock for multi-line output that will not interlace
+    // with parallel SSH requests.
     #[inline]
     pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
@@ -157,6 +208,8 @@ impl TaskHandle {
     }
     */
 
+    // renders a template with variables from the current host (and everything else in the system)
+    // this is used for evaluating fields as well as template operations for the template module
     pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         return match result {
@@ -167,6 +220,7 @@ impl TaskHandle {
         }
     }
 
+    // this is used to evaluate fields that have optional string values
     pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         if template.is_none() { return Ok(None); }
         let result = self.template_string(request, field, &template.as_ref().unwrap());
@@ -178,6 +232,7 @@ impl TaskHandle {
         };
     }
 
+    // this is used to template fields that render down into integers
     pub fn template_integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
         let st = self.template_string(request, field, template)?;
         let num = st.parse::<i64>();
@@ -187,6 +242,7 @@ impl TaskHandle {
         }
     }
 
+    // this is used to template fields that render down into integers, but can be omitted
     pub fn template_integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
         if template.is_none() { return Ok(None); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
@@ -197,6 +253,7 @@ impl TaskHandle {
         }
     }
 
+    // this is used to template fields that must render down to booleans.
     pub fn template_boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
         let st = self.template_string(request,field, template)?;
         let x = st.parse::<bool>();
@@ -206,6 +263,7 @@ impl TaskHandle {
         }
     }
 
+    // this is used to template fields that must render down to booleans but are optional
     pub fn template_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
         if template.is_none() { return Ok(false); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
@@ -216,6 +274,7 @@ impl TaskHandle {
         }
     }
 
+    // evaluates a conditional expression - this is for "with/cond" statements.
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
         let result = self.get_context().read().unwrap().test_cond(expr, &self.host);
         return match result {

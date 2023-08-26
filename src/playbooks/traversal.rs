@@ -29,7 +29,7 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Arc,RwLock};
 use std::path::Path;
-use std::ops::Deref;
+//use std::ops::Deref;
 use std::env;
 
 // traversal code walks a playbook and does "things" to it, different behaviors

@@ -27,6 +27,10 @@ use std::sync::Mutex;
 use std::sync::RwLock;
 use std::process::Command;
 use crate::Inventory;
+use crate::util::io::jet_file_open;
+use std::fs::File;
+use std::path::Path;
+use std::io::Write;
 
 pub struct LocalFactory {
     local_connection: Arc<Mutex<dyn Connection>>,
@@ -97,8 +101,30 @@ impl Connection for LocalConnection {
         }
     }
 
-    // FIXME: implement, this signature will change, should return some type of result object
-    fn put_file(&self, _data: String, _remote_path: String, _mode: Option<i32>) {
+    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+        let path = Path::new(&remote_path);
+        if path.exists() {   
+            let mut file = match jet_file_open(path) {
+                Ok(x) => x,
+                Err(y) => return Err(handle.is_failed(&request, &format!("failed to open: {}: {:?}", remote_path, y)))
+            };
+            let write_result = write!(file, "{}", data);
+            match write_result {
+                Ok(_) => {},
+                Err(y) => return Err(handle.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
+            };
+        } else {
+            let mut file = match File::create(&path) {
+                Ok(x) => x,
+                Err(y) => return Err(handle.is_failed(&request, &format!("failed to create: {}: {:?}", remote_path, y)))
+            };
+            let write_result = write!(file, "{}", data);
+            match write_result {
+                Ok(_) => {},
+                Err(y) => return Err(handle.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
+            };
+        }
+        return Ok(());
     }
 
 }
@@ -119,12 +145,10 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
             Some(0)      => { 
                 let out = convert_out(&x.stdout);
                 {
-                    println!("LOCAL LOCK!");
                     match host.write().unwrap().set_os_info(&out) {
                         Ok(_) => { println!("OS info set ok!") },
                         Err(_) => { return Err((500, String::from("failed to set OS info"))); }
                     }
-                    println!("LOCAL LOCK CLEAR!");
                 }
                 Ok(())
             }

@@ -59,7 +59,8 @@ impl Connection for NoConnection {
    }
 
    // FIXME: this signature will change
-   fn put_file(&self, _data: String, _remote_path: String, _mode: Option<i32>) {
+   fn write_data(&self, _handle: &TaskHandle, _request: &Arc<TaskRequest>, _data: &String, _remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>>{
        panic!("NoConnection may only be used for syntax checking");
    }
+
 }

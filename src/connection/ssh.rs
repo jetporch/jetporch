@@ -19,7 +19,7 @@ use crate::connection::connection::{Connection};
 use crate::connection::command::{CommandResult};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
-use crate::connection::local::{LocalConnection,LocalFactory};
+use crate::connection::local::{LocalFactory};
 use crate::tasks::*;
 use crate::inventory::hosts::Host;
 use crate::Inventory;
@@ -188,7 +188,7 @@ impl Connection for SshConnection {
  
     // test pushing a file
     // FIXME: this signature will change -- needs testing
-    fn put_file(&self, data: String, remote_path: String, mode: Option<i32>) {
+    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
         // FIXME: all to the unwrap() calls should be caught
         // FIXME: we should take the mode as input
         let mut real_mode: i32 = 0o644;
@@ -196,17 +196,38 @@ impl Connection for SshConnection {
             real_mode = mode.unwrap();
         }
         let data_size = data.len() as u64;
-        // Write the file
-        let mut remote_file = self.session.as_ref().unwrap().scp_send(
+        let mut remote_file_result = self.session.as_ref().unwrap().scp_send(
             Path::new(&remote_path), real_mode, data_size, None
-        ).unwrap();
-        remote_file.write(data.as_bytes()).unwrap(); // was b"foo"
+        );
+
+        let remote_file = match remote_file_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to transmit remote file: {}, {:?}", remote_path, y)))) }
+        };
+        match remote_file.write(data.as_bytes()) {
+            Ok(_) => {},
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to write remote file: {}, {:?}", remote_path, y)))) }
+        };
         // Close the channel and wait for the whole content to be transferred
-        remote_file.send_eof().unwrap();
-        remote_file.wait_eof().unwrap();
-        remote_file.close().unwrap();
-        remote_file.wait_close().unwrap();
+        match remote_file.send_eof() {
+            Ok(_) => {},
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed sending eof to remote file: {}, {:?}", remote_path, y)))) }
+        };
+        match remote_file.wait_eof() {
+            Ok(_) => {},
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed waiting for eof on remote file: {}, {:?}", remote_path, y)))) }
+        };
+        match remote_file.close() {
+            Ok(_) => {},
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed closing remote file: {}, {:?}", remote_path, y)))) }
+        };
+        match remote_file.wait_close() {
+            Ok(_) => {},
+            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed waiting for file to close on remote file: {}, {:?}", remote_path, y)))) }
+        };
+        return Ok(());
     }
+
 }
 
 fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String),(i32,String)> {
