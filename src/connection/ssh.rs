@@ -200,11 +200,13 @@ impl Connection for SshConnection {
             Path::new(&remote_path), real_mode, data_size, None
         );
 
-        let remote_file = match remote_file_result {
+        let mut remote_file = match remote_file_result {
             Ok(x) => x,
             Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to transmit remote file: {}, {:?}", remote_path, y)))) }
         };
-        match remote_file.write(data.as_bytes()) {
+        let bytes = data.as_bytes();
+        let write_result = remote_file.write(bytes);
+        match write_result {
             Ok(_) => {},
             Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to write remote file: {}, {:?}", remote_path, y)))) }
         };

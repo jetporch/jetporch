@@ -105,13 +105,17 @@ impl FileAttributesEvaluated {
     // if the action has an evaluated Attributes section, the mode will be stored as an octal string like "777", we need
     // an integer for some internal APIs.
     pub fn get_numeric_mode(handle: &TaskHandle, request: &Arc<TaskRequest>, this: &Option<Self>) -> Result<Option<i32>, Arc<TaskResponse>> {
+        
         return match this.is_some() {
-            true => match this.unwrap().mode {
-                Some(x) => {
-                    let value = FileAttributesInput::octal_string_to_number(&handle, &request, &x)?;
-                    return Ok(Some(value));
+            true => {
+                let mode = &this.as_ref().unwrap().mode;
+                match mode {
+                    Some(x) => {
+                        let value = FileAttributesInput::octal_string_to_number(&handle, &request, &x)?;
+                        return Ok(Some(value));
+                    },
+                    None => Ok(None)
                 }
-                None => Ok(None)
             },
             false => Ok(None),
         };
