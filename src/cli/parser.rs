@@ -5,12 +5,12 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -40,7 +40,7 @@ pub struct CliParser {
 
 pub const CLI_MODE_UNSET: u32 = 0;
 pub const CLI_MODE_SYNTAX: u32 = 1;
-pub const CLI_MODE_LOCAL: u32 = 2; 
+pub const CLI_MODE_LOCAL: u32 = 2;
 pub const CLI_MODE_CHECK_LOCAL: u32 = 3;
 pub const CLI_MODE_SSH: u32 = 4;
 pub const CLI_MODE_CHECK_SSH: u32 = 5;
@@ -83,10 +83,10 @@ fn show_help() {
                         | --- | ---\n\
                         | | usage: jetp <MODE> [flags]\n\
                         |-|-";
-    
+
     println!("");
     crate::util::terminal::markdown_print(&String::from(header_table));
-    println!("");  
+    println!("");
 
     let mode_table = "|:-|:-|:-|:-:|\n\
                       |  | *Mode* | *Description* | *Makes Changes?* \n\
@@ -140,7 +140,7 @@ fn show_help() {
 
     crate::util::terminal::markdown_print(&String::from(flags_table));
     println!("");
-    
+
 }
 
 
@@ -148,7 +148,7 @@ impl CliParser  {
 
     pub fn new() -> Self {
 
-        CliParser { 
+        CliParser {
             playbook_paths: Arc::new(RwLock::new(Vec::new())),
             inventory_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
@@ -170,7 +170,7 @@ impl CliParser  {
     }
 
     pub fn parse(&mut self) -> Result<(), String> {
-  
+
         let mut arg_count: usize = 0;
         let mut next_is_value = false;
 
@@ -193,16 +193,16 @@ impl CliParser  {
                         self.needs_help = true;
                         return Ok(())
                     }
-                    
-                    // if it's not --help, then the second argument is the 
+
+                    // if it's not --help, then the second argument is the
                     // required 'mode' parameter
-                    let result = self.store_mode_value(argument)?;
+                    let _result = self.store_mode_value(argument)?;
                     continue 'each_argument;
                 },
 
                 // for the rest of the arguments we need to pay attention to whether
                 // we are reading a flag or a value, which alternate
-                _ => { 
+                _ => {
 
                     if next_is_value == false {
 
@@ -213,7 +213,7 @@ impl CliParser  {
                             self.needs_help = true;
                             return Ok(())
                         }
-                        
+
                         let result = match argument_str {
                             ARGUMENT_PLAYBOOK     => self.store_playbook_value(&args[arg_count]),
                             ARGUMENT_INVENTORY    => self.store_inventory_value(&args[arg_count]),
@@ -225,7 +225,7 @@ impl CliParser  {
                             ARGUMENT_VERBOSE      => self.increment_verbosity(),
 
                             _                  => Err(format!("invalid flag: {}", argument_str)),
-                            
+
                         };
                         if result.is_err() { return result; }
                         if ! argument_str.eq(ARGUMENT_VERBOSE) {
@@ -238,11 +238,11 @@ impl CliParser  {
                     }
                 } // end argument numbers 3-N
             }
-        } 
+        }
 
         return self.validate_internal_consistency()
-    } 
-      
+    }
+
     fn validate_internal_consistency(&mut self) -> Result<(), String> {
 
         match self.mode {
@@ -254,7 +254,7 @@ impl CliParser  {
             CLI_MODE_SHOW => (),
             CLI_MODE_UNSET => { self.needs_help = true; },
             _ => { panic!("internal error: impossible mode"); }
-        } 
+        }
         return Ok(())
     }
 
@@ -265,11 +265,11 @@ impl CliParser  {
         }
         return Err(format!("jetp mode ({}) is not valid, see --help", value))
      }
-    
+
     fn store_playbook_value(&mut self, value: &String) -> Result<(), String> {
         self.playbook_set = true;
         match parse_paths(value) {
-            Ok(paths)  =>  { *self.playbook_paths.write().expect("playbook paths write") = paths; }, 
+            Ok(paths)  =>  { *self.playbook_paths.write().expect("playbook paths write") = paths; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
         }
         return Ok(());
@@ -283,7 +283,7 @@ impl CliParser  {
         }
 
         match parse_paths(value) {
-            Ok(paths)  =>  { *self.inventory_paths.write().expect("inventory paths write") = paths; }, 
+            Ok(paths)  =>  { *self.inventory_paths.write().expect("inventory paths write") = paths; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_INVENTORY, err_msg)),
         }
         return Ok(());
@@ -291,7 +291,7 @@ impl CliParser  {
 
     fn store_groups_value(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
-            Ok(values)  =>  { self.groups = values; }, 
+            Ok(values)  =>  { self.groups = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_GROUPS, err_msg)),
         }
         return Ok(());
@@ -299,7 +299,7 @@ impl CliParser  {
 
     fn store_hosts_value(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
-            Ok(values)  =>  { self.hosts = values; }, 
+            Ok(values)  =>  { self.hosts = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_HOSTS, err_msg)),
         }
         return Ok(());
@@ -312,15 +312,15 @@ impl CliParser  {
 
     fn store_batch_size_value(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<usize>() {
-            Ok(n) =>  { self.batch_size = Some(n); return Ok(()); },
-            Err(e) => { return Err(format!("--{}: invalid value", ARGUMENT_BATCH_SIZE)); }
+            Ok(n) => { self.batch_size = Some(n); return Ok(()); },
+            Err(_e) => { return Err(format!("--{}: invalid value",ARGUMENT_BATCH_SIZE)); }
         }
     }
 
     fn store_threads_value(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<usize>() {
             Ok(n) =>  { self.threads = Some(n); return Ok(()); }
-            Err(e) => { return Err(format!("--{}: invalid value", ARGUMENT_THREADS)); }
+            Err(_e) => { return Err(format!("--{}: invalid value", ARGUMENT_THREADS)); }
         }
     }
 
@@ -350,4 +350,3 @@ fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
     }
     return Ok(results);
 }
-

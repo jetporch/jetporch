@@ -15,9 +15,9 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 //#[allow(unused_imports)]
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::sync::Arc;
 use std::collections::HashSet;
 
@@ -33,6 +33,7 @@ pub struct TemplateTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
+#[allow(dead_code)]
 struct TemplateAction {
     pub name: String,
     pub src: PathBuf,
@@ -79,7 +80,7 @@ impl IsAction for TemplateAction {
                     println!("DEBUG: got a stat {}", remote_mode.unwrap());
                 }
 
-                let mut changes : Option<Arc<HashSet<Field>>> = Some(Arc::new(HashSet::new()));
+                let changes : Option<Arc<HashSet<Field>>> = Some(Arc::new(HashSet::new()));
                 /*
                 let local_checksum = self.local_checksum(&self.src)?;
                 handle.query_common_file_attributes(request, &self.dest, &remote_mode, &local_checksum, &mut changes)?;                   

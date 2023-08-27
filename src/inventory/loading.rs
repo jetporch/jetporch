@@ -16,9 +16,9 @@
 
 use std::path::{Path,PathBuf};
 use Vec;
-use serde::{Deserialize};
+use serde::Deserialize;
 use crate::util::io::{path_walk,jet_file_open,path_basename_as_string,is_executable};
-use crate::util::yaml::{show_yaml_error_in_context};
+use crate::util::yaml::show_yaml_error_in_context;
 use crate::inventory::inventory::Inventory;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -34,8 +34,8 @@ use std::sync::RwLock;
 pub struct YamlGroup {
     hosts : Option<Vec<String>>,
     subgroups : Option<Vec<String>>,
-    ssh_user : Option<String>,
-    ssh_port: Option<String>,
+    //ssh_user : Option<String>,
+    //ssh_port: Option<String>,
 }
 
 // ==============================================================================================================

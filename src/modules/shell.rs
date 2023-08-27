@@ -17,7 +17,7 @@
 use crate::tasks::*;
 use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::sync::Arc;
 
 const MODULE: &'static str = "Shell";
@@ -30,6 +30,7 @@ pub struct ShellTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
+#[allow(dead_code)]
 struct ShellAction {
     pub name: String,
     pub cmd: String,

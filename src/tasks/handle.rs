@@ -172,7 +172,7 @@ impl TaskHandle {
     // similar to debug_lines but acquires a lock for multi-line output that will not interlace
     // with parallel SSH requests.
     #[inline]
-    pub fn debug_lines(&self, request: &Arc<TaskRequest>, messages: &Vec<String>) {
+    pub fn debug_lines(&self, _request: &Arc<TaskRequest>, messages: &Vec<String>) {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
 
@@ -210,7 +210,7 @@ impl TaskHandle {
 
     // renders a template with variables from the current host (and everything else in the system)
     // this is used for evaluating fields as well as template operations for the template module
-    pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn template_string(&self, request: &Arc<TaskRequest>, _field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         return match result {
             Ok(x) => Ok(x),
@@ -259,7 +259,7 @@ impl TaskHandle {
         let x = st.parse::<bool>();
         match x {
             Ok(x) => Ok(x),
-            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 
@@ -270,7 +270,7 @@ impl TaskHandle {
         let x = st.parse::<bool>();
         match x {
             Ok(x) => Ok(x),
-            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 

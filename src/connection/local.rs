@@ -5,17 +5,17 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::connection::connection::{Connection};
-use crate::connection::command::{CommandResult};
+use crate::connection::connection::Connection;
+use crate::connection::command::CommandResult;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
@@ -37,19 +37,19 @@ pub struct LocalFactory {
     inventory: Arc<RwLock<Inventory>>
 }
 
-impl LocalFactory { 
-    pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
+impl LocalFactory {
+    pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self {
         let host = inventory.read().expect("inventory read").get_host(&String::from("localhost"));
         let mut lc = LocalConnection::new(&Arc::clone(&host));
         lc.connect().expect("connection ok");
         Self {
             inventory: Arc::clone(&inventory),
             local_connection: Arc::new(Mutex::new(lc))
-        } 
+        }
     }
 }
 impl ConnectionFactory for LocalFactory {
-    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
+    fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
         let conn : Arc<Mutex<dyn Connection>> = Arc::clone(&self.local_connection);
         return Ok(conn);
     }
@@ -88,10 +88,18 @@ impl Connection for LocalConnection {
             Ok(x) => match x.status.code() {
                 Some(y) => {
                     let out = convert_out(&x.stdout);
-                    Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: y }))))
-                }
-                _  => {
-                    let out = convert_out(&x.stdout);
+                    Ok(
+                        handle.command_ok(request,
+                            &Arc::new(
+                                Some(
+                                    CommandResult { cmd: cmd.clone(), out: out.clone(), rc: y }
+                                )
+                            )
+                        )
+                    )
+                },
+                _ => {
+                    let _out = convert_out(&x.stdout);
                     Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
                 }
             },
@@ -101,9 +109,9 @@ impl Connection for LocalConnection {
         }
     }
 
-    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
         let path = Path::new(&remote_path);
-        if path.exists() {   
+        if path.exists() {
             let mut file = match jet_file_open(path) {
                 Ok(x) => x,
                 Err(y) => return Err(handle.is_failed(&request, &format!("failed to open: {}: {:?}", remote_path, y)))
@@ -142,7 +150,7 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
     let command = base.arg("-a");
     return match command.output() {
         Ok(x) => match x.status.code() {
-            Some(0)      => { 
+            Some(0)      => {
                 let out = convert_out(&x.stdout);
                 {
                     match host.write().unwrap().set_os_info(&out) {

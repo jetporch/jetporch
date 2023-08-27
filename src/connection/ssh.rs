@@ -15,11 +15,11 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-use crate::connection::connection::{Connection};
-use crate::connection::command::{CommandResult};
+use crate::connection::connection::Connection;
+use crate::connection::command::CommandResult;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
-use crate::connection::local::{LocalFactory};
+use crate::connection::local::LocalFactory;
 use crate::tasks::*;
 use crate::inventory::hosts::Host;
 use crate::Inventory;
@@ -29,7 +29,7 @@ use std::io::{Read,Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
-use std::net::{ToSocketAddrs};
+use std::net::ToSocketAddrs;
 
 pub struct SshFactory {
     local_factory: LocalFactory,
@@ -104,12 +104,12 @@ impl Connection for SshConnection {
         }
 
         // derived from docs at https://docs.rs/ssh2/latest/ssh2/
-        let session = match Session::new() { Ok(x) => x, Err(y) => { return Err(String::from("failed to attach to session")); } };
-        let mut agent = match session.agent() { Ok(x) => x, Err(y) => { return Err(String::from("failed to acquire SSH-agent")); } };
+        let session = match Session::new() { Ok(x) => x, Err(_y) => { return Err(String::from("failed to attach to session")); } };
+        let mut agent = match session.agent() { Ok(x) => x, Err(_y) => { return Err(String::from("failed to acquire SSH-agent")); } };
         
 
         // Connect the agent and request a list of identities
-        match agent.connect() { Ok(x) => {}, Err(y)  => { return Err(String::from("failed to connect to SSH-agent")) }}
+        match agent.connect() { Ok(_x) => {}, Err(_y)  => { return Err(String::from("failed to connect to SSH-agent")) }}
         //agent.list_identities().unwrap();
         //for identity in agent.identities().unwrap() {
         //    println!("{}", identity.comment());
@@ -126,10 +126,10 @@ impl Connection for SshConnection {
         
 
         // connect with timeout requires SocketAddr objects instead of just connection strings
-        let mut addrs_iter = connect_str.as_str().to_socket_addrs();
+        let addrs_iter = connect_str.as_str().to_socket_addrs();
         
         // check for errors
-        let mut addrs_iter2 = match addrs_iter { Err(x) => { return Err(String::from("unable to resolve")); }, Ok(y) => y };
+        let mut addrs_iter2 = match addrs_iter { Err(_x) => { return Err(String::from("unable to resolve")); }, Ok(y) => y };
         let addr = addrs_iter2.next();
         if ! addr.is_some() { return Err(String::from("unable to resolve(2)"));  }
         
@@ -153,11 +153,11 @@ impl Connection for SshConnection {
         // OS detection
         let uname_result = run_command_low_level(&sess, &String::from("uname -a"));
         match uname_result {
-            Ok((rc,out)) => {
+            Ok((_rc,out)) => {
                 {
                     match self.host.write().unwrap().set_os_info(&out.clone()) {
-                        Ok(x) => {},
-                        Err(y) => return Err(format!("failed to set OS info"))
+                        Ok(_x) => {},
+                        Err(_y) => return Err(format!("failed to set OS info"))
                     }
                 }
                 //match result2 { Ok(_) => {}, Err(s) => { return Err(s.to_string()) } }
@@ -196,7 +196,7 @@ impl Connection for SshConnection {
             real_mode = mode.unwrap();
         }
         let data_size = data.len() as u64;
-        let mut remote_file_result = self.session.as_ref().unwrap().scp_send(
+        let remote_file_result = self.session.as_ref().unwrap().scp_send(
             Path::new(&remote_path), real_mode, data_size, None
         );
 
@@ -238,7 +238,7 @@ fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String)
     let mut channel = session.channel_session().unwrap();
     let actual_cmd = format!("{} 2>&1", cmd);
 
-    match channel.exec(&actual_cmd) { Ok(x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+    match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
     let mut s = String::new();
 
     match channel.read_to_string(&mut s) { Ok(x) => {}, Err(y) => { return Err((500,y.to_string())) } };

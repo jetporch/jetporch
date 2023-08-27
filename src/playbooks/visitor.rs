@@ -6,20 +6,20 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::playbooks::context::PlaybookContext;
-use crate::tasks::response::{TaskResponse,TaskStatus};
 use std::sync::Arc;
-use std::sync::RwLock;
 use crate::util::terminal::two_column_table;
+use crate::tasks::*;
+use std::sync::RwLock;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
@@ -43,7 +43,7 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn debug_lines(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, messages: &Vec<String>) {
-        let lock = context.write().unwrap();
+        let _lock = context.write().unwrap();
         for message in messages.iter() {
             self.debug_host(host, &message);
         }
@@ -64,7 +64,7 @@ pub trait PlaybookVisitor : Send + Sync {
         self.banner();
         println!("> play start: {}", play.as_ref().unwrap());
     }
-    
+
     fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         //let arc = context.role_name.lock().unwrap();
         //let role = arc.as_ref().unwrap();
@@ -93,14 +93,14 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> Result<(),()>{
+    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> () {
         //let arc = context.play.lock().unwrap();
         //let play = arc.as_ref().unwrap();
 
         if self.is_syntax_only() {
             let ctx = context.read().unwrap();
             let play_name = ctx.get_play_name();
-            let elements: Vec<(String,String)> = vec![     
+            let elements: Vec<(String,String)> = vec![
                 (String::from("Roles"), format!("{}", ctx.get_role_count())),
                 (String::from("Tasks"), format!("{}", ctx.get_task_count())),
                 (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
@@ -112,7 +112,6 @@ pub trait PlaybookVisitor : Send + Sync {
             println!("");
             show_playbook_summary(context);
         }
-        return Ok(());
     }
 
     fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -143,32 +142,32 @@ pub trait PlaybookVisitor : Send + Sync {
         let mut context = context.write().unwrap();
         context.increment_attempted_for_host(&host2.name);
         match &task_response.status {
-            TaskStatus::IsCreated  =>  { 
-                println!("{color_blue}✓ {} => created{color_reset}",  &host2.name); 
-                context.increment_created_for_host(&host2.name);  
+            TaskStatus::IsCreated  =>  {
+                println!("{color_blue}✓ {} => created{color_reset}",  &host2.name);
+                context.increment_created_for_host(&host2.name);
             },
-            TaskStatus::IsRemoved  =>  { 
-                println!("{color_blue}✓ {} => removed{color_reset}",  &host2.name); 
-                context.increment_removed_for_host(&host2.name);  
+            TaskStatus::IsRemoved  =>  {
+                println!("{color_blue}✓ {} => removed{color_reset}",  &host2.name);
+                context.increment_removed_for_host(&host2.name);
             },
-            TaskStatus::IsModified =>  { 
-                println!("{color_blue}✓ {} => modified{color_reset}", &host2.name); 
-                context.increment_modified_for_host(&host2.name); 
+            TaskStatus::IsModified =>  {
+                println!("{color_blue}✓ {} => modified{color_reset}", &host2.name);
+                context.increment_modified_for_host(&host2.name);
             },
-            TaskStatus::IsExecuted =>  { 
-                println!("{color_blue}✓ {} => complete{color_reset}", &host2.name); 
-                context.increment_executed_for_host(&host2.name); 
+            TaskStatus::IsExecuted =>  {
+                println!("{color_blue}✓ {} => complete{color_reset}", &host2.name);
+                context.increment_executed_for_host(&host2.name);
             },
-            TaskStatus::IsPassive  =>  { 
-                // println!("{color_green}! host: {} => ok (no effect) {color_reset}", &host2.name); 
-                context.increment_passive_for_host(&host2.name); 
+            TaskStatus::IsPassive  =>  {
+                // println!("{color_green}! host: {} => ok (no effect) {color_reset}", &host2.name);
+                context.increment_passive_for_host(&host2.name);
             }
-            TaskStatus::IsMatched  =>  { 
-                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name); 
-            } 
-            TaskStatus::IsSkipped  =>  { 
-                println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name); 
-            } 
+            TaskStatus::IsMatched  =>  {
+                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name);
+            }
+            TaskStatus::IsSkipped  =>  {
+                println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name);
+            }
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }
@@ -178,16 +177,16 @@ pub trait PlaybookVisitor : Send + Sync {
         if task_response.msg.is_some() {
             let msg = &task_response.msg;
             if task_response.command_result.is_some() {
-                { 
+                {
                     let cmd_result = task_response.command_result.as_ref().as_ref().unwrap();
-                    let lock = context.write().unwrap();
+                    let _lock = context.write().unwrap();
                     // FIXME: add similar output for verbose modes above
                     println!("{color_red}! {} => failed", host2.name);
                     println!("    cmd: {}", cmd_result.cmd);
                     println!("    out: {}", cmd_result.out);
                     println!("    rc: {}{color_reset}", cmd_result.rc);
                 }
-            } else { 
+            } else {
                 println!("{color_red}! host failed: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
             }
         } else {
@@ -216,7 +215,7 @@ pub trait PlaybookVisitor : Send + Sync {
         let host2 = host.read().expect("host read");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
         if context.read().unwrap().verbosity > 1 {
-            let ctx2 = context.write().unwrap(); // lock for multi-line output
+            let _ctx2 = context.write().unwrap(); // lock for multi-line output
             println!("{color_blue}! {} ... command ok", host2.name);
             println!("    cmd: {}", cmd_result.cmd);
             println!("    out: {}", cmd_result.out);
@@ -228,7 +227,7 @@ pub trait PlaybookVisitor : Send + Sync {
         let host2 = host.read().expect("context read");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
         if context.read().unwrap().verbosity > 1 {
-            let ctx2 = context.write().unwrap(); // lock for multi-line output
+            let _ctx2 = context.write().unwrap(); // lock for multi-line output
             println!("{color_red}! {} ... command failed", host2.name);
             println!("    cmd: {}", cmd_result.cmd);
             println!("    out: {}", cmd_result.out);
@@ -246,12 +245,12 @@ pub trait PlaybookVisitor : Send + Sync {
 
 
 pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
-    
+
     let ctx = context.read().unwrap();
 
     let seen_hosts = ctx.get_hosts_seen_count();
     let role_ct = ctx.get_role_count();
-    let task_ct = ctx.get_task_count(); 
+    let task_ct = ctx.get_task_count();
     let action_ct = ctx.get_total_attempted_count();
     //let action_hosts = ctx.get_hosts_attempted_count();
     let created_ct = ctx.get_total_creation_count();

@@ -88,8 +88,8 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
 
     let group_variables        = group.get_variables_yaml()?;
     let blended_variables      = group.get_blended_variables_yaml()?;
-    let descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
-    let child_hosts_count      = String::from(format!("{}", child_hosts.len()));
+    let _descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
+    let _child_hosts_count      = String::from(format!("{}", child_hosts.len()));
     
     // TODO: add a method that "..."'s these strings if too long - just use for hosts
 
@@ -97,8 +97,8 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     let children_string = children.join(", ");
     let ancestors_string = ancestors.join(", ");
     let parents_string = parents.join(", ");
-    let descendant_hosts_string = descendant_hosts.join(", ");
-    let child_hosts_string = child_hosts.join(", ");
+    let _descendant_hosts_string = descendant_hosts.join(", ");
+    let _child_hosts_string = child_hosts.join(", ");
 
 
 

@@ -87,7 +87,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         for play in plays.iter() {
             match handle_play(&run_state, play) {
                 Ok(_) => {},
-                Err(s) => { break; }
+                Err(_s) => { break; }
             }
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
@@ -122,7 +122,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
     validate_hosts(run_state, play, &hosts)?;
-    load_vars_into_context(run_state, play);
+    load_vars_into_context(run_state, play)?;
     load_external_modules(run_state, play)?;
 
     // support for serialization of push configuration
@@ -360,7 +360,7 @@ fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), 
 
 // ==============================================================================
 
-fn find_role(run_state: &Arc<RunState>, _play: &Play, rolename: String) -> Result<PathBuf, String> {
+fn find_role(run_state: &Arc<RunState>, _play: &Play, _rolename: String) -> Result<PathBuf, String> {
 
     // given a role name, return the location...
     // FIXME: not sure why the tuple is in the return type here

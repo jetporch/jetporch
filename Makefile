@@ -12,4 +12,6 @@ clean:
 run:
 	cargo run
 	# ./target/release/hello-rust
+contributors:
+	git shortlog -sne --all
 

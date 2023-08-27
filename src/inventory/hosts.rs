@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap};
-use crate::util::yaml::{blend_variables};
+use std::collections::HashMap;
+use crate::util::yaml::blend_variables;
 use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
@@ -131,7 +131,7 @@ impl Host {
         let result = serde_yaml::to_string(&self.get_variables());
         return match result {
             Ok(x) => Ok(x),
-            Err(y) => Err(String::from("error loading variables"))
+            Err(_y) => Err(String::from("error loading variables"))
         }
     }
 
@@ -140,7 +140,7 @@ impl Host {
         let result = serde_yaml::to_string(&self.get_blended_variables());
         return match result {
             Ok(x) => Ok(x),
-            Err(y) => Err(String::from("error loading blended variables"))
+            Err(_y) => Err(String::from("error loading blended variables"))
         }
     }
 

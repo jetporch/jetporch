@@ -17,7 +17,7 @@
 use crate::util::io::{path_as_string,directory_as_string};
 use crate::playbooks::language::Play;
 use std::path::PathBuf;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use crate::inventory::hosts::Host;
 use std::sync::{Arc,RwLock};
 use crate::connection::cache::ConnectionCache;

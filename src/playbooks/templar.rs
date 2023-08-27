@@ -60,7 +60,7 @@ impl Templar {
                     return Ok(false);
                 }
             },
-            Err(x) => { 
+            Err(_x) => { 
                 return Err(format!("failed to parse cond: {}", expr)) 
             }
         };

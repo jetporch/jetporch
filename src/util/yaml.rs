@@ -5,18 +5,18 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::path::{Path};
+use std::path::Path;
 use std::fs::read_to_string;
-use crate::util::terminal::{banner};
+use crate::util::terminal::banner;
 
 const YAML_ERROR_SHOW_LINES:usize = 10;
 const YAML_ERROR_WIDTH:usize = 180; // things will wrap in terminal anyway
@@ -44,7 +44,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
                                       |{}|\n\
                                       |-", path.display(), yaml_error_str);
         crate::util::terminal::markdown_print(&markdown_table);
-        return; 
+        return;
     }
 
     // get the line/column info out of the location object
@@ -54,7 +54,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     let lines: Vec<String> = read_to_string(path).unwrap().lines().map(String::from).collect();
     let line_count = lines.len();
-    let mut show_start: usize = 0;
 
     banner(&format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
 
@@ -90,7 +89,7 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 }
 
 pub fn blend_variables(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
- 
+
     /* saving these notes as useful for template code probably
     println!("~");
     if a.is_mapping() {
@@ -126,7 +125,7 @@ pub fn blend_variables(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
         (a @ &mut serde_yaml::Value::Mapping(_), serde_yaml::Value::Mapping(b)) => {
             let a = a.as_mapping_mut().unwrap();
             for (k, v) in b {
-                if v.is_sequence() && a.contains_key(&k) && a[&k].is_sequence() { 
+                if v.is_sequence() && a.contains_key(&k) && a[&k].is_sequence() {
                     let mut _b = a.get(&k).unwrap().as_sequence().unwrap().to_owned();
                     _b.append(&mut v.as_sequence().unwrap().to_owned());
                     a[&k] = serde_yaml::Value::from(_b);
@@ -135,8 +134,8 @@ pub fn blend_variables(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
                 if !a.contains_key(&k) {
                     a.insert(k.to_owned(), v.to_owned());
                 }
-                else { 
-                    blend_variables(&mut a[&k], v); 
+                else {
+                    blend_variables(&mut a[&k], v);
                 }
 
             }

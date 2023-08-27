@@ -5,12 +5,12 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -33,14 +33,14 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
     let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
     for (_,v) in hosts { host_objects.push(Arc::clone(&v)); }
 
-    let total : i64 = host_objects.par_iter().map(|host| {
+    let _total : i64 = host_objects.par_iter().map(|host| {
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
                 let task_response = run_task_on_host(&run_state,&connection,&host,task);
-                
+
                 match task_response {
                     Ok(x) => {
                         run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
@@ -65,9 +65,9 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
 
 // the "on this host" method body from fsm_run_task
 fn run_task_on_host(
-    run_state: &Arc<RunState>, 
+    run_state: &Arc<RunState>,
     connection: &Arc<Mutex<dyn Connection>>,
-    host: &Arc<RwLock<Host>>, 
+    host: &Arc<RwLock<Host>>,
     task: &Task) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
     // FIXME: break into smaller functions...
@@ -78,7 +78,7 @@ fn run_task_on_host(
     let evaluated = task.evaluate(&handle, &validate)?;
     let action = evaluated.action;
     let pre_logic = evaluated.with;
-    
+
     if pre_logic.is_some() {
         let logic = pre_logic.as_ref().as_ref().unwrap();
         if ! logic.cond {
@@ -94,7 +94,7 @@ fn run_task_on_host(
     let query = TaskRequest::query();
     let qrc = action.dispatch(&handle, &TaskRequest::query());
 
-    let (request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
+    let (_request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
             TaskStatus::IsMatched => {
                 (Arc::clone(&query), Ok(handle.is_matched(&Arc::clone(&query))))
@@ -200,4 +200,3 @@ fn run_task_on_host(
     return result;
 
 }
-

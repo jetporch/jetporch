@@ -60,7 +60,7 @@ impl FileAttributesInput {
         }
         
         let input2 = input.as_ref().unwrap();
-        let mut final_mode_value : Option<String>;
+        let final_mode_value : Option<String>;
 
         // makes sure mode is octal and not accidentally decimal or hex
         if input2.mode.is_some()  { 
@@ -78,10 +78,10 @@ impl FileAttributesInput {
             // and return the value with the 0o stripped off, for easier use elsewhere
             let decimal_mode = i32::from_str_radix(&octal_no_prefix, 8);
             match decimal_mode {
-                Ok(x) => { 
+                Ok(_x) => { 
                     final_mode_value = Some(octal_no_prefix);
                 },
-                Err(y) => { 
+                Err(_y) => { 
                     return Err(handle.is_failed(request, &String::from(
                         format!("(b) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
                     )));

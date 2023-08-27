@@ -16,7 +16,7 @@
 
 use crate::tasks::*;
 //#[allow(unused_imports)]
-use serde::{Deserialize};
+use serde::Deserialize;
 use std::sync::Arc;
 
 const MODULE: &'static str = "Echo";
@@ -29,6 +29,7 @@ pub struct EchoTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
+#[allow(dead_code)]
 struct EchoAction {
     pub name: String,
     pub msg: String,
