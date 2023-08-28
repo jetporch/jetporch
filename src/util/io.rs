@@ -19,20 +19,18 @@ use std::path::{Path}; // ,PathBuf};
 use std::fs::ReadDir;
 use std::os::unix::fs::PermissionsExt;
 use std::process;
+use std::io::Read;
 
 // ==============================================================================================================
 // PUBLIC API
 // ==============================================================================================================
 
 // read a directory as per the normal rust way, but map any errors to strings
-// FIXME: look into anyhow crate here and throughout program?
-
 #[inline]
 pub fn jet_read_dir(path: &Path) -> Result<ReadDir, String> {
     return fs::read_dir(path).map_err(
         |_x| format!("failed to read directory: {}", path.display())
     )
-
 }
 
 // call fn on each path in a subdirectory of the original path, each step is allowed
@@ -48,12 +46,24 @@ pub fn path_walk<F>(path: &Path, mut with_each_path: F) -> Result<(), String>
 }
 
 // open a file per the normal rust way, but map any errors to strings
-
 #[inline]
 pub fn jet_file_open(path: &Path) -> Result<std::fs::File, String> {
     return std::fs::File::open(path).map_err(
         |_x| format!("unable to open file: {}", path.display())
     );
+}
+
+pub fn read_local_file(path: &Path) -> Result<String,String> {
+    let mut file = jet_file_open(path)?;
+    let mut buffer = String::new();
+    let read_result = file.read_to_string(&mut buffer);
+    match read_result {
+        Ok(_) => {},
+        Err(x) => {
+            return Err(format!("unable to read file: {}, {:?}", path.display(), x));
+        }
+    };
+    return Ok(buffer.clone());
 }
 
 // get the last part of the file ignoring the directory part

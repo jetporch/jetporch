@@ -16,9 +16,9 @@
 
 use crate::tasks::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
-use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
 use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
+use std::sync::Arc;
 
 pub struct EvaluatedTask {
     pub action: Arc<dyn IsAction>,

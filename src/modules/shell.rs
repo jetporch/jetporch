@@ -17,7 +17,7 @@
 use crate::tasks::*;
 use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
-use serde::Deserialize;
+use serde::{Deserialize};
 use std::sync::Arc;
 
 const MODULE: &'static str = "Shell";
@@ -30,7 +30,6 @@ pub struct ShellTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
-#[allow(dead_code)]
 struct ShellAction {
     pub name: String,
     pub cmd: String,
@@ -72,7 +71,6 @@ impl IsAction for ShellAction {
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {
                     0 => Ok(task_result), 
-                    // we can unwrap the command_result because we know we have a command
                     _ =>  Err(handle.command_failed(request, &Arc::clone(&task_result.command_result)))
                 }
             },

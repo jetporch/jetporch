@@ -27,15 +27,21 @@ use std::path::{Path,PathBuf};
 use crate::tasks::fields::Field;
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
-use crate::util::io::jet_file_open;
 //use std::fs;
-use std::io::Read;
+//use std::io::Read;
 use crate::tasks::FileAttributesEvaluated;
+use crate::tasks::cmd_library::screen_path;
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
 // are mostly module authors don't need to think about how things work as much.  This is
 // especially true for the finite state machine that executes tasks.
+
+#[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
+pub enum LocalRemote {
+    Local,
+    Remote
+}
 
 pub struct TaskHandle {
     run_state: Arc<RunState>, 
@@ -53,15 +59,12 @@ impl TaskHandle {
         }
     }
 
-    // returns the context object. Generally module callers shouldn't need to get a hold of this one, but it's a useful place
-    // to grab a write lock when sending multi-line output.
+
     #[inline]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
 
-    // this visitor is useful for callbacks, though most are handled for the modules by task FSM.  Use sparingly from module
-    // code.
     #[inline]
     pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
@@ -70,16 +73,25 @@ impl TaskHandle {
     // ================================================================================
     // PLAYBOOK UTILS: simplified interactions to make module code nicer.
 
-    // runs an external command and returns a task response
-    // return code and output can be easily extracted by using the cmd_info() function on a task response
-    // we know has command info in it.
     #[inline]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        println!("RUN REMOTE");
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         return self.connection.lock().unwrap().run_command(self, request, cmd);
     }
 
-    // reads the host OS type which is determined at connection time
+    fn run_local(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        println!("RUN LOCAL");
+        assert!(request.request_type == TaskRequestType::Query, "local commands can only be run in query stage (was: {:?})", request.request_type);
+        let ctx = &self.run_state.context;
+        let local_result = self.run_state.connection_factory.read().unwrap().get_local_connection(&ctx);
+        let local_conn = match local_result {
+            Ok(x) => x,
+            Err(y) => { return Err(self.is_failed(request, &y.clone())) }
+        };
+        return local_conn.lock().unwrap().run_command(self, request, cmd);
+    }
+
     pub fn get_os_type(&self) -> HostOSType {
         let os_type = self.host.read().unwrap().os_type;
         if os_type.is_none() {
@@ -88,24 +100,10 @@ impl TaskHandle {
         return os_type.unwrap();
     }
 
-    // get the string contents of a local file, this is not really for copy operations but for small files like template sources
     pub fn read_local_file(&self, request: &Arc<TaskRequest>, path: &Path) -> Result<String, Arc<TaskResponse>> {
-        let file = jet_file_open(path);
-        match file {
-            Ok(mut f) => {
-                let mut buffer = String::new();
-                let read_result = f.read_to_string(&mut buffer);
-                match read_result {
-                    Ok(_) => {},
-                    Err(x) => {
-                        return Err(self.is_failed(&request, &format!("unable to read file: {}, {:?}", path.display(), x)));
-                    }
-                };
-                return Ok(buffer.clone());
-            }
-            Err(x) => {
-                return Err(self.is_failed(&request, &format!("unable to open file: {}, {:?}", path.display(), x)));
-            }
+        return match crate::util::io::read_local_file(path) {
+            Ok(s) => Ok(s),
+            Err(x) => Err(self.is_failed(request, &x.clone()))
         };
     }
     
@@ -114,10 +112,17 @@ impl TaskHandle {
         return self.connection.lock().unwrap().write_data(self, &request, &data.clone(), &path.clone(), mode);
     }
 
-    // gets the mode of a remote file as an octal string with no prefix
-    pub fn get_remote_mode(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
-        let cmd : String = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
+    fn unwrap_string_result(&self, request: &Arc<TaskRequest>, str_result: &Result<String,String>) -> Result<String, Arc<TaskResponse>> {
+        return match str_result {
+            Ok(x) => Ok(x.clone()),
+            Err(y) => Err(self.is_failed(request, &y.clone()))
+        };
+    }
 
+    pub fn get_remote_mode(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
+        let get_cmd_result = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
+        let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
+        
         let result = self.run(request,&cmd)?;
         let (rc, out) = cmd_info(&result);
         return match rc {
@@ -127,18 +132,107 @@ impl TaskHandle {
         }
     }
 
-    // gets the numeric octal value of the task object (not to be used with remote files)
+    pub fn get_localhost(&self) -> Arc<RwLock<Host>> {
+        let inventory = self.run_state.inventory.read().unwrap();
+        return inventory.get_host(&String::from("localhost"));
+    }
+
+
+    pub fn get_local_sha512(&self, request: &Arc<TaskRequest>, path: &Path, use_cache: bool) -> Result<String,Arc<TaskResponse>> {
+        println!("***LOCAL CALL***");
+
+        let path2 = format!("{}", path.display());
+        let localhost = self.get_localhost();
+
+        if use_cache {
+            let ctx = self.run_state.context.read().unwrap();
+            let task_id = ctx.get_task_count();
+            let mut localhost2 = localhost.write().unwrap();
+            let cached = localhost2.get_checksum_cache(task_id, &path2);
+            if cached.is_some() {
+                return Ok(cached.unwrap());
+            }
+        }
+
+        println!("BLIP!!!!");
+        let value = self.internal_remote_sha512(request, LocalRemote::Local, &path2)?;
+
+        if use_cache {
+            let mut localhost2 = localhost.write().unwrap();
+            localhost2.set_checksum_cache(&path2, &value);
+        }
+
+        return Ok(value);
+
+    }
+
+    pub fn get_remote_sha512(&self, request: &Arc<TaskRequest>, path: &String) -> Result<String,Arc<TaskResponse>> {
+        println!("GETTING REMOTE!");
+        return self.internal_remote_sha512(request, LocalRemote::Remote, path);
+    }
+   
+
+    pub fn internal_remote_sha512(&self, request: &Arc<TaskRequest>, is_local: LocalRemote, path: &String) -> Result<String,Arc<TaskResponse>> {
+        
+        // these games around local command execution should only happen here and not complicate other functions, 
+        // local_action/delegate_to will happen at a higher level in the taskfsm.
+
+        let get_cmd_result = match is_local {
+            LocalRemote::Local => {
+                println!("GETTING LOCAL CMD");
+                let localhost = self.get_localhost();
+                let os_type = localhost.read().unwrap().os_type.expect("unable to detect host OS type");
+                println!("OS TYPE={:?}", os_type);
+                crate::tasks::cmd_library::get_sha512_command(os_type, path)
+            },
+            LocalRemote::Remote => {
+                println!("GETTING REMOTE CMD");
+                let os_type = self.get_os_type();
+                println!("OS TYPE={:?}", os_type);
+
+                crate::tasks::cmd_library::get_sha512_command(os_type, path)
+            }
+        };
+        let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
+
+        println!("MY COMMAND IS: {}", cmd);
+
+        let result = match is_local {
+            LocalRemote::Remote => self.run(request, &cmd)?,
+            LocalRemote::Local  => self.run_local(request, &cmd)?
+        };
+
+        let (rc, out) = cmd_info(&result);
+        match rc {
+            // we can all unwrap because all possible string lists will have at least 1 element
+            0 => {
+                let value = out.split_whitespace().nth(0).unwrap().to_string();
+                return Ok(value);
+            },
+            _ => {
+                return Err(self.is_failed(request, &format!("checksum failed: {}. {}", path, out)));
+            }
+            127 => {
+                return Ok(String::from(""))
+            }
+        };
+    }
+
     pub fn get_desired_numeric_mode(&self, request: &Arc<TaskRequest>, attribs: &Option<FileAttributesEvaluated>) -> Result<Option<i32>,Arc<TaskResponse>>{
         return FileAttributesEvaluated::get_numeric_mode(self, request, attribs); 
     }
 
-    // given a field name and a path fragment, find a file in where it should normally be found ('./templates')
     #[inline]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
-        return self.find_sub_path(&String::from("templates"), request, field, str_path);
+        // source path variables cannot use templates
+        // we also screen them for the same invalid characters we check for in dest paths
+        let prelim = match screen_path(&str_path) {
+            Ok(x) => x,
+            Err(y) => { return Err(self.is_failed(request, &format!("{}, for field: {}", y, field))) }
+        };
+        return self.find_sub_path(&String::from("templates"), request, field, &prelim);
     }
 
-    // supporting code for functions like find_template_path
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
 
         let mut path = PathBuf::new();
@@ -161,67 +255,73 @@ impl TaskHandle {
         }
     }
 
-    // outputs a debug message to the screen, note that this ignores verbosity levels and is really here
-    // to support modules whose primary purpose is debugging, like echo, and not module programming, where
-    // a temporary println may be more appropriate.
     #[inline]
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
 
-    // similar to debug_lines but acquires a lock for multi-line output that will not interlace
-    // with parallel SSH requests.
     #[inline]
     pub fn debug_lines(&self, _request: &Arc<TaskRequest>, messages: &Vec<String>) {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
 
     /*
-    pub fn query_file_attributes(&self, request: &ArcTaskRequest, remote_path: &String, stat_result: &Option<String>, input_checksum: Option<String>, changes: &mut HashSet<String>) {
+    pub fn query_file_attributes(&self, request: &ArcTaskRequest, remote_path: &String, mode_result: &Option<String>, input_checksum: Option<String>, changes: &mut HashSet<String>) {
 
-        if stat_result.is_none() {
-            return Err(handle.is_failed(request, String::from("module coding error: calling query_file_attributes with no remote file")));
-        }
-
-        if input_checksum.is_some() {
-            checksum_src = self.string_checksum(request, remote_path)?;
-            checksum_dest = handle.remote_checksum(request, self.dest)?;
-            if checksum_src != checksum_dest {
-                changes.push(String::from("dest"));
-            }
-        }
-    
+   
     if self.attributes.is_some() {
         let attributes = self.attributes.unwrap();
         let owner = handle.remote_owner(self.dest)?
         if attributes.owner.is_some() {
             let owner = handle.remote_owner(self.dest)?;
-            if (owner != attributes.owner.unwrap()) { changes.push(String::from("owner")); }
+            if (owner != attributes.owner.unwrap()) { changes.push(Field.Owner); }
         }
         if attributes.group.is_some()
             let owner = handle.remote_group(self.dest)?;
-            if (group != attributes.owner.group())  { changes.push(String::from("group")); }
+            if (group != attributes.owner.group())  { changes.push(FieldGroup); }
         }
         if attributes.mode.is_some() {
-            if (stat_result.unwrap() != attributes.owner.mode) { changes.push(String::from("mode")); }
+            if (mode_result.unwrap() != attributes.owner.mode) { changes.push(Field.mode); }
         }
     }
     */
 
-    // renders a template with variables from the current host (and everything else in the system)
-    // this is used for evaluating fields as well as template operations for the template module
     pub fn template_string(&self, request: &Arc<TaskRequest>, _field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // note to module authors:
+        // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        let result2 = self.unwrap_string_result(request, &result)?;
+
+        /*
         return match result {
             Ok(x) => Ok(x),
             Err(y) => {
                 Err(self.is_failed(request, &y))
             }
         }
+        */
+        return Ok(result2);
     }
 
-    // this is used to evaluate fields that have optional string values
+    pub fn template_path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        /*let result2 = match result {
+            Ok(x) => Ok(x),
+            Err(y) => {
+                return Err(self.is_failed(request, &y))
+            }
+        };
+        */
+        let result2 = self.unwrap_string_result(request, &result)?;
+        return match screen_path(&result2) {
+            Ok(x) => Ok(x),
+            Err(y) => { return Err(self.is_failed(request, &format!("{}, for field {}", y, field))) }
+        }
+    }
+
     pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // note to module authors:
+        // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         if template.is_none() { return Ok(None); }
         let result = self.template_string(request, field, &template.as_ref().unwrap());
         return match result { 
@@ -232,7 +332,6 @@ impl TaskHandle {
         };
     }
 
-    // this is used to template fields that render down into integers
     pub fn template_integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
         let st = self.template_string(request, field, template)?;
         let num = st.parse::<i64>();
@@ -242,39 +341,35 @@ impl TaskHandle {
         }
     }
 
-    // this is used to template fields that render down into integers, but can be omitted
     pub fn template_integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
         if template.is_none() { return Ok(None); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
         let num = st.parse::<i64>();
-        match num {
+        return match num {
             Ok(num) => Ok(Some(num)),
             Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
-    // this is used to template fields that must render down to booleans.
     pub fn template_boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
         let st = self.template_string(request,field, template)?;
         let x = st.parse::<bool>();
-        match x {
+        return match x {
             Ok(x) => Ok(x),
             Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 
-    // this is used to template fields that must render down to booleans but are optional
     pub fn template_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
         if template.is_none() { return Ok(false); }
         let st = self.template_string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
-        match x {
+        return match x {
             Ok(x) => Ok(x),
             Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 
-    // evaluates a conditional expression - this is for "with/cond" statements.
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
         let result = self.get_context().read().unwrap().test_cond(expr, &self.host);
         return match result {
@@ -303,7 +398,6 @@ impl TaskHandle {
     }
 
     pub fn command_failed(&self, _request: &Arc<TaskRequest>, result: &Arc<Option<CommandResult>>) -> Arc<TaskResponse> {
-        // FIXME: use the task result
         self.get_visitor().read().expect("read visitor").on_command_failed(&self.get_context(), &Arc::clone(&self.host), &Arc::clone(result));
         return Arc::new(TaskResponse {
             status: TaskStatus::Failed,
@@ -391,11 +485,12 @@ impl TaskHandle {
         });
     }
     
-    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: HashSet<Field>) -> Arc<TaskResponse> {
+    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: &HashSet<Field>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_modification response can only be returned for a query request");
+        assert!(!changes.is_empty(), "changes must not be empty");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsModification, 
-            changes: HashSet::new(), 
+            changes: changes.clone(), 
             msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None) 
         });
     }

@@ -252,6 +252,7 @@ dependencies = [
  "inline_colorization",
  "once_cell",
  "rayon",
+ "rs_sha512",
  "serde",
  "serde_derive",
  "serde_yaml",
@@ -519,6 +520,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "rs_hasher_ctx"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a45ae5cc6246fa2666253289d6495e1fb3d125fb83842ff56b747a3b662e28e"
+dependencies = [
+ "rs_internal_hasher",
+ "rs_internal_state",
+ "rs_n_bit_words",
+]
+
+[[package]]
+name = "rs_internal_hasher"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19754b7c13d7fb92e995b1f6330918466e134ba7c3f55bf805c72e6a9727c426"
+dependencies = [
+ "rs_internal_state",
+ "rs_n_bit_words",
+]
+
+[[package]]
+name = "rs_internal_state"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "214a4e27fec5b651d615675874c6a829496cc2aa66e5f1b184ab05cb39fd3625"
+dependencies = [
+ "rs_n_bit_words",
+]
+
+[[package]]
+name = "rs_n_bit_words"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bc1bbb4c2a60f76b331e6ba70b5065e210fa6e72fc966c2d488736755d89cb6"
+
+[[package]]
+name = "rs_sha512"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78bb3ee2bcf2e0bd2ead2504c3b67d1fb34ae978a2014febc011f82fcbe58d56"
+dependencies = [
+ "rs_hasher_ctx",
+ "rs_internal_hasher",
+ "rs_internal_state",
+ "rs_n_bit_words",
 ]
 
 [[package]]

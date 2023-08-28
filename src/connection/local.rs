@@ -41,8 +41,10 @@ pub struct LocalFactory {
 impl LocalFactory {
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self {
         let host = inventory.read().expect("inventory read").get_host(&String::from("localhost"));
+        println!("LOCAL CONNECTING....");
         let mut lc = LocalConnection::new(&Arc::clone(&host));
         lc.connect().expect("connection ok");
+        println!("CONNECT DONE");
         Self {
             inventory: Arc::clone(&inventory),
             local_connection: Arc::new(Mutex::new(lc))
@@ -54,6 +56,11 @@ impl ConnectionFactory for LocalFactory {
         let conn : Arc<Mutex<dyn Connection>> = Arc::clone(&self.local_connection);
         return Ok(conn);
     }
+    fn get_local_connection(&self, _context: &Arc<RwLock<PlaybookContext>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
+        let conn : Arc<Mutex<dyn Connection>> = Arc::clone(&self.local_connection);
+        return Ok(conn);
+    }
+
 }
 
 pub struct LocalConnection {

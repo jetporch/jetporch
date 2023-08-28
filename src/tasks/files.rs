@@ -52,7 +52,7 @@ impl FileAttributesInput {
         }
     }
 
-    // template all the fields in attributes, checking values and returning errors as needed
+    // template **all** the fields in FileAttributesInput fields, checking values and returning errors as needed
     pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<FileAttributesEvaluated>,Arc<TaskResponse>> {
         
         if input.is_none() {
@@ -62,7 +62,12 @@ impl FileAttributesInput {
         let input2 = input.as_ref().unwrap();
         let final_mode_value : Option<String>;
 
-        // makes sure mode is octal and not accidentally decimal or hex
+        // owner & group is easy but mode is complex
+        // makes sure mode is octal and not accidentally enter decimal or hex or leave off the octal prefix
+        // as the input field is a YAML string unwanted conversion shouldn't happen but we want to be strict with other tools
+        // that might read the file and encourage users to use YAML-spec required input here even though YAML isn't doing
+        // the evaluation.
+
         if input2.mode.is_some()  { 
             let mode_input = input2.mode.as_ref().unwrap();
             let templated_mode_string = handle.template_string(request, &String::from("mode"), &mode_input)?;
@@ -74,7 +79,7 @@ impl FileAttributesInput {
 
             let octal_no_prefix = str::replace(&templated_mode_string, "0o", "");
 
-            // we may have gotten an 0oJunkString which is still not neccessarily valid - so check if it's a number
+            // we may have gotten an 0oExampleJunkString which is still not neccessarily valid - so check if it's a number
             // and return the value with the 0o stripped off, for easier use elsewhere
             let decimal_mode = i32::from_str_radix(&octal_no_prefix, 8);
             match decimal_mode {
@@ -88,6 +93,7 @@ impl FileAttributesInput {
                 }
             };
         } else {
+            // mode was left off in the automation content
             final_mode_value = None;
         }
 
@@ -102,8 +108,9 @@ impl FileAttributesInput {
 
 impl FileAttributesEvaluated {
 
-    // if the action has an evaluated Attributes section, the mode will be stored as an octal string like "777", we need
-    // an integer for some internal APIs.
+    // if the action has an evaluated Attributes section, the mode will be stored as an octal string like "777", but we need
+    // an integer for some internal APIs like the SSH connection put requests.
+
     pub fn get_numeric_mode(handle: &TaskHandle, request: &Arc<TaskRequest>, this: &Option<Self>) -> Result<Option<i32>, Arc<TaskResponse>> {
         
         return match this.is_some() {

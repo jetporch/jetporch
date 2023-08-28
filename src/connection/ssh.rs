@@ -30,6 +30,7 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
 use std::net::ToSocketAddrs;
+use crate::connection::local::LocalConnection;
 
 pub struct SshFactory {
     local_factory: LocalFactory,
@@ -48,11 +49,16 @@ impl SshFactory {
 }
 
 impl ConnectionFactory for SshFactory {
+
+    fn get_local_connection(&self, context: &Arc<RwLock<PlaybookContext>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
+        return Ok(self.local_factory.get_connection(context, &self.localhost)?);
+    }
+
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host:&Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
         let ctx = context.read().expect("context read");
         let hostname1 = host.read().expect("host read").name.clone();
         if hostname1.eq("localhost") {
-            let conn = self.local_factory.get_connection(context, &self.localhost)?;
+            let conn : Arc<Mutex<dyn Connection>> = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn);
         } 
 
@@ -66,7 +72,7 @@ impl ConnectionFactory for SshFactory {
 
         let (hostname2, user, port) = ctx.get_ssh_connection_details(host);      
         if hostname2.eq("localhost") { 
-            let conn = self.local_factory.get_connection(context, &self.localhost)?;
+            let conn : Arc<Mutex<dyn Connection>> = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn); 
         }
 
@@ -202,30 +208,36 @@ impl Connection for SshConnection {
 
         let mut remote_file = match remote_file_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to transmit remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed to transmit remote file: {}, {:?}", remote_path, y)))) }
         };
         let bytes = data.as_bytes();
         let write_result = remote_file.write(bytes);
         match write_result {
             Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed to write remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed to write remote file: {}, {:?}", remote_path, y)))) }
         };
         // Close the channel and wait for the whole content to be transferred
         match remote_file.send_eof() {
             Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed sending eof to remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed sending eof to remote file: {}, {:?}", remote_path, y)))) }
         };
         match remote_file.wait_eof() {
             Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed waiting for eof on remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed waiting for eof on remote file: {}, {:?}", remote_path, y)))) }
         };
         match remote_file.close() {
             Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed closing remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed closing remote file: {}, {:?}", remote_path, y)))) }
         };
         match remote_file.wait_close() {
             Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, &String::from(format!("failed waiting for file to close on remote file: {}, {:?}", remote_path, y)))) }
+            Err(y) => { return Err(handle.is_failed(&request, 
+                &String::from(format!("failed waiting for file to close on remote file: {}, {:?}", remote_path, y)))) }
         };
         return Ok(());
     }

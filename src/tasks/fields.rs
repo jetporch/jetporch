@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// this is here to prevent typos in module code between Query & Modify 
+// this is to prevent typos in module code between Query & Modify 
 // match legs. 
 
 // KEEP THESE ALPHABETIZED
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Field {
-    Checksum,
+    Content,
     Group,
     Mode,
     Owner,

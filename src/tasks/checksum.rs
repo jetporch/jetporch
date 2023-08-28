@@ -14,21 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod handle;
-pub mod request;
-pub mod response;
-pub mod common;
-pub mod logic;
-pub mod files;
-pub mod fields;
-pub mod cmd_library;
-pub mod checksum;
+use rs_sha512::{Sha512State,HasherContext};
+use std::hash::BuildHasher;
+use std::hash::Hasher;
 
-pub use crate::connection::command::cmd_info;
-pub use crate::tasks::common::{IsTask,IsAction,EvaluatedTask};
-pub use crate::tasks::logic::{PreLogicInput,PreLogicEvaluated,PostLogicInput,PostLogicEvaluated};
-pub use crate::tasks::handle::TaskHandle;
-pub use crate::tasks::response::{TaskResponse,TaskStatus};
-pub use crate::tasks::request::{TaskRequestType,TaskRequest};
-pub use crate::tasks::files::{FileAttributesInput,FileAttributesEvaluated};
-pub use crate::tasks::fields::Field;
+pub fn sha512(data: &String) -> String {
+    let mut sha512hasher = Sha512State::default().build_hasher();
+    let bytes = data.as_bytes();
+    sha512hasher.write(bytes);
+    let u64result = sha512hasher.finish();
+    let bytes_result = HasherContext::finish(&mut sha512hasher);
+    return format!("{bytes_result:02x}")
+}

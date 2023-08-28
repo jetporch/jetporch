@@ -7,7 +7,11 @@ use std::sync::RwLock;
 
 pub struct Inventory {
     pub groups : HashMap<String, Arc<RwLock<Group>>>,
-    pub hosts  : HashMap<String, Arc<RwLock<Host>>>
+    pub hosts  : HashMap<String, Arc<RwLock<Host>>>,
+    // SSH inventory is not required to have a localhost in it but needs the object
+    // regardless, this is returned if it is not in inventory so we always get the same
+    // object.
+    backup_localhost: Arc<RwLock<Host>>
 }
 
 impl Inventory {
@@ -15,7 +19,8 @@ impl Inventory {
     pub fn new() -> Self {
         Self {
             groups : HashMap::new(),
-            hosts  : HashMap::new()
+            hosts  : HashMap::new(),
+            backup_localhost: Arc::new(RwLock::new(Host::new(&String::from("localhost"))))
         }
     }
     
@@ -46,7 +51,7 @@ impl Inventory {
             return Arc::clone(&host);
         }
         else if host_name.eq("localhost") {
-            return Arc::new(RwLock::new(Host::new(&String::from("localhost"))));
+            return Arc::clone(&self.backup_localhost);
         } else {
             panic!("internal error: code should call has_host before get_host");
         }

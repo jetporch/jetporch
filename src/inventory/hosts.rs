@@ -20,9 +20,6 @@ use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
 use serde_yaml;
-//use crate::tasks::request::TaskRequest;
-//use crate::tasks::response::TaskResponse;
-//use serde_yaml::Value::Mapping;
 
 #[derive(Clone,Copy,Debug)]
 pub enum HostOSType {
@@ -35,7 +32,8 @@ pub struct Host {
     pub variables : serde_yaml::Mapping,
     pub groups : HashMap<String, Arc<RwLock<Group>>>,
     pub os_type : Option<HostOSType>,
-    //pub history: Vec<(Arc<TaskRequest>,Arc<TaskResponse>)>,
+    pub checksum_cache: HashMap<String,String>,
+    pub checksum_cache_task_id: usize
 }
 
 impl Host {
@@ -45,8 +43,27 @@ impl Host {
             name: name.clone(),
             variables : serde_yaml::Mapping::new(),
             groups: HashMap::new(),
-            os_type: None
-            //history: Vec::new(),
+            os_type: None,
+            checksum_cache: HashMap::new(),
+            checksum_cache_task_id: 0
+        }
+    }
+
+    pub fn set_checksum_cache(&mut self, path: &String, checksum: &String) {
+        self.checksum_cache.insert(path.clone(), checksum.clone());
+    }
+
+    pub fn get_checksum_cache(&mut self, task_id: usize, path: &String) -> Option<String> {
+        if task_id > self.checksum_cache_task_id {
+            self.checksum_cache_task_id = task_id;
+            self.checksum_cache.clear();
+        }
+        if self.checksum_cache.contains_key(path) {
+            let result = self.checksum_cache.get(path).unwrap();
+            return Some(result.clone());
+        }
+        else {
+            return None;
         }
     }
 

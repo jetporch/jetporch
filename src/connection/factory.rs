@@ -23,5 +23,9 @@ use std::sync::RwLock;
 use std::marker::{Send,Sync};
 
 pub trait ConnectionFactory : Send + Sync {
+
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String>;
+
+    fn get_local_connection(&self, context: &Arc<RwLock<PlaybookContext>>) -> Result<Arc<Mutex<dyn Connection>>, String>;
+
 }
