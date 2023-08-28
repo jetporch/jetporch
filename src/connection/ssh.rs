@@ -241,7 +241,7 @@ fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String)
     match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
     let mut s = String::new();
 
-    match channel.read_to_string(&mut s) { Ok(x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+    match channel.read_to_string(&mut s) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
 
     let _w = channel.wait_close();
 

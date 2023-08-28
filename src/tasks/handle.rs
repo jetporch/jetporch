@@ -90,7 +90,7 @@ impl TaskHandle {
 
     // get the string contents of a local file, this is not really for copy operations but for small files like template sources
     pub fn read_local_file(&self, request: &Arc<TaskRequest>, path: &Path) -> Result<String, Arc<TaskResponse>> {
-        let mut file = jet_file_open(path);
+        let file = jet_file_open(path);
         match file {
             Ok(mut f) => {
                 let mut buffer = String::new();
@@ -238,7 +238,7 @@ impl TaskHandle {
         let num = st.parse::<i64>();
         match num {
             Ok(num) => Ok(num),
-            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
@@ -249,7 +249,7 @@ impl TaskHandle {
         let num = st.parse::<i64>();
         match num {
             Ok(num) => Ok(Some(num)),
-            Err(err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 

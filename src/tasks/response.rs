@@ -53,11 +53,5 @@ pub struct TaskResponse {
     pub and: Arc<Option<PostLogicEvaluated>>
 }
 
-impl TaskResponse {
-
-    #[inline]
-    pub fn is_failed(&self) -> bool {
-        return self.status == TaskStatus::Failed;
-    }
-    
-}
+//impl TaskResponse {
+//}

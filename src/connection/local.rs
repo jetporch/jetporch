@@ -32,6 +32,7 @@ use std::fs::File;
 use std::path::Path;
 use std::io::Write;
 
+#[allow(dead_code)]
 pub struct LocalFactory {
     local_connection: Arc<Mutex<dyn Connection>>,
     inventory: Arc<RwLock<Inventory>>
