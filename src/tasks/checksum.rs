@@ -22,7 +22,7 @@ pub fn sha512(data: &String) -> String {
     let mut sha512hasher = Sha512State::default().build_hasher();
     let bytes = data.as_bytes();
     sha512hasher.write(bytes);
-    let u64result = sha512hasher.finish();
+    let _u64result = sha512hasher.finish();
     let bytes_result = HasherContext::finish(&mut sha512hasher);
     return format!("{bytes_result:02x}")
 }

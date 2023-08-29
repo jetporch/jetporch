@@ -30,13 +30,10 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
 use std::net::ToSocketAddrs;
-use crate::connection::local::LocalConnection;
 
 pub struct SshFactory {
     local_factory: LocalFactory,
     localhost: Arc<RwLock<Host>>
-    //local_connection: Arc<Mutex<dyn Connection>>,
-    //inventory: Arc<RwLock<Inventory>>
 }
 
 impl SshFactory { 

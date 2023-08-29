@@ -55,3 +55,8 @@ pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Resul
         HostOSType::MacOS => Ok(format!("shasum -b -a 512 {}", path)),
     }
 }
+
+pub fn get_ownership_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("ls -ld {}", path));
+}

@@ -72,34 +72,24 @@ impl IsAction for TemplateAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                let remote_mode = handle.get_remote_mode(request, &self.dest)?;
+
+                let mut changes : HashSet<Field> = HashSet::new();
+                let remote_mode = handle.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
-                    println!("XDEBUG: no stat");
                     return Ok(handle.needs_creation(&request));
                 }
                 
                 // check for modifications needed
-                println!("DEBUG: got a stat {}", remote_mode.unwrap());
-                let mut changes : HashSet<Field> = HashSet::new();
-
-                let src_path = self.src.as_path();
-                println!("getting local!");
+                //let src_path = self.src.as_path();
                 let data = self.do_template(&handle, &request, false)?;
-                // DON'T DELETE THIS - the file module will want for it!
+                // DON'T DELETE THIS YET - the copy module will want for it!
                 //let local_512 = handle.get_local_sha512(request, &src_path, true)?;
                 let local_512 = sha512(&data);
-                println!("local512 = ({})", local_512);
                 let remote_512 = handle.get_remote_sha512(request, &self.dest)?;
-                println!("remote512 = ({})", remote_512);
                 if ! remote_512.eq(&local_512) { 
-                    println!("pushing changes!");
                     changes.insert(Field::Content); 
                 }
 
-                println!("LOCAL CHECKSUM: {}", local_512);
-
-                //handle.query_common_file_attributes(request, &self.dest, &remote_mode, &mut changes)?;                   
-                
                 if ! changes.is_empty() {
                     return Ok(handle.needs_modification(&request, &changes));
                 }
@@ -108,7 +98,7 @@ impl IsAction for TemplateAction {
             },
 
             TaskRequestType::Create => {
-                self.do_template(handle, request, true)?;
+                self.do_template(handle, request, true)?;               
                 // handle.process_all_common_file_attributes(&request, &self.attributes)?;
                 let rc = handle.is_created(&request);
                 return Ok(rc);
@@ -142,14 +132,14 @@ impl IsAction for TemplateAction {
 
 impl TemplateAction {
 
-    pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<(String), Arc<TaskResponse>> {
+    pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
         let remote_put_mode = handle.get_desired_numeric_mode(&request, &self.attributes)?;
         let template_contents = handle.read_local_file(&request, &self.src)?;
         let data = handle.template_string(&request, &String::from("src"), &template_contents)?;
         if write {
             handle.write_remote_data(&request, &data, &self.dest, remote_put_mode)?;
         }
-        return Ok((data));
+        return Ok(data);
     }
 
 }
