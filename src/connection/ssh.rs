@@ -180,7 +180,11 @@ impl Connection for SshConnection {
         let result = run_command_low_level(&self.session.as_ref().unwrap(), cmd);
         match result {
             Ok((rc,s)) => {
-                return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
+                if rc == 0 {
+                    return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
+                } else {
+                    return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
+                }
             }, 
             Err((rc,s)) => {
                 return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));

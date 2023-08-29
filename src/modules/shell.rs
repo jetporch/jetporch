@@ -28,11 +28,14 @@ pub struct ShellTask {
     pub name: Option<String>,
     pub cmd: String,
     pub with: Option<PreLogicInput>,
-    pub and: Option<PostLogicInput>
+    pub and: Option<PostLogicInput>,
+    #[serde(rename = "unsafe")]
+    pub unsafe_: Option<String>,
 }
 struct ShellAction {
     pub name: String,
     pub cmd: String,
+    pub unsafe_: bool,
 }
 
 
@@ -46,7 +49,16 @@ impl IsTask for ShellTask {
             EvaluatedTask {
                 action: Arc::new(ShellAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    cmd:  handle.template_string(&request, &String::from("cmd"), &self.cmd)?,
+                    unsafe_:  {
+                        if self.cmd.find("{{").is_none() {
+                            // allow all the fancy shell characters unless variables are used, in which case
+                            // do a bit of extra filtering unless users turn it off
+                            true
+                        } else {
+                            handle.template_boolean_option(&request, &String::from("unsafe"), &self.unsafe_)?
+                        }
+                    },
+                    cmd:  handle.template_string_unsafe(&request, &String::from("cmd"), &self.cmd)?,
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
@@ -67,7 +79,15 @@ impl IsAction for ShellAction {
             },
 
             TaskRequestType::Execute => {
-                let task_result = handle.run(&request, &self.cmd.clone())?;
+                let mut task_result : Arc<TaskResponse>;
+                if self.unsafe_ {
+                    println!("**** RUNNING UNSAFE");
+                    task_result = handle.run_unsafe(&request, &self.cmd.clone())?;
+                } else {
+                    println!("**** RUNNING SAFE");
+
+                    task_result = handle.run(&request, &self.cmd.clone())?;
+                }
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {
                     0 => Ok(task_result), 

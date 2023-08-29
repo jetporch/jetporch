@@ -43,6 +43,17 @@ impl FileAttributesInput {
 
     // given an octal string, like 0o755 or 755, return the numeric value
     #[inline]
+    pub fn is_octal_string(mode: &String) -> bool {
+        let octal_no_prefix = str::replace(&mode, "0o", "");
+        // this error should be screened out by template() below already but return types are important.
+        return match i32::from_str_radix(&octal_no_prefix, 8) {
+            Ok(x) => true,
+            Err(y) => false 
+        }
+    }
+
+    // given an octal string, like 0o755 or 755, return the numeric value
+    #[inline]
     fn octal_string_to_number(handle: &TaskHandle, request: &Arc<TaskRequest>, mode: &String) -> Result<i32,Arc<TaskResponse>> {
         let octal_no_prefix = str::replace(&mode, "0o", "");
         // this error should be screened out by template() below already but return types are important.

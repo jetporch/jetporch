@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashSet;
 use std::sync::{Arc,Mutex,RwLock};
 use std::path::{Path,PathBuf};
 
@@ -28,7 +27,7 @@ use crate::tasks::fields::Field;
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::tasks::FileAttributesEvaluated;
-use crate::tasks::cmd_library::screen_path;
+use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_general_input_loose};
 
 // task handles are given to modules to give them shortcuts to work with the jet system
 // actual functionality is mostly provided via TaskRequest/TaskResponse and such, the handles
@@ -67,14 +66,33 @@ impl TaskHandle {
         return Arc::clone(&self.run_state.visitor);
     }
 
-    #[inline]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, true /*safe*/);
+    }
+
+    pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, false /*not safe*/);
+    }
+
+    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: bool) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
+        if safe {
+            match screen_general_input_loose(&cmd) {
+                Ok(x) => {},
+                Err(y) => return Err(self.is_failed(request, &y.clone()))
+            }
+        }
         return self.connection.lock().unwrap().run_command(self, request, cmd);
     }
 
     fn run_local(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type == TaskRequestType::Query, "local commands can only be run in query stage (was: {:?})", request.request_type);
+        // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
+        match screen_general_input_loose(&cmd) {
+            Ok(x) => {},
+            Err(y) => return Err(self.is_failed(request, &y.clone()))
+        }
         let ctx = &self.run_state.context;
         let local_result = self.run_state.connection_factory.read().unwrap().get_local_connection(&ctx);
         let local_conn = match local_result {
@@ -148,6 +166,24 @@ impl TaskHandle {
                 return Err(self.is_failed(request, &format!("ls failed, rc: {}: {}", rc, out)));
             }
         }
+    }
+
+    pub fn set_remote_owner(&self, request: &Arc<TaskRequest>, remote_path: &String, owner: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        let get_cmd_result = crate::tasks::cmd_library::set_owner_command(self.get_os_type(), remote_path, owner);
+        let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
+        return self.run(request,&cmd);
+    }
+
+    pub fn set_remote_group(&self, request: &Arc<TaskRequest>, remote_path: &String, group: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        let get_cmd_result = crate::tasks::cmd_library::set_group_command(self.get_os_type(), remote_path, group);
+        let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
+        return self.run(request,&cmd);
+    }
+
+    pub fn set_remote_mode(&self, request: &Arc<TaskRequest>, remote_path: &String, mode: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        let get_cmd_result = crate::tasks::cmd_library::set_mode_command(self.get_os_type(), remote_path, mode);
+        let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
+        return self.run(request,&cmd);
     }
 
     pub fn get_localhost(&self) -> Arc<RwLock<Host>> {
@@ -266,9 +302,11 @@ impl TaskHandle {
     }
 
     pub fn query_common_file_attributes(&self, request: &Arc<TaskRequest>, remote_path: &String, 
-        attributes_in: &Option<FileAttributesEvaluated>, changes: &mut HashSet<Field>) -> Result<Option<String>,Arc<TaskResponse>> {
+        attributes_in: &Option<FileAttributesEvaluated>, changes: &mut Vec<Field>) -> Result<Option<String>,Arc<TaskResponse>> {
         let remote_mode = self.get_remote_mode(request, remote_path)?;
+        
         if remote_mode.is_none() {
+            changes.push(Field::Content);
             return Ok(None);
         }
         if attributes_in.is_some() {
@@ -276,34 +314,87 @@ impl TaskHandle {
             let (remote_owner, remote_group) = self.get_remote_ownership(request, remote_path)?;
             if attributes.owner.is_some() {
                 if ! remote_owner.eq(attributes.owner.as_ref().unwrap()) { 
-                    println!("owner change!");
-                    changes.insert(Field::Owner); 
+                    println!("NEED TO CHANGE OWNER");
+                    changes.push(Field::Owner); 
                 }
             }
             if attributes.group.is_some() {
                 if ! remote_group.eq(attributes.group.as_ref().unwrap())  { 
-                    println!("group change!");
-                    changes.insert(Field::Group); 
+                    println!("NEED TO CHANGE GROUP");
+
+                    changes.push(Field::Group); 
                 }
             }
             if attributes.mode.is_some() {
                 if ! remote_mode.as_ref().unwrap().eq(attributes.mode.as_ref().unwrap()) { 
-                    println!("mode change!");
-                    changes.insert(Field::Mode); 
+                    println!("NEED TO CHANGE MODE");
+
+                    changes.push(Field::Mode); 
                 }
             }
-            // FIXME: other common attributes like SELinux would go here = tasks/files.rs
         }
- 
         return Ok(remote_mode);
     }
 
-    pub fn template_string(&self, request: &Arc<TaskRequest>, _field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn process_common_file_attributes(&self, 
+        request: &Arc<TaskRequest>, 
+        remote_path: &String, 
+        attributes_in: &Option<FileAttributesEvaluated>, 
+        changes: &Vec<Field>)
+            -> Result<(),Arc<TaskResponse>> {
+
+        if attributes_in.is_none() {
+            return Ok(());
+        }
+        let attributes = attributes_in.as_ref().unwrap();
+
+        for change in changes.iter() {
+            match change {
+                Field::Owner => {
+                    assert!(attributes.owner.is_some(), "owner is set");
+                    self.set_remote_owner(request, remote_path, &attributes.owner.as_ref().unwrap())?;
+                },
+                Field::Group => {
+                    assert!(attributes.group.is_some(), "owner is set");
+                    self.set_remote_group(request, remote_path, &attributes.group.as_ref().unwrap())?;
+                },
+                Field::Mode => {
+                    assert!(attributes.mode.is_some(), "owner is set");
+                    self.set_remote_mode(request, remote_path, &attributes.mode.as_ref().unwrap())?;
+                },
+                _ => {}
+            }
+        }
+        return Ok(());
+    }
+
+    pub fn process_all_common_file_attributes(&self, 
+        request: &Arc<TaskRequest>, 
+        remote_path: &String, 
+        attributes_in: &Option<FileAttributesEvaluated>) 
+             -> Result<(),Arc<TaskResponse>> {
+
+        let mut all = Field::all_file_attributes();
+        return self.process_common_file_attributes(request, remote_path, attributes_in, &all);
+    }
+
+    pub fn template_string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         let result2 = self.unwrap_string_result(request, &result)?;
         return Ok(result2);
+    }
+
+    pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.template_string_unsafe(request, field, template);
+        return match result {
+            Ok(x) => match screen_general_input_strict(&x) {
+                Ok(y) => Ok(y),
+                Err(z) => { return Err(self.is_failed(request, &format!("field {}, {}", field, z))) }
+            },
+            Err(y) => Err(y)
+        };
     }
 
     pub fn template_path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
@@ -314,13 +405,31 @@ impl TaskHandle {
         }
     }
 
-    pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        // note to module authors:
-        // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
+    pub fn template_string_option_unsafe(&self, 
+        request: &Arc<TaskRequest>, 
+        field: &String, 
+        template: &Option<String>) 
+            -> Result<Option<String>,Arc<TaskResponse>> {
+
         if template.is_none() { return Ok(None); }
         let result = self.template_string(request, field, &template.as_ref().unwrap());
         return match result { 
-            Ok(x) => Ok(Some(x)), Err(y) => { Err(self.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
+            Ok(x) => Ok(Some(x)), 
+            Err(y) => { Err(self.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
+        };
+    }
+
+    pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let result = self.template_string_option_unsafe(request, field, template);
+        return match result {
+            Ok(x1) => match x1 {
+                Some(x) => match screen_general_input_strict(&x) {
+                    Ok(y) => Ok(Some(y)),
+                    Err(z) => { return Err(self.is_failed(request, &format!("field {}, {}", field, z))) }
+                },
+                None => Ok(None)
+            },
+            Err(y) => Err(y)
         };
     }
 
@@ -372,7 +481,7 @@ impl TaskHandle {
     pub fn is_failed(&self, _request: &Arc<TaskRequest>,  msg: &String) -> Arc<TaskResponse> {
         return Arc::new(TaskResponse { 
             status: TaskStatus::Failed, 
-            changes: HashSet::new(), 
+            changes: Vec::new(), 
             msg: Some(msg.clone()), 
             command_result: Arc::new(None), 
             with: Arc::new(None), 
@@ -389,7 +498,7 @@ impl TaskHandle {
         self.get_visitor().read().expect("read visitor").on_command_failed(&self.get_context(), &Arc::clone(&self.host), &Arc::clone(result));
         return Arc::new(TaskResponse {
             status: TaskStatus::Failed,
-            changes: HashSet::new(), 
+            changes: Vec::new(), 
             msg: Some(String::from("command failed")), 
             command_result: Arc::clone(&result), 
             with: Arc::new(None), 
@@ -401,7 +510,7 @@ impl TaskHandle {
         self.get_visitor().read().expect("read visitor").on_command_ok(&self.get_context(), &Arc::clone(&self.host), &Arc::clone(result));
         return Arc::new(TaskResponse {
             status: TaskStatus::IsExecuted,
-            changes: HashSet::new(), msg: None, command_result: Arc::clone(&result), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::clone(&result), with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -409,7 +518,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Validate, "is_skipped response can only be returned for a validation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsSkipped, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -417,7 +526,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "is_matched response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsMatched, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -425,7 +534,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Create, "is_executed response can only be returned for a creation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsCreated, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
     
@@ -434,7 +543,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Execute, "is_executed response can only be returned for a creation request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsExecuted, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
     
@@ -442,7 +551,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Remove, "is_removed response can only be returned for a remove request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsRemoved, 
-            changes: HashSet::new(), 
+            changes: Vec::new(), 
             msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
@@ -451,11 +560,11 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Passive, "is_passive response can only be returned for a passive request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsPassive, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
     
-    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: HashSet<Field>) -> Arc<TaskResponse> {
+    pub fn is_modified(&self, request: &Arc<TaskRequest>, changes: Vec<Field>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Modify, "is_modified response can only be returned for a modification request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsModified, 
@@ -468,11 +577,11 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_creation response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsCreation, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None), 
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None), 
         });
     }
     
-    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: &HashSet<Field>) -> Arc<TaskResponse> {
+    pub fn needs_modification(&self, request: &Arc<TaskRequest>, changes: &Vec<Field>) -> Arc<TaskResponse> {
         assert!(request.request_type == TaskRequestType::Query, "needs_modification response can only be returned for a query request");
         assert!(!changes.is_empty(), "changes must not be empty");
         return Arc::new(TaskResponse { 
@@ -486,7 +595,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_removal response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsRemoval, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
 
@@ -494,7 +603,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_execution response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsExecution, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None),and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None),and: Arc::new(None)
         });
     }
     
@@ -502,7 +611,7 @@ impl TaskHandle {
         assert!(request.request_type == TaskRequestType::Query, "needs_passive response can only be returned for a query request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::NeedsPassive, 
-            changes: HashSet::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
+            changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
         });
     }
 

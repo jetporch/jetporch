@@ -17,7 +17,7 @@
 //use std::collections::HashMap;
 use std::sync::Arc;
 use crate::tasks::fields::Field;
-use std::collections::HashSet;
+use std::vec::Vec;
 
 // task requests are objects given to modules (and the task FSM) that
 // describe what questions we are asking of them. In the case of 
@@ -38,7 +38,7 @@ pub enum TaskRequestType {
 #[derive(Debug)]
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
-    pub changes: HashSet<Field>
+    pub changes: Vec<Field>
 }
 
 // most of the various methods in task requests are constructors for different TaskRequest type variants
@@ -51,7 +51,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Validate, 
-                changes: HashSet::new()
+                changes: Vec::new()
             }
         )
     }
@@ -61,7 +61,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Query, 
-                changes: HashSet::new() 
+                changes: Vec::new() 
             }
         )
     }
@@ -71,7 +71,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Create, 
-                changes: HashSet::new()
+                changes: Vec::new()
             }
         )
     }
@@ -81,13 +81,13 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Remove, 
-                changes: HashSet::new()
+                changes: Vec::new()
             }
         )
     }
 
     #[inline]
-    pub fn modify(changes: HashSet<Field>) -> Arc<Self> {
+    pub fn modify(changes: Vec<Field>) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Modify, 
@@ -101,7 +101,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Execute, 
-                changes: HashSet::new() 
+                changes: Vec::new() 
             }
         )
     }
@@ -111,7 +111,7 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Passive, 
-                changes: HashSet::new() 
+                changes: Vec::new() 
             }
         )
     }

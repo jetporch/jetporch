@@ -19,7 +19,7 @@ use std::sync::Arc;
 use crate::connection::command::CommandResult;
 use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
 use crate::tasks::fields::Field;
-use std::collections::HashSet;
+use std::vec::Vec;
 
 // task responses are returns from module calls - they are not
 // created directly but by helper functions in handle.rs, see
@@ -46,7 +46,7 @@ pub enum TaskStatus {
 #[derive(Debug)]
 pub struct TaskResponse {
     pub status: TaskStatus,
-    pub changes: HashSet<Field>,
+    pub changes: Vec<Field>,
     pub msg: Option<String>,
     pub command_result: Arc<Option<CommandResult>>,
     pub with: Arc<Option<PreLogicEvaluated>>,

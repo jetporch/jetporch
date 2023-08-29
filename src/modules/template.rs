@@ -19,9 +19,9 @@ use std::path::{PathBuf};
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
-use std::collections::HashSet;
 use crate::tasks::checksum::sha512;
-//use std::path::Path;
+use std::vec::Vec;
+use crate::tasks::fields::Field;
 
 const MODULE: &'static str = "Template";
 
@@ -73,7 +73,7 @@ impl IsAction for TemplateAction {
 
             TaskRequestType::Query => {
 
-                let mut changes : HashSet<Field> = HashSet::new();
+                let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
                     return Ok(handle.needs_creation(&request));
@@ -87,7 +87,7 @@ impl IsAction for TemplateAction {
                 let local_512 = sha512(&data);
                 let remote_512 = handle.get_remote_sha512(request, &self.dest)?;
                 if ! remote_512.eq(&local_512) { 
-                    changes.insert(Field::Content); 
+                    changes.push(Field::Content); 
                 }
 
                 if ! changes.is_empty() {
@@ -99,28 +99,21 @@ impl IsAction for TemplateAction {
 
             TaskRequestType::Create => {
                 self.do_template(handle, request, true)?;               
-                // handle.process_all_common_file_attributes(&request, &self.attributes)?;
+                handle.process_all_common_file_attributes(&request, &self.dest, &self.attributes)?;
                 let rc = handle.is_created(&request);
                 return Ok(rc);
             }
 
             TaskRequestType::Modify => {
 
-                let changes = request.changes.clone();
-
-                if changes.contains(&Field::Content) {
+                if request.changes.contains(&Field::Content) {
                     println!("MAKING CHANGES!");
                     self.do_template(&handle, &request, true)?;
                 } else {
                     println!("CONTENT LOOKS GOOD!");
                 }
-                /*
-                if changes.contains(String::from(Field.Checksum)) {
-                    handle.template_remote_file(request, &self.src, &self.dest)?
-                }
-                handle.process_common_file_attributes(&request, &request.changes)?;
-                */
-                return Ok(handle.is_modified(&request, changes));
+                handle.process_common_file_attributes(&request, &self.dest, &self.attributes, &request.changes)?;
+                return Ok(handle.is_modified(&request, request.changes.clone()));
             }
     
             _ => { return Err(handle.not_supported(&request)); }
@@ -135,7 +128,7 @@ impl TemplateAction {
     pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
         let remote_put_mode = handle.get_desired_numeric_mode(&request, &self.attributes)?;
         let template_contents = handle.read_local_file(&request, &self.src)?;
-        let data = handle.template_string(&request, &String::from("src"), &template_contents)?;
+        let data = handle.template_string_unsafe(&request, &String::from("src"), &template_contents)?;
         if write {
             handle.write_remote_data(&request, &data, &self.dest, remote_put_mode)?;
         }

@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::vec::Vec;
+
 // this is to prevent typos in module code between Query & Modify 
-// match legs. 
+// match legs vs using string constants
 
 // KEEP THESE ALPHABETIZED
 
@@ -25,4 +27,14 @@ pub enum Field {
     Group,
     Mode,
     Owner,
+}
+
+impl Field {
+    pub fn all_file_attributes() -> Vec<Field> {
+        let mut result : Vec<Field> = Vec::new();
+        result.push(Field::Owner);
+        result.push(Field::Group);
+        result.push(Field::Mode);
+        return result; 
+    }
 }

@@ -94,27 +94,27 @@ impl Connection for LocalConnection {
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
             Ok(x) => match x.status.code() {
-                Some(y) => {
-                    let out = convert_out(&x.stdout);
-                    Ok(
-                        handle.command_ok(request,
-                            &Arc::new(
-                                Some(
-                                    CommandResult { cmd: cmd.clone(), out: out.clone(), rc: y }
-                                )
-                            )
-                        )
-                    )
+                Some(xinner) => {
+                    match xinner {
+                        0 => {
+                            let out = convert_out(&x.stdout,&x.stderr);
+                            Ok(handle.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: xinner }))))
+                        },
+                        _ => {
+                            let out = convert_out(&x.stdout,&x.stderr);
+                            Err(handle.command_failed(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: xinner }))))
+                        }
+                    }
                 },
-                _ => {
-                    let _out = convert_out(&x.stdout);
+                None => {
+                    let _out = convert_out(&x.stdout,&x.stderr);
                     Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
                 }
             },
             Err(_x) => {
                 Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))))
             }
-        }
+        };
     }
 
     fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
@@ -145,11 +145,19 @@ impl Connection for LocalConnection {
 
 }
 
-fn convert_out(output: &Vec<u8>) -> String {
-    return match std::str::from_utf8(output) {
+fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
+    let mut base = match std::str::from_utf8(output) {
         Ok(val) => val.to_string(),
         Err(_) => String::from("invalid UTF-8 characters in response"),
     };
+    let rest = match std::str::from_utf8(err) {
+        Ok(val) => val.to_string(),
+        Err(_) => String::from("invalid UTF-8 characters in response"),
+    };
+    base.push_str("\n");
+    base.push_str(&rest);
+    return base.trim().to_string();
+
 }
 
 // connection runs uname -a on connect to check the OS type.
@@ -159,7 +167,7 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
     return match command.output() {
         Ok(x) => match x.status.code() {
             Some(0)      => {
-                let out = convert_out(&x.stdout);
+                let out = convert_out(&x.stdout,&x.stderr);
                 {
                     match host.write().unwrap().set_os_info(&out) {
                         Ok(_) => { println!("OS info set ok!") },
@@ -168,7 +176,7 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
                 }
                 Ok(())
             }
-            Some(status) => Err((status, convert_out(&x.stdout))),
+            Some(status) => Err((status, convert_out(&x.stdout, &x.stderr))),
             _            => Err((418, String::from("uname -a failed without status code")))
         },
         Err(_x) => Err((418, String::from("uname -a failed without status code")))
