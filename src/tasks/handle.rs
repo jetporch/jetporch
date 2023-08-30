@@ -35,6 +35,18 @@ use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_g
 // especially true for the finite state machine that executes tasks.
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
+pub enum CheckRc {
+    Checked,
+    Unchecked
+}
+
+#[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
+pub enum Safety {
+    Safe,
+    Unsafe
+}
+
+#[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum LocalRemote {
     Local,
     Remote
@@ -56,6 +68,10 @@ impl TaskHandle {
         }
     }
 
+    pub fn whoami(&self) -> Result<String,String> {
+        return self.connection.lock().unwrap().whoami();
+    }
+
     #[inline]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
@@ -66,27 +82,42 @@ impl TaskHandle {
         return Arc::clone(&self.run_state.visitor);
     }
 
-    pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, true /*safe*/);
+    pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, Safety::Safe, check_rc);
     }
 
-    pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, false /*not safe*/);
+    pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, Safety::Unsafe, check_rc);
     }
 
-    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: bool) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
+    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
-        if safe {
+        // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
+        // for parameterized calls that use that
+        if safe == Safety::Safe {
             match screen_general_input_loose(&cmd) {
                 Ok(x) => {},
                 Err(y) => return Err(self.is_failed(request, &y.clone()))
             }
         }
-        return self.connection.lock().unwrap().run_command(self, request, cmd);
+        let result = self.connection.lock().unwrap().run_command(self, request, cmd);
+
+        // FIXME: this is reused below, move into function (see run_local)
+        if check_rc == CheckRc::Checked {
+            if result.is_ok() {
+                let ok_result = result.as_ref().unwrap();
+                let cmd_result = ok_result.command_result.as_ref().as_ref().unwrap();
+                if cmd_result.rc != 0 {
+                    // FIXME: since cmd_result is cloneable there is no need for it to be in an Arc
+                    return Err(self.command_failed(request, &Arc::new(Some(cmd_result.clone()))));
+                }
+            }
+        }
+
+        return result
     }
 
-    fn run_local(&self, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_local(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type == TaskRequestType::Query, "local commands can only be run in query stage (was: {:?})", request.request_type);
         // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         match screen_general_input_loose(&cmd) {
@@ -99,7 +130,18 @@ impl TaskHandle {
             Ok(x) => x,
             Err(y) => { return Err(self.is_failed(request, &y.clone())) }
         };
-        return local_conn.lock().unwrap().run_command(self, request, cmd);
+        let result = local_conn.lock().unwrap().run_command(self, request, cmd);
+
+        if check_rc == CheckRc::Checked {
+            if result.is_ok() {
+                let ok_result = result.as_ref().unwrap();
+                let cmd_result = ok_result.command_result.as_ref().as_ref().unwrap();
+                if cmd_result.rc != 0 {
+                    return Err(self.command_failed(request, &Arc::new(Some(cmd_result.clone()))));
+                }
+            }
+        }
+        return result;
     }
 
     pub fn get_os_type(&self) -> HostOSType {
@@ -119,7 +161,33 @@ impl TaskHandle {
     
     // writes a string (for example, from a template) to a remote file location
     pub fn write_remote_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
-        return self.connection.lock().unwrap().write_data(self, &request, &data.clone(), &path.clone(), mode);
+        return self.connection.lock().unwrap().write_data(self, request, &data.clone(), &path.clone(), mode);
+    }
+
+    pub fn copy_file(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+        println!("INSIDE COPY FILE, IF THIS WORKS DO SAME FOR WRITE_REMOTE_DATA");
+        let owner_result = self.get_remote_ownership(request, dest)?;
+        let (mut old_owner, mut old_group) = (String::from("root"), String::from("root"));
+        let whoami : String;
+        let mut flip_owner: bool = false;
+
+        if owner_result.is_some() {
+            // the file exists
+            (old_owner, old_group) = owner_result.unwrap();
+            let whoami = match self.whoami() {
+                Ok(x) => x,
+                Err(y) => { return Err(self.is_failed(request, &y.clone())) }
+            };
+            if ! old_owner.eq(&whoami) {
+                flip_owner = true;
+                self.set_remote_owner(request, &dest, &whoami)?;
+            }
+        }
+        let result = self.connection.lock().unwrap().copy_file(self, &request, src, &dest.clone(), mode);
+        if flip_owner {
+            self.set_remote_owner(request, &dest, &old_owner)?;
+        }
+        return result;
     }
 
     fn unwrap_string_result(&self, request: &Arc<TaskRequest>, str_result: &Result<String,String>) -> Result<String, Arc<TaskResponse>> {
@@ -133,7 +201,7 @@ impl TaskHandle {
         let get_cmd_result = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
         
-        let result = self.run(request,&cmd)?;
+        let result = self.run(request, &cmd, CheckRc::Unchecked)?;
         let (rc, out) = cmd_info(&result);
         return match rc {
             // we can all unwrap because all possible string lists will have at least 1 element
@@ -142,48 +210,48 @@ impl TaskHandle {
         }
     }
     
-    pub fn get_remote_ownership(&self, request: &Arc<TaskRequest>, path: &String) -> Result<(String,String),Arc<TaskResponse>> {
+    pub fn get_remote_ownership(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<(String,String)>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::get_ownership_command(self.get_os_type(), path);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
         
-        let result = self.run(request,&cmd)?;
+        let result = self.run(request, &cmd, CheckRc::Unchecked)?;
         let (rc, out) = cmd_info(&result);
 
         match rc {
-            0 => {
-                let mut split = out.split_whitespace();
-                let owner = match split.nth(2) {
-                    Some(x) => x,
-                    None => { return Err(self.is_failed(request, &format!("unexpected output format from {}: {}", cmd, out))) }
-                };
-                let group = match split.nth(3) {
-                    Some(x) => x,
-                    None => { return Err(self.is_failed(request, &format!("unexpected output format from {}: {}", cmd, out))) }
-                };
-                return Ok((owner.to_string(),group.to_string()))
-            },
-            _ => {
-                return Err(self.is_failed(request, &format!("ls failed, rc: {}: {}", rc, out)));
-            }
+            0 => {},
+            _ => { return Ok(None); },
+            //_ => { return Err(self.is_failed(request, &format!("unexpected return code from {} ({}) {}", cmd, rc, out)));   }
         }
+
+        let mut split = out.split_whitespace();
+        let owner = match split.nth(2) {
+            Some(x) => x,
+            None => { return Err(self.is_failed(request, &format!("unexpected output format from {}: {}", cmd, out))) }
+        };
+        // this is a progressive iterator, hence 0 and not 3 for nth() below!
+        let group = match split.nth(0) {
+            Some(x) => x,
+            None => { return Err(self.is_failed(request, &format!("unexpected output format from {}: {}", cmd, out))) }
+        };
+        return Ok(Some((owner.to_string(),group.to_string())));
     }
 
     pub fn set_remote_owner(&self, request: &Arc<TaskRequest>, remote_path: &String, owner: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::set_owner_command(self.get_os_type(), remote_path, owner);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
-        return self.run(request,&cmd);
+        return self.run(request,&cmd,CheckRc::Checked);
     }
 
     pub fn set_remote_group(&self, request: &Arc<TaskRequest>, remote_path: &String, group: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::set_group_command(self.get_os_type(), remote_path, group);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
-        return self.run(request,&cmd);
+        return self.run(request,&cmd,CheckRc::Checked);
     }
 
     pub fn set_remote_mode(&self, request: &Arc<TaskRequest>, remote_path: &String, mode: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::set_mode_command(self.get_os_type(), remote_path, mode);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
-        return self.run(request,&cmd);
+        return self.run(request,&cmd,CheckRc::Checked);
     }
 
     pub fn get_localhost(&self) -> Arc<RwLock<Host>> {
@@ -235,8 +303,8 @@ impl TaskHandle {
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
 
         let result = match is_local {
-            LocalRemote::Remote => self.run(request, &cmd)?,
-            LocalRemote::Local  => self.run_local(request, &cmd)?
+            LocalRemote::Remote => self.run(request, &cmd, CheckRc::Unchecked)?,
+            LocalRemote::Local  => self.run_local(request, &cmd, CheckRc::Unchecked)?
         };
 
         let (rc, out) = cmd_info(&result);
@@ -262,17 +330,20 @@ impl TaskHandle {
 
     #[inline]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
-        // source path variables cannot use templates
-        // we also screen them for the same invalid characters we check for in dest paths
-        let prelim = match screen_path(&str_path) {
-            Ok(x) => x, Err(y) => { return Err(self.is_failed(request, &format!("{}, for field: {}", y, field))) }
-        };
-        return self.find_sub_path(&String::from("templates"), request, field, &prelim);
+        return self.find_sub_path(&String::from("templates"), request, field, str_path);
+    }
+
+    pub fn find_file_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        return self.find_sub_path(&String::from("files"), request, field, str_path);
     }
 
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        let prelim = match screen_path(&str_path) {
+            Ok(x) => x, 
+            Err(y) => { return Err(self.is_failed(request, &format!("{}, for field: {}", y, field))) }
+        };
         let mut path = PathBuf::new();
-        path.push(str_path);
+        path.push(prelim);
         if path.is_absolute() {
             if path.is_file() {
                 return Ok(path);
@@ -311,24 +382,24 @@ impl TaskHandle {
         }
         if attributes_in.is_some() {
             let attributes = attributes_in.as_ref().unwrap();
-            let (remote_owner, remote_group) = self.get_remote_ownership(request, remote_path)?;
+            let owner_result = self.get_remote_ownership(request, remote_path)?;
+            if owner_result.is_none() {
+                return Err(self.is_failed(request, &String::from("file was deleted unexpectedly mid-operation")));
+            }
+            let (remote_owner, remote_group) = owner_result.unwrap();
+
             if attributes.owner.is_some() {
                 if ! remote_owner.eq(attributes.owner.as_ref().unwrap()) { 
-                    println!("NEED TO CHANGE OWNER");
                     changes.push(Field::Owner); 
                 }
             }
             if attributes.group.is_some() {
                 if ! remote_group.eq(attributes.group.as_ref().unwrap())  { 
-                    println!("NEED TO CHANGE GROUP");
-
                     changes.push(Field::Group); 
                 }
             }
             if attributes.mode.is_some() {
                 if ! remote_mode.as_ref().unwrap().eq(attributes.mode.as_ref().unwrap()) { 
-                    println!("NEED TO CHANGE MODE");
-
                     changes.push(Field::Mode); 
                 }
             }

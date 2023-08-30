@@ -27,7 +27,7 @@ pub mod checksum;
 pub use crate::connection::command::cmd_info;
 pub use crate::tasks::common::{IsTask,IsAction,EvaluatedTask};
 pub use crate::tasks::logic::{PreLogicInput,PreLogicEvaluated,PostLogicInput,PostLogicEvaluated};
-pub use crate::tasks::handle::TaskHandle;
+pub use crate::tasks::handle::{TaskHandle,CheckRc};
 pub use crate::tasks::response::{TaskResponse,TaskStatus};
 pub use crate::tasks::request::{TaskRequestType,TaskRequest};
 pub use crate::tasks::files::{FileAttributesInput,FileAttributesEvaluated};

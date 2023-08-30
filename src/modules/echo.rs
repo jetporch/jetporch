@@ -45,10 +45,10 @@ impl IsTask for EchoTask {
             EvaluatedTask {
                 action: Arc::new(EchoAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg:  handle.template_string_unsafe(&request, &String::from("msg"), &self.msg)?,
+                    msg:  handle.template_string_unsafe(request, &String::from("msg"), &self.msg)?,
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(handle, request, &self.with)?),
+                and: Arc::new(PostLogicInput::template(handle, request, &self.and)?),
             }
         );
     }
@@ -69,7 +69,7 @@ impl IsAction for EchoAction {
                 return Ok(handle.is_passive(&request));
             },
 
-            _ => { return Err(handle.not_supported(&request)); }
+            _ => { return Err(handle.not_supported(request)); }
 
         }
 

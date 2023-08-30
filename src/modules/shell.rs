@@ -82,11 +82,11 @@ impl IsAction for ShellAction {
                 let mut task_result : Arc<TaskResponse>;
                 if self.unsafe_ {
                     println!("**** RUNNING UNSAFE");
-                    task_result = handle.run_unsafe(&request, &self.cmd.clone())?;
+                    task_result = handle.run_unsafe(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
                 } else {
                     println!("**** RUNNING SAFE");
 
-                    task_result = handle.run(&request, &self.cmd.clone())?;
+                    task_result = handle.run(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
                 }
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {

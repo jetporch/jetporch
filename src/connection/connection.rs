@@ -19,6 +19,7 @@ use crate::tasks::response::TaskResponse;
 use crate::tasks::handle::TaskHandle;
 use std::sync::Arc;
 use std::marker::{Send,Sync};
+use std::path::Path;
 
 pub trait Connection : Send + Sync {
 
@@ -27,6 +28,10 @@ pub trait Connection : Send + Sync {
     // FIXME: add error return objects
     
     fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>>;
+
+    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>>;
+
+    fn whoami(&self) -> Result<String,String>;
 
     /* 
     FIXME: should add, return result

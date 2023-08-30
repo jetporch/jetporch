@@ -30,6 +30,8 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
 use std::net::ToSocketAddrs;
+use std::io::BufReader;
+use std::fs::File;
 
 pub struct SshFactory {
     local_factory: LocalFactory,
@@ -99,6 +101,11 @@ impl SshConnection {
 }
 
 impl Connection for SshConnection {
+
+    fn whoami(&self) -> Result<String,String> {
+        // FIXME: these methods will need changes when sudo is added shortly
+        return Ok(self.username.clone());
+    }
 
     fn connect(&mut self) -> Result<(), String> {
 
@@ -180,29 +187,48 @@ impl Connection for SshConnection {
         let result = run_command_low_level(&self.session.as_ref().unwrap(), cmd);
         match result {
             Ok((rc,s)) => {
-                if rc == 0 {
-                    return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
-                } else {
-                    return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
-                }
+                // note that non-zero return codes are "ok" to the connection plugin, handle elsewhere!
+                return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }, 
             Err((rc,s)) => {
                 return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }
         }
     }
- 
+
+    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+        let session = self.session.as_ref().expect("session not established");
+        let sftp_result = session.sftp();
+        let sftp = match sftp_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(request, &format!("sftp connection failed: {y}"))); }
+        };
+        let sftp_path = Path::new(&remote_path);
+        let fh_result = sftp.create(sftp_path);
+        let mut fh = match fh_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(request, &format!("sftp write failed (1): {y}"))) }
+        };
+        let bytes = data.as_bytes();
+        fh.write_all(bytes);
+        return Ok(());
+    }
  
     // test pushing a file
     // FIXME: this signature will change -- needs testing
-    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    //fn old_write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
         // FIXME: all to the unwrap() calls should be caught
         // FIXME: we should take the mode as input
+       //panic!("noooooo");
+        /*
         let mut real_mode: i32 = 0o644;
         if mode.is_some() {
             real_mode = mode.unwrap();
         }
         let data_size = data.len() as u64;
+        println!("DEBUG: data size: {}", data_size);
+        println!("DEBUG: real mode: {}", real_mode);
+        println!("DEBUG: remote_path: {}", remote_path);
         let remote_file_result = self.session.as_ref().unwrap().scp_send(
             Path::new(&remote_path), real_mode, data_size, None
         );
@@ -240,8 +266,52 @@ impl Connection for SshConnection {
             Err(y) => { return Err(handle.is_failed(&request, 
                 &String::from(format!("failed waiting for file to close on remote file: {}, {:?}", remote_path, y)))) }
         };
+                return Ok(());
+        */
+    //}
+
+    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+
+        println!("INSIDE SSH COPY FILE!!!");
+
+        let src_open_result = File::open(src);
+        let mut src = match src_open_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(request, &format!("failed to open source file: {y}"))); }
+        };
+        //let mut reader = BufReader::new(src);
+
+        let session = self.session.as_ref().expect("session not established");
+        let sftp_result = session.sftp();
+        let sftp = match sftp_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(request, &format!("sftp connection failed: {y}"))); }
+        };
+        let sftp_path = Path::new(&remote_path);
+        let fh_result = sftp.create(sftp_path);
+        let mut fh = match fh_result {
+            Ok(x) => x,
+            Err(y) => { return Err(handle.is_failed(request, &format!("sftp write failed (1): {y}"))) }
+        };
+
+        let chunk_size = 64536;
+
+        loop {
+            let mut chunk = Vec::with_capacity(chunk_size);
+            let mut taken = std::io::Read::by_ref(&mut src).take(chunk_size as u64);
+            let take_result = taken.read_to_end(&mut chunk);
+            let n = match take_result {
+                Ok(x) => x,
+                Err(y) => { return Err(handle.is_failed(request, &format!("failed during file transfer: {y}"))); }
+            };
+            if n == 0 { break; }
+            fh.write(&chunk);
+        }
+
         return Ok(());
+
     }
+
 
 }
 

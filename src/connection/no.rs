@@ -24,6 +24,7 @@ use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
+use std::path::Path;
 
 pub struct NoFactory {}
 
@@ -35,12 +36,10 @@ impl NoFactory {
 
 impl ConnectionFactory for NoFactory {
     fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
-        //return Ok(Arc::new(Mutex::new(NoConnection::new())));
-        panic!("attempting to use the no-connection");
+        panic!("attempting to use the no-factory");
     }
     fn get_local_connection(&self, _context: &Arc<RwLock<PlaybookContext>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
-        //return Ok(Arc::new(Mutex::new(NoConnection::new())));
-        panic!("attempting to use the no-connection");
+        panic!("attempting to use the no-factory");
     }
 }
 
@@ -55,6 +54,10 @@ impl NoConnection {
 
 impl Connection for NoConnection {
 
+   fn whoami(&self) -> Result<String,String> {
+       panic!("attempting to use the no-connection");
+   }
+
    fn connect(&mut self) -> Result<(),String> {
        return Ok(());
    }
@@ -63,8 +66,11 @@ impl Connection for NoConnection {
        panic!("attempting to use the no-connection");
    }
 
-   // FIXME: this signature will change
    fn write_data(&self, _handle: &TaskHandle, _request: &Arc<TaskRequest>, _data: &String, _remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>>{
+       panic!("attempting to use the no-connection");
+   }
+
+   fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
        panic!("attempting to use the no-connection");
    }
 

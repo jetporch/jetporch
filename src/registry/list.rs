@@ -25,6 +25,7 @@ use std::sync::Arc;
 // polymorphic dispatch, but traversal would lose a lot of serde benefits.
 
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+use crate::modules::copy::CopyTask;
 use crate::modules::echo::EchoTask;
 use crate::modules::shell::ShellTask;
 use crate::modules::template::TemplateTask;
@@ -33,6 +34,7 @@ use crate::modules::template::TemplateTask;
 #[serde(rename_all="lowercase")]
 pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+    Copy(CopyTask),
     Echo(EchoTask),
     Shell(ShellTask),
     Template(TemplateTask),
@@ -43,6 +45,7 @@ impl Task {
     pub fn get_module(&self) -> String {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+            Task::Copy(x)     => x.get_module(), 
             Task::Echo(x)     => x.get_module(), 
             Task::Shell(x)    => x.get_module(), 
             Task::Template(x) => x.get_module(), 
@@ -52,6 +55,7 @@ impl Task {
     pub fn get_name(&self) -> Option<String> {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+            Task::Copy(x)     => x.get_name(), 
             Task::Echo(x)     => x.get_name(), 
             Task::Shell(x)    => x.get_name(), 
             Task::Template(x) => x.get_name(), 
@@ -61,6 +65,7 @@ impl Task {
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZE
         return match self {
+            Task::Copy(x)     => x.evaluate(handle, request), 
             Task::Echo(x)     => x.evaluate(handle, request), 
             Task::Shell(x)    => x.evaluate(handle, request), 
             Task::Template(x) => x.evaluate(handle, request), 

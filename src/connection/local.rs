@@ -31,6 +31,7 @@ use crate::util::io::jet_file_open;
 use std::fs::File;
 use std::path::Path;
 use std::io::Write;
+use std::env;
 
 #[allow(dead_code)]
 pub struct LocalFactory {
@@ -75,6 +76,14 @@ impl LocalConnection {
 
 impl Connection for LocalConnection {
 
+    fn whoami(&self) -> Result<String,String> {
+        let user_result = env::var("USER");
+        return match user_result {
+            Ok(x) => Ok(x),
+            Err(y) => Err(String::from("environment variable $USER: {y}"))
+        };
+    }
+
     fn connect(&mut self) -> Result<(),String> {
 
         let result = detect_os(&self.host);
@@ -93,28 +102,32 @@ impl Connection for LocalConnection {
         let mut base = Command::new("sh");
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         return match command.output() {
-            Ok(x) => match x.status.code() {
-                Some(xinner) => {
-                    match xinner {
-                        0 => {
-                            let out = convert_out(&x.stdout,&x.stderr);
-                            Ok(handle.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: xinner }))))
-                        },
-                        _ => {
-                            let out = convert_out(&x.stdout,&x.stderr);
-                            Err(handle.command_failed(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: xinner }))))
-                        }
+            Ok(x) => {
+                match x.status.code() {
+                    Some(rc) => {
+                        let out = convert_out(&x.stdout,&x.stderr);
+                        Ok(handle.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: rc }))))
+                    },
+                    None => {
+                        Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
                     }
-                },
-                None => {
-                    let _out = convert_out(&x.stdout,&x.stderr);
-                    Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
                 }
             },
             Err(_x) => {
                 Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))))
             }
         };
+    }
+
+    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+        // FIXME: this (temporary) implementation currently loads the file contents into memory which we do not want
+        // copy the files with system calls instead.
+        let remote_path2 = Path::new(remote_path);
+        let result = std::fs::copy(src, &remote_path2);
+        return match result {
+            Ok(x) => Ok(()),
+            Err(e) => { return Err(handle.is_failed(&request, &format!("copy failed: {:?}", e))) }
+        }
     }
 
     fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
