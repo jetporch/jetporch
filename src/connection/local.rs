@@ -42,10 +42,8 @@ pub struct LocalFactory {
 impl LocalFactory {
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self {
         let host = inventory.read().expect("inventory read").get_host(&String::from("localhost"));
-        println!("LOCAL CONNECTING....");
         let mut lc = LocalConnection::new(&Arc::clone(&host));
         lc.connect().expect("connection ok");
-        println!("CONNECT DONE");
         Self {
             inventory: Arc::clone(&inventory),
             local_connection: Arc::new(Mutex::new(lc))
@@ -92,7 +90,6 @@ impl Connection for LocalConnection {
         }
         else {
             let (rc, out) = result.unwrap_err();
-            println!("control machine OS detection failed: rc:{}, out:{}", rc, out);
             return Err(out);
         }
     }
@@ -183,7 +180,7 @@ fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
                 let out = convert_out(&x.stdout,&x.stderr);
                 {
                     match host.write().unwrap().set_os_info(&out) {
-                        Ok(_) => { println!("OS info set ok!") },
+                        Ok(_) => { },
                         Err(_) => { return Err((500, String::from("failed to set OS info"))); }
                     }
                 }

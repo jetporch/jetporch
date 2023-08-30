@@ -15,6 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
+use crate::handle::handle::TaskHandle;
 //#[allow(unused_imports)]
 use serde::Deserialize;
 use std::sync::Arc;
@@ -45,7 +46,7 @@ impl IsTask for EchoTask {
             EvaluatedTask {
                 action: Arc::new(EchoAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg:  handle.template_string_unsafe(request, &String::from("msg"), &self.msg)?,
+                    msg:  handle.template.string_unsafe(request, &String::from("msg"), &self.msg)?,
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, &self.and)?),
@@ -61,15 +62,15 @@ impl IsAction for EchoAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                return Ok(handle.needs_passive(&request));
+                return handle.response.needs_passive(request);
             },
 
             TaskRequestType::Passive => {
                 handle.debug(&request, &self.msg);
-                return Ok(handle.is_passive(&request));
+                return handle.response.is_passive(request);
             },
 
-            _ => { return Err(handle.not_supported(request)); }
+            _ => { return handle.response.not_supported(request); }
 
         }
 

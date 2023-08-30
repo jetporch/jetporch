@@ -99,6 +99,21 @@ pub fn get_ownership_command(_os_type: HostOSType, untrusted_path: &String) -> R
     return Ok(format!("ls -ld {}", path));
 }
 
+pub fn get_is_directory_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("ls -ld {}", path));
+}
+
+pub fn get_touch_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("touch {}", path));
+}
+
+pub fn get_delete_file_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("rm -f {}", path));
+}
+
 pub fn set_owner_command(_os_type: HostOSType, untrusted_path: &String, untrusted_owner: &String) -> Result<String,String> {
     let path = screen_path(untrusted_path)?;
     let owner = screen_general_input_strict(untrusted_owner)?;

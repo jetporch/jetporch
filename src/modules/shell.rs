@@ -15,6 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
+use crate::handle::handle::TaskHandle;
 use crate::connection::command::cmd_info;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
@@ -55,10 +56,10 @@ impl IsTask for ShellTask {
                             // do a bit of extra filtering unless users turn it off
                             true
                         } else {
-                            handle.template_boolean_option(&request, &String::from("unsafe"), &self.unsafe_)?
+                            handle.template.boolean_option(&request, &String::from("unsafe"), &self.unsafe_)?
                         }
                     },
-                    cmd:  handle.template_string_unsafe(&request, &String::from("cmd"), &self.cmd)?,
+                    cmd:  handle.template.string_unsafe(&request, &String::from("cmd"), &self.cmd)?,
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
@@ -75,27 +76,24 @@ impl IsAction for ShellAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                return Ok(handle.needs_execution(&request));
+                return handle.needs_execution(&request);
             },
 
             TaskRequestType::Execute => {
                 let mut task_result : Arc<TaskResponse>;
                 if self.unsafe_ {
-                    println!("**** RUNNING UNSAFE");
-                    task_result = handle.run_unsafe(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
+                    task_result = handle.remote.run_unsafe(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
                 } else {
-                    println!("**** RUNNING SAFE");
-
-                    task_result = handle.run(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
+                    task_result = handle.remote.run(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
                 }
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {
                     0 => Ok(task_result), 
-                    _ =>  Err(handle.command_failed(request, &Arc::clone(&task_result.command_result)))
+                    _ => handle.response.command_failed(request, &Arc::clone(&task_result.command_result)
                 }
             },
     
-            _ => { return Err(handle.not_supported(&request)); }
+            _ => { return handle.response.not_supported(&request); }
     
         }
     }

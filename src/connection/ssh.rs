@@ -213,74 +213,15 @@ impl Connection for SshConnection {
         fh.write_all(bytes);
         return Ok(());
     }
- 
-    // test pushing a file
-    // FIXME: this signature will change -- needs testing
-    //fn old_write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
-        // FIXME: all to the unwrap() calls should be caught
-        // FIXME: we should take the mode as input
-       //panic!("noooooo");
-        /*
-        let mut real_mode: i32 = 0o644;
-        if mode.is_some() {
-            real_mode = mode.unwrap();
-        }
-        let data_size = data.len() as u64;
-        println!("DEBUG: data size: {}", data_size);
-        println!("DEBUG: real mode: {}", real_mode);
-        println!("DEBUG: remote_path: {}", remote_path);
-        let remote_file_result = self.session.as_ref().unwrap().scp_send(
-            Path::new(&remote_path), real_mode, data_size, None
-        );
-
-        let mut remote_file = match remote_file_result {
-            Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed to transmit remote file: {}, {:?}", remote_path, y)))) }
-        };
-        let bytes = data.as_bytes();
-        let write_result = remote_file.write(bytes);
-        match write_result {
-            Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed to write remote file: {}, {:?}", remote_path, y)))) }
-        };
-        // Close the channel and wait for the whole content to be transferred
-        match remote_file.send_eof() {
-            Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed sending eof to remote file: {}, {:?}", remote_path, y)))) }
-        };
-        match remote_file.wait_eof() {
-            Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed waiting for eof on remote file: {}, {:?}", remote_path, y)))) }
-        };
-        match remote_file.close() {
-            Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed closing remote file: {}, {:?}", remote_path, y)))) }
-        };
-        match remote_file.wait_close() {
-            Ok(_) => {},
-            Err(y) => { return Err(handle.is_failed(&request, 
-                &String::from(format!("failed waiting for file to close on remote file: {}, {:?}", remote_path, y)))) }
-        };
-                return Ok(());
-        */
-    //}
 
     fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
-
-        println!("INSIDE SSH COPY FILE!!!");
 
         let src_open_result = File::open(src);
         let mut src = match src_open_result {
             Ok(x) => x,
             Err(y) => { return Err(handle.is_failed(request, &format!("failed to open source file: {y}"))); }
         };
-        //let mut reader = BufReader::new(src);
-
+        
         let session = self.session.as_ref().expect("session not established");
         let sftp_result = session.sftp();
         let sftp = match sftp_result {
@@ -320,57 +261,15 @@ fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String)
 
     let mut channel = session.channel_session().unwrap();
     let actual_cmd = format!("{} 2>&1", cmd);
-
     match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
     let mut s = String::new();
-
     match channel.read_to_string(&mut s) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
-
     let _w = channel.wait_close();
-
     let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
-
     return Ok((exit_status, s.clone()));
 }
 
-    // IT WOULD BE NICE TO STREAM!
-    // also look at main crate docs for subsystem example?
-
-     // pull file
- 
- 
- // Connect to the local SSH server
- //let tcp = TcpStream::connect("127.0.0.1:22").unwrap();
- //let mut sess = Session::new().unwrap();
- //sess.set_tcp_stream(tcp);
- //sess.handshake().unwrap();
- //sess.userauth_agent("username").unwrap();
- 
- //let (mut remote_file, stat) = sess.scp_recv(Path::new("remote")).unwrap();
- //println!("remote file size: {}", stat.size());
- //let mut contents = Vec::new();
- //remote_file.read_to_end(&mut contents).unwrap();
- 
- // Close the channel and wait for the whole content to be tranferred
- //remote_file.send_eof().unwrap();
- //remote_file.wait_eof().unwrap();
- //remote_file.close().unwrap();
- //remote_file.wait_close().unwrap();
-
-
-
-   
-   /*
-   fn get_file(&self, remote_path: String) -> String {
-        String::from("Hey!")
-
-   }
-   */
-
-
-
-
-// SHELL may look like this:
+// SHELL may look like this?
 /*
 channel.shell().unwrap();
 for command in commands {
@@ -381,8 +280,6 @@ channel.send_eof().unwrap();
 println!("Waiting for output");
 channel.read_to_string(&mut s).unwrap();
 println!("{}", s);
-
 https://stackoverflow.com/questions/74512626/how-can-i-run-a-sequence-of-commands-using-ssh2-rs
-
 */
 

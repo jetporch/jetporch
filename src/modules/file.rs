@@ -16,7 +16,6 @@
 
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
-use crate::tasks::checksum::sha512;
 use crate::tasks::fields::Field;
 use std::path::{PathBuf};
 //#[allow(unused_imports)]
@@ -24,39 +23,37 @@ use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &'static str = "Template";
+const MODULE: &'static str = "File";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="template",deny_unknown_fields)]
-pub struct TemplateTask {
+#[serde(tag="file",deny_unknown_fields)]
+pub struct FileTask {
     pub name: Option<String>,
-    pub src: String,
-    pub dest: String,
+    pub path: String,
+    pub delete: Option<bool>,
     pub attributes: Option<FileAttributesInput>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
-
-struct TemplateAction {
+struct FileAction {
     pub name: String,
-    pub src: PathBuf,
-    pub dest: String,
+    pub path: PathBuf,
+    pub delete: bool,
     pub attributes: Option<FileAttributesEvaluated>,
 }
 
-impl IsTask for TemplateTask {
+impl IsTask for CopyTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        let src = handle.template.string(&request, &String::from("src"), &self.src)?;
         return Ok(
             EvaluatedTask {
-                action: Arc::new(TemplateAction {
+                action: Arc::new(FileAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    src:        handle.template.find_path(request, &String::from("src"), &src)?,
-                    dest:       handle.template.path(&request, &String::from("dest"), &self.dest)?,
+                    delete:     handle.template.boolean_option(&request, &String::from("delete"), &self.delete)?,
+                    path:       handle.template.path(&request, &String::from("path"), &self.path)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
@@ -67,62 +64,47 @@ impl IsTask for TemplateTask {
 
 }
 
-impl IsAction for TemplateAction {
+impl IsAction for FileAction {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
             TaskRequestType::Query => {
-
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
-                    return handle.response.needs_creation(request);
+                    if self.delete             { return handle.response.is_matched(request); } 
+                    else                       { return handle.response.needs_creation(request);  }
+                } else {
+                    let is_dir = handle.remote_get_is_directory(request, &self.dest)?;
+                    if is_dir                  { return handle.response.is_failed(request, &format!("{} is a directory", self.dest)); }
+                    else if self.delete        { return handle.response.needs_removal(request); }
+                    else if changes.is_empty() { return handle.response.is_matched(request); }
+                    else                       { return handle.response.needs_modification(request, &changes); }
                 }
-                let data = self.do_template(handle, request, false)?;
-                let local_512 = sha512(&data);
-                let remote_512 = handle.remote_get_sha512(request, &self.dest)?;
-                if ! remote_512.eq(&local_512) { 
-                    changes.push(Field::Content); 
-                }
-                if ! changes.is_empty() {
-                    return handle.needs_modification(request, &changes);
-                }
-                return handle.response.is_matched(request);
             },
 
             TaskRequestType::Create => {
-                self.do_template(handle, request, true)?;               
-                handle.remote_process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
-                return handle.response.is_created(request);
-            }
+                self.remote.touch_file(handle, request)?;               
+                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
+                return handle.is_created(request);
+            },
 
             TaskRequestType::Modify => {
-                if request.changes.contains(&Field::Content) {
-                    self.do_template(handle, request, true)?;
-                }
-                handle.remote_process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
-                return handle.response.is_modified(request, request.changes.clone();
+                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
+                return handle.is_modified(request, request.changes.clone());
+            },
+
+            TaskRequestType::Remove => {
+                self.remote.delete_file(handle, request)?;               
+                return handle.is_removed(request)
             }
-    
-            _ => { return handle.response.not_supported(request); }
-    
+
+            // no passive or execute leg
+            _ => { return handle.not_supported(request); }
+
+        
         }
     }
-
-}
-
-impl TemplateAction {
-
-    pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
-        let remote_put_mode = handle.get_desired_numeric_mode(&request, &self.attributes)?;
-        let template_contents = handle.read_local_file(&request, &self.src)?;
-        let data = handle.template_string_unsafe(&request, &String::from("src"), &template_contents)?;
-        if write {
-            handle.remote_write_data(&request, &data, &self.dest, remote_put_mode)?;
-        }
-        return Ok(data);
-    }
-
 }
