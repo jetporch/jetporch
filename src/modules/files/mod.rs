@@ -15,7 +15,8 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
-pub mod commands;
-pub mod control;
-pub mod files;
-pub mod packages;
+
+pub mod copy;
+pub mod directory;
+pub mod file;
+pub mod template;

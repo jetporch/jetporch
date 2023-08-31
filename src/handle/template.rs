@@ -123,6 +123,25 @@ impl Template {
         };
     }
 
+    pub fn string_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let prelim = self.string(request, field, template)?;
+        if self.has_spaces(prelim) {
+            return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
+        }
+        return prelim;
+    }
+
+    pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let prelim = self.string_option(request, field, template)?;
+        if prelim.is_some() {
+            let value = prelim.unwrap();
+            if self.has_spaces(&value) {
+                return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
+            }
+        }
+        return prelim;
+    }
+
     pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
@@ -261,5 +280,9 @@ impl Template {
         }
     }
 
+    pub fn has_spaces(input: String -> bool {
+        let found = input.find(" ");
+        return found.is_some();
+    }
 
 }

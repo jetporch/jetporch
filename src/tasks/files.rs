@@ -116,8 +116,8 @@ impl FileAttributesInput {
         }
 
         return Ok(Some(FileAttributesEvaluated {
-            owner:         handle.template.string_option(request, &String::from("owner"), &input2.owner)?,
-            group:         handle.template.string_option(request, &String::from("group"), &input2.group)?,
+            owner:         handle.template.string_option_no_spaces(request, &String::from("owner"), &input2.owner)?,
+            group:         handle.template.string_option_no_spaces(request, &String::from("group"), &input2.group)?,
             mode:          final_mode_value,
         }));
     }

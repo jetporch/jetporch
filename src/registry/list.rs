@@ -24,18 +24,21 @@ use std::sync::Arc;
 // and this may be improved later. If there was no Enum, we could have
 // polymorphic dispatch, but traversal would lose a lot of serde benefits.
 
-// ADD NEW MODULES HERE, KEEP ALPHABETIZED
-use crate::modules::copy::CopyTask;
-use crate::modules::directory::DirectoryTask;
-use crate::modules::echo::EchoTask;
-use crate::modules::file::FileTask;
-use crate::modules::shell::ShellTask;
-use crate::modules::template::TemplateTask;
+// ADD NEW MODULES HERE, KEEP ALPHABETIZED BY SECTION
+
+use crate::modules::commands::shell::ShellTask;
+
+use crate::modules::control::echo::EchoTask;
+
+use crate::modules::files::copy::CopyTask;
+use crate::modules::files::directory::DirectoryTask;
+use crate::modules::files::file::FileTask;
+use crate::modules::files::template::TemplateTask;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
-    // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+    // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
     Copy(CopyTask),
     Directory(DirectoryTask),
     Echo(EchoTask),
@@ -48,7 +51,7 @@ impl Task {
 
     pub fn get_module(&self) -> String {
         return match self {
-            // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+            // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
             Task::Copy(x)      => x.get_module(), 
             Task::Directory(x) => x.get_module(),
             Task::Echo(x)      => x.get_module(), 
@@ -60,7 +63,7 @@ impl Task {
 
     pub fn get_name(&self) -> Option<String> {
         return match self {
-            // ADD NEW MODULES HERE, KEEP ALPHABETIZED
+            // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
             Task::Copy(x)      => x.get_name(), 
             Task::Directory(x) => x.get_name(),
             Task::Echo(x)      => x.get_name(), 
@@ -71,7 +74,7 @@ impl Task {
     }
 
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        // ADD NEW MODULES HERE, KEEP ALPHABETIZE
+        // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Copy(x)      => x.evaluate(handle, request), 
             Task::Directory(x) => x.evaluate(handle, request), 
