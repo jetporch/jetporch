@@ -124,22 +124,22 @@ impl Template {
     }
 
     pub fn string_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        let prelim = self.string(request, field, template)?;
-        if self.has_spaces(prelim) {
+        let value = self.string(request, field, template)?;
+        if self.has_spaces(&value) {
             return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
         }
-        return prelim;
+        return Ok(value.clone());
     }
 
-    pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         let prelim = self.string_option(request, field, template)?;
         if prelim.is_some() {
-            let value = prelim.unwrap();
+            let value = prelim.as_ref().unwrap();
             if self.has_spaces(&value) {
                 return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
             }
         }
-        return prelim;
+        return Ok(prelim.clone());
     }
 
     pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
@@ -280,7 +280,7 @@ impl Template {
         }
     }
 
-    pub fn has_spaces(input: String -> bool {
+    pub fn has_spaces(&self, input: &String) -> bool {
         let found = input.find(" ");
         return found.is_some();
     }

@@ -17,7 +17,7 @@
 use std::vec::Vec;
 
 // this is to prevent typos in module code between Query & Modify 
-// match legs vs using string constants
+// match legs vs using strings
 
 // KEEP THESE ALPHABETIZED
 
@@ -27,6 +27,7 @@ pub enum Field {
     Group,
     Mode,
     Owner,
+    Version,
 }
 
 impl Field {

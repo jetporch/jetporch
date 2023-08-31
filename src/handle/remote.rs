@@ -363,7 +363,7 @@ impl Remote {
         recurse: Recurse) 
              -> Result<(),Arc<TaskResponse>> {
 
-        let mut all = Field::all_file_attributes();
+        let all = Field::all_file_attributes();
         return self.process_common_file_attributes(request, remote_path, attributes_in, &all, recurse);
     }
 

@@ -29,9 +29,9 @@ const MODULE: &'static str = "Dnf";
 pub struct DnfTask {
     pub name: Option<String>,
     pub package: String,
-    pub version: String,
-    pub update: Option<bool>,
-    pub remove: Option<bool>,
+    pub version: Option<String>,
+    pub update: Option<String>,
+    pub remove: Option<String>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
@@ -40,14 +40,14 @@ struct DnfAction {
     pub name: String,
     pub package: String,
     pub version: Option<String>,
-    pub update: Option<String>,
+    pub update: bool,
     pub remove: bool,
 }
 
-#[derive(Copy,Clone,PartialEq,Debug)]
+#[derive(Clone,PartialEq,Debug)]
 struct PackageDetails {
     name: String,
-    version: Version,
+    version: String,
 }
 
 impl IsTask for DnfTask {
@@ -58,15 +58,15 @@ impl IsTask for DnfTask {
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
-                action: Arc::new(TemplateAction {
+                action: Arc::new(DnfAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    package:    handle.template.string_no_spaces(request, &String::from("package"), &package)?),
-                    version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?),
-                    update:     handle.template.boolean_option(&request, &String::from("update"), &self.update)?
+                    package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
+                    version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
+                    update:     handle.template.boolean_option(&request, &String::from("update"), &self.update)?,
                     remove:     handle.template.boolean_option(&request, &String::from("remove"), &self.remove)?
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?)
             }
         );
     }
@@ -83,23 +83,28 @@ impl IsAction for DnfAction {
             TaskRequestType::Query => {
 
                 let mut changes : Vec<Field> = Vec::new();
-                let package_details = self.get_package_details(handle, request, &self.package)?;   
+                let package_details = self.get_package_details(handle, request)?; 
+
                 if package_details.is_some() {
                     // package is installed
                     if self.remove {
-                        return Ok(handle.response.needs_deletion(request));
+                        return Ok(handle.response.needs_removal(request));
                     }
                     let pkg = package_details.unwrap();
-                    if self.update || (self.version.is_some() && ! pkg.version.eq(self.version.unwrap())) { 
-                        changes.push(Field.Version);
+
+                    if self.update {
+                        changes.push(Field::Version);
+                    } else if self.version.is_some() {
+                        let specified_version = self.version.as_ref().unwrap();
+                        if ! pkg.version.eq(specified_version) { changes.push(Field::Version); }
                     }
+
                     if changes.len() > 0 {
                         return Ok(handle.response.needs_modification(request, &changes));
                     } else {
                         return Ok(handle.response.is_matched(request));
                     }
-                }
-                else {
+                } else {
                     // package is not installed
                     return match self.remove {
                         true => Ok(handle.response.is_matched(request)),
@@ -122,7 +127,7 @@ impl IsAction for DnfAction {
 
             TaskRequestType::Remove => {
                 self.remove_package(handle, request)?;
-                return Ok(handle.response.is_modified(request, request.changes.clone()));
+                return Ok(handle.response.is_removed(request));
             }
     
             _ => { return Err(handle.response.not_supported(request)); }
@@ -134,56 +139,57 @@ impl IsAction for DnfAction {
 
 impl DnfAction {
 
-    pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Option<PackageDetails,Arc<TaskResponse>> {
+    pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let cmd = match self.version.is_none() {
-            true => format!("dnf show {}", self.package);
-            false => format!("dnf show {}-{}", self.package, self.version.unwrap());
-        }
-        let result = handle.remote.run(request, cmd, CheckRc::Yes)?;
-        (rc,out) = cmd_info(result);
-        return Ok(parse_package_details(&out.clone());
+            true => format!("dnf info {}", self.package),
+            false => format!("dnf info {}-{}", self.package, self.version.as_ref().unwrap())
+        };
+        let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
+        let (rc,out) = cmd_info(&result);
+        let details = self.parse_package_details(&out.clone())?;
+        return Ok(details);
     }
 
-    pub fn parse_package_details(out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    pub fn parse_package_details(&self, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let mut name: Option<String> = None;
         let mut version: Option<String> = None;
         for line in out.lines() {
             if line.starts_with("Available") {
-                return None;
+                return Ok(None);
             }
-            let tokens = line.split(":");
+            let mut tokens = line.split(":");
             let key = tokens.nth(0);
             let value = tokens.nth(0);
-            if key.is_some() and value.is_some() {
-                let key2 = key.trim();
-                let value2 = value2.trim();
-                if key2.eq("Name")    { *name = Some(value2.clone());           }
-                if key2.eq("Version") { *version = Some(value2.clone()); break; }
+            if key.is_some() && value.is_some() {
+                let key2 = key.unwrap().trim();
+                let value2 = value.unwrap().trim();
+                if key2.eq("Name")    { name = Some(value2.to_string());           }
+                if key2.eq("Version") { version = Some(value2.to_string()); break; }
             }
         }
-        if name.is_some() and version.is_some() {
-            return Some(PackageDetails { name: name.clone(), version: version.clone() });
+        if name.is_some() && version.is_some() {
+            return Ok(Some(PackageDetails { name: name.unwrap().clone(), version: version.unwrap().clone() }));
         } else {
-            return None;
+            return Ok(None);
         }
     }
 
-    pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Option<Arc<TaskResponse>,Arc<TaskResponse>>{
+    pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
         let cmd = match self.version.is_none() {
-            true => format!("dnf install {}", self.package),
-            false => format!("dnf install {}-{}", self.package, self.version.unwrap())
+            true => format!("dnf install {} -y", self.package),
+            false => format!("dnf install {}-{} -y", self.package, self.version.as_ref().unwrap())
         };
-        return self.run(request, cmd, CheckRc::Yes);
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Option<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf update {}", self.package);
-        return self.run(request, cmd, CheckRc::Yes);
+    pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = format!("dnf update {} -y", self.package);
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Option<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf remove {}", self.package);
-        return self.run(request, cmd, CheckRc::Yes);
+    pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = format!("dnf remove {} -y", self.package);
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
 }

@@ -16,9 +16,4 @@
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
-pub mod copy;
-pub mod directory;
-pub mod echo;
-pub mod file;
-pub mod shell;
-pub mod template;
+pub mod dnf;

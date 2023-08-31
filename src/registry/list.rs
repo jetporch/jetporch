@@ -26,20 +26,27 @@ use std::sync::Arc;
 
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY SECTION
 
+// commands
 use crate::modules::commands::shell::ShellTask;
 
+// control
 use crate::modules::control::echo::EchoTask;
 
+// files
 use crate::modules::files::copy::CopyTask;
 use crate::modules::files::directory::DirectoryTask;
 use crate::modules::files::file::FileTask;
 use crate::modules::files::template::TemplateTask;
+
+// packages
+use crate::modules::packages::dnf::DnfTask;
 
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
     Copy(CopyTask),
+    Dnf(DnfTask),
     Directory(DirectoryTask),
     Echo(EchoTask),
     File(FileTask),
@@ -52,7 +59,8 @@ impl Task {
     pub fn get_module(&self) -> String {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
-            Task::Copy(x)      => x.get_module(), 
+            Task::Copy(x)      => x.get_module(),
+            Task::Dnf(x)       => x.get_module(),
             Task::Directory(x) => x.get_module(),
             Task::Echo(x)      => x.get_module(), 
             Task::File(x)      => x.get_module(), 
@@ -65,6 +73,7 @@ impl Task {
         return match self {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
             Task::Copy(x)      => x.get_name(), 
+            Task::Dnf(x)       => x.get_name(),
             Task::Directory(x) => x.get_name(),
             Task::Echo(x)      => x.get_name(), 
             Task::File(x)      => x.get_name(), 
@@ -77,6 +86,7 @@ impl Task {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Copy(x)      => x.evaluate(handle, request), 
+            Task::Dnf(x)       => x.evaluate(handle, request),
             Task::Directory(x) => x.evaluate(handle, request), 
             Task::Echo(x)      => x.evaluate(handle, request), 
             Task::File(x)      => x.evaluate(handle, request), 

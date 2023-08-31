@@ -22,9 +22,16 @@ use crate::tasks::FileAttributesInput;
 use crate::tasks::files::Recurse;
 
 // **IMPORTANT**
+//
 // all commands are responsible for screening their inputs within this file
 // it is **NOT** permissible to leave this up to the caller. Err on the side
-// of over-filtering
+// of over-filtering!
+//
+// most filtering should occur in the module() evaluate code by choosing
+// the right template functions.
+//
+// any argument that allows spaces (such as paths) should be the *last*
+// command in any command sequence.
 
 pub fn screen_path(path: &String) -> Result<String,String> {
     // NOTE: this only checks paths used in commands and is important because we pass
