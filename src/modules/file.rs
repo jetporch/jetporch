@@ -17,7 +17,6 @@
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
 use crate::tasks::fields::Field;
-use std::path::{PathBuf};
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
@@ -30,19 +29,19 @@ const MODULE: &'static str = "File";
 pub struct FileTask {
     pub name: Option<String>,
     pub path: String,
-    pub delete: Option<bool>,
+    pub delete: Option<String>,
     pub attributes: Option<FileAttributesInput>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
 struct FileAction {
     pub name: String,
-    pub path: PathBuf,
+    pub path: String,
     pub delete: bool,
     pub attributes: Option<FileAttributesEvaluated>,
 }
 
-impl IsTask for CopyTask {
+impl IsTask for FileTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
@@ -72,13 +71,13 @@ impl IsAction for FileAction {
 
             TaskRequestType::Query => {
                 let mut changes : Vec<Field> = Vec::new();
-                let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
+                let remote_mode = handle.remote.query_common_file_attributes(request, &self.path, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
                     if self.delete             { return Ok(handle.response.is_matched(request)); } 
                     else                       { return Ok(handle.response.needs_creation(request));  }
                 } else {
-                    let is_dir = handle.remote.get_is_directory(request, &self.dest)?;
-                    if is_dir                  { return Err(handle.response.is_failed(request, &format!("{} is a directory", self.dest))); }
+                    let is_dir = handle.remote.get_is_directory(request, &self.path)?;
+                    if is_dir                  { return Err(handle.response.is_failed(request, &format!("{} is a directory", self.path))); }
                     else if self.delete        { return Ok(handle.response.needs_removal(request)); }
                     else if changes.is_empty() { return Ok(handle.response.is_matched(request)); }
                     else                       { return Ok(handle.response.needs_modification(request, &changes)); }
@@ -86,23 +85,23 @@ impl IsAction for FileAction {
             },
 
             TaskRequestType::Create => {
-                self.remote.touch_file(handle, request)?;               
-                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
-                return Ok(handle.is_created(request));
+                handle.remote.touch_file(request, &self.path)?;               
+                handle.remote.process_all_common_file_attributes(request, &self.path, &self.attributes)?;
+                return Ok(handle.response.is_created(request));
             },
 
             TaskRequestType::Modify => {
-                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
-                return Ok(handle.is_modified(request, request.changes.clone()));
+                handle.remote.process_common_file_attributes(request, &self.path, &self.attributes, &request.changes)?;
+                return Ok(handle.response.is_modified(request, request.changes.clone()));
             },
 
             TaskRequestType::Remove => {
-                self.remote.delete_file(handle, request)?;               
-                return Ok(handle.is_removed(request))
+                handle.remote.delete_file(request, &self.path)?;               
+                return Ok(handle.response.is_removed(request))
             }
 
             // no passive or execute leg
-            _ => { return Err(handle.not_supported(request)); }
+            _ => { return Err(handle.response.not_supported(request)); }
 
         
         }

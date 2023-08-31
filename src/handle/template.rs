@@ -15,19 +15,15 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::{Arc,Mutex,RwLock};
-use std::path::{Path,PathBuf};
+use std::path::PathBuf;
 use crate::connection::connection::Connection;
-use crate::connection::command::{CommandResult,cmd_info};
-use crate::tasks::request::{TaskRequest, TaskRequestType};
-use crate::tasks::response::{TaskStatus, TaskResponse};
-use crate::inventory::hosts::{Host,HostOSType};
+use crate::tasks::request::TaskRequest;
+use crate::tasks::response::TaskResponse;
+use crate::inventory::hosts::Host;
 use crate::playbooks::traversal::RunState;
-use crate::tasks::fields::Field;
 use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
 use crate::tasks::FileAttributesEvaluated;
-use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_general_input_loose};
-use crate::handle::handle::{CheckRc,TaskHandle};
+use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
@@ -40,18 +36,50 @@ pub struct Template {
     run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
-    response: Arc<Response>
+    response: Arc<Response>,
+    syntax_only: bool
 }
 
 impl Template {
 
     pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
+        let syntax_value = run_state_handle.visitor.read().unwrap().is_syntax_only();
         Self {
             run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
             response: response,
+            syntax_only: syntax_value
         }
+    }
+
+    fn is_syntax(&self) -> bool {
+        return self.syntax_only;
+    }
+
+    fn contains_vars(&self, input: &String) -> bool {
+        if input.find("{{").is_some() {
+            return true;
+        }
+        return false;
+    }
+
+    fn is_syntax_skip_eval(&self, template: &String) -> bool {
+        if self.contains_vars(template) && self.is_syntax() {
+            return true;
+        }
+        return false;
+    }
+
+    fn is_syntax_skip_eval_option(&self, template: &Option<String>) -> bool {
+        if template.is_none() {
+            return false;
+        }
+        let template2 = template.as_ref().unwrap();
+        if self.contains_vars(&template2) && self.is_syntax() {
+            return true;
+        }
+        return false;
     }
 
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
@@ -68,6 +96,9 @@ impl Template {
     }
 
     pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&template) {
+            return Ok(String::from(""));
+        }
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
@@ -76,6 +107,9 @@ impl Template {
     }
 
     pub fn string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&template) {
+            return Ok(String::from(""));
+        }
         let result = self.string_unsafe(request, field, template);
         return match result {
             Ok(x) => match screen_general_input_strict(&x) {
@@ -87,6 +121,9 @@ impl Template {
     }
 
     pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&template) {
+            return Ok(String::from(""));
+        }
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         let result2 = self.unwrap_string_result(request, &result)?;
         return match screen_path(&result2) {
@@ -95,7 +132,9 @@ impl Template {
     }
 
     pub fn string_option_unsafe(&self, request: &Arc<TaskRequest>,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-
+        if self.is_syntax_skip_eval_option(template) {
+            return Ok(Some(String::from("")));
+        }
         if template.is_none() { return Ok(None); }
         let result = self.string(request, field, &template.as_ref().unwrap());
         return match result { 
@@ -105,6 +144,9 @@ impl Template {
     }
 
     pub fn string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval_option(&template) {
+            return Ok(Some(String::from("")));
+        }
         let result = self.string_option_unsafe(request, field, template);
         return match result {
             Ok(x1) => match x1 {
@@ -119,6 +161,9 @@ impl Template {
     }
 
     pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&template) {
+            return Ok(0);
+        }
         let st = self.string(request, field, template)?;
         let num = st.parse::<i64>();
         return match num {
@@ -127,6 +172,9 @@ impl Template {
     }
 
     pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval_option(&template) {
+            return Ok(Some(0));
+        }
         if template.is_none() { return Ok(None); }
         let st = self.string(request, field, &template.as_ref().unwrap())?;
         let num = st.parse::<i64>();
@@ -137,6 +185,9 @@ impl Template {
     }
 
     pub fn boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&template) {
+            return Ok(false);
+        }
         let st = self.string(request,field, template)?;
         let x = st.parse::<bool>();
         return match x {
@@ -145,6 +196,9 @@ impl Template {
     }
 
     pub fn boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        if self.is_syntax_skip_eval_option(&template) {
+            return Ok(false);
+        }
         if template.is_none() { return Ok(false); }
         let st = self.string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
@@ -154,6 +208,9 @@ impl Template {
     }
 
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&expr) {
+            return Ok(true);
+        }
         let result = self.get_context().read().unwrap().test_cond(expr, &self.host);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
@@ -174,6 +231,9 @@ impl Template {
     }
 
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        if self.is_syntax_skip_eval(&str_path) {
+            return Ok(PathBuf::new());
+        }
         let prelim = match screen_path(&str_path) {
             Ok(x) => x, 
             Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field: {}", y, field))) }

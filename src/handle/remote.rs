@@ -15,19 +15,17 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::{Arc,Mutex,RwLock};
-use std::path::{Path,PathBuf};
+use std::path::Path;
 use crate::connection::connection::Connection;
-use crate::connection::command::{CommandResult,cmd_info};
+use crate::connection::command::cmd_info;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
-use crate::tasks::response::{TaskStatus, TaskResponse};
+use crate::tasks::response::TaskResponse;
 use crate::inventory::hosts::{Host,HostOSType};
 use crate::playbooks::traversal::RunState;
 use crate::tasks::fields::Field;
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
 use crate::tasks::FileAttributesEvaluated;
-use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_general_input_loose};
-use crate::handle::handle::{CheckRc,TaskHandle};
+use crate::tasks::cmd_library::screen_general_input_loose;
+use crate::handle::handle::CheckRc;
 use crate::handle::template::Safety;
 use crate::handle::response::Response;
 
@@ -58,7 +56,7 @@ impl Remote {
         };
     }
 
-    pub fn whoami(&self) -> Result<String,String> {
+    pub fn get_whoami(&self) -> Result<String,String> {
         return self.connection.lock().unwrap().whoami();
     }
 
@@ -119,7 +117,7 @@ impl Remote {
         if owner_result.is_some() {
             // the file exists
             (old_owner, old_group) = owner_result.unwrap();
-            let whoami = match self.whoami() {
+            let whoami = match self.get_whoami() {
                 Ok(x) => x,
                 Err(y) => { return Err(self.response.is_failed(request, &y.clone())) }
             };
@@ -148,7 +146,7 @@ impl Remote {
         }
     }
 
-    pub fn is_directory(&self, request: &Arc<TaskRequest>, path: &String) -> Result<bool,Arc<TaskResponse>> {
+    pub fn get_is_directory(&self, request: &Arc<TaskRequest>, path: &String) -> Result<bool,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::get_is_directory_command(self.get_os_type(), path);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
         

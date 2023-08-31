@@ -19,10 +19,8 @@ use crate::connection::command::CommandResult;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
-use crate::handle::handle::TaskHandle;
-use crate::tasks::request::TaskRequest;
-use crate::tasks::response::TaskResponse;
 use crate::handle::response::Response;
+use crate::tasks::{TaskRequest,TaskResponse};
 
 use std::sync::Arc;
 use std::sync::Mutex;

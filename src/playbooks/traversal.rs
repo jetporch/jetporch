@@ -32,6 +32,19 @@ use std::path::Path;
 //use std::ops::Deref;
 use std::env;
 
+#[derive(PartialEq,Copy,Debug,Clone)]
+pub enum FsmMode {
+    FullRun,
+    SyntaxOnly
+}
+
+#[derive(PartialEq,Copy,Debug,Clone)]
+pub enum HandlerMode {
+    NormalTasks,
+    Handlers
+}
+
+
 // traversal code walks a playbook and does "things" to it, different behaviors
 // are available, see cli/playbooks.rs.  The RunState encapsulates common
 // parameters to avoid functions taking extremely large signatures, but it should
@@ -171,27 +184,27 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
     // handle role tasks
     if play.roles.is_some() {
         let roles = play.roles.as_ref().unwrap();
-        for role in roles.iter() { process_role(run_state, &play, &role, false)?; }
+        for role in roles.iter() { process_role(run_state, &play, &role, HandlerMode::NormalTasks)?; }
     }
     { let mut ctx = run_state.context.write().unwrap(); ctx.unset_role(); }
 
     // handle loose play tasks
     if play.tasks.is_some() {
         let tasks = play.tasks.as_ref().unwrap();
-        for task in tasks.iter() { process_task(run_state, &play, &task, false)?; }
+        for task in tasks.iter() { process_task(run_state, &play, &task, HandlerMode::NormalTasks)?; }
     }
 
     // handle role handlers
     if play.roles.is_some() {
         let roles = play.roles.as_ref().unwrap();
-        for role in roles.iter() { process_role(run_state, &play, &role, true)?; }
+        for role in roles.iter() { process_role(run_state, &play, &role, HandlerMode::Handlers)?; }
     }   
     { let mut ctx = run_state.context.write().unwrap(); ctx.unset_role(); }  
 
     // handle loose play handlers
     if play.handlers.is_some() {
         let handlers = play.handlers.as_ref().unwrap();
-        for handler in handlers { process_task(run_state, &play, &handler, true)?;  }
+        for handler in handlers { process_task(run_state, &play, &handler, HandlerMode::Handlers)?;  }
     }
     return Ok(())
 
@@ -199,7 +212,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
 
 // ==============================================================================
 
-fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handlers: bool) -> Result<(), String> {
+fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
 
     run_state.context.write().unwrap().set_task(&task);
     run_state.visitor.read().unwrap().on_task_start(&run_state.context);
@@ -209,7 +222,14 @@ fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handle
     // this method contains all logic for module dispatch and result handling
 
     if !run_state.visitor.read().unwrap().is_syntax_only() {
-        fsm_run_task(run_state, task, are_handlers)?;
+        fsm_run_task(run_state, task, are_handlers, FsmMode::FullRun)?;
+    } else {
+        let result = fsm_run_task(run_state, task, are_handlers, FsmMode::SyntaxOnly);
+        // discard results but accumulate error counts
+        match result {
+            Ok(_) => (),
+            Err(_) => ()
+        }
     }
 
     return Ok(());
@@ -218,7 +238,7 @@ fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handle
 
 // ==============================================================================
 
-fn process_role(run_state: &Arc<RunState>, play: &Play, role: &Role, are_handlers: bool) -> Result<(), String> {
+fn process_role(run_state: &Arc<RunState>, play: &Play, role: &Role, are_handlers: HandlerMode) -> Result<(), String> {
 
     // pre-process role loads all variables and module paths into
     // the context.  It does not execute any tasks.
@@ -420,7 +440,7 @@ fn load_external_modules(_run_state: &Arc<RunState>, _play: &Play) -> Result<(),
 
 // ==============================================================================
 
-fn load_tasks_directory_for_role(_run_state: &Arc<RunState>, _play: &Play, _are_handlers: bool) -> Result<(), String> {
+fn load_tasks_directory_for_role(_run_state: &Arc<RunState>, _play: &Play, _are_handlers: HandlerMode) -> Result<(), String> {
 
     // this should read main.yaml in the role and run all tasks within it.
 

@@ -16,7 +16,6 @@
 
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
-use crate::handle::handle::TaskHandle;
 use crate::handle::response::Response;
 use std::sync::Arc;
 use std::marker::{Send,Sync};

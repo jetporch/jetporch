@@ -57,6 +57,7 @@ pub struct PlaybookContext {
     executed_count_for_host:  HashMap<String, usize>,
     passive_count_for_host:   HashMap<String, usize>,
     failed_count_for_host:    HashMap<String, usize>,
+    pub failed_tasks:         usize,
 
     pub defaults_storage:        RwLock<serde_yaml::Mapping>,
     pub vars_storage:            RwLock<serde_yaml::Mapping>,
@@ -76,6 +77,7 @@ impl PlaybookContext {
             verbosity: verbosity,
             playbook_path: None,
             playbook_directory: None,
+            failed_tasks: 0,
             play: None,
             role: None,
             task: None,
@@ -132,7 +134,17 @@ impl PlaybookContext {
     pub fn fail_host(&mut self, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         let hostname = host2.name.clone();
+        self.failed_tasks = self.failed_tasks + 1;
+
+        
         self.targetted_hosts.remove(&hostname);
+        self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
+    }
+
+    pub fn syntax_fail_host(&mut self, host: &Arc<RwLock<Host>>) {
+        self.failed_tasks = self.failed_tasks + 1;
+        let host2 = host.read().unwrap();
+        let hostname = host2.name.clone();
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
 

@@ -31,7 +31,6 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::time::Duration;
 use std::net::ToSocketAddrs;
-use std::io::BufReader;
 use std::fs::File;
 
 pub struct SshFactory {

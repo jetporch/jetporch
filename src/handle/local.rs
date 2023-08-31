@@ -15,20 +15,14 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::sync::{Arc,Mutex,RwLock};
-use std::path::{Path,PathBuf};
+use std::path::Path;
 use crate::connection::connection::Connection;
-use crate::connection::command::{CommandResult,cmd_info};
-use crate::tasks::request::{TaskRequest, TaskRequestType};
-use crate::tasks::response::{TaskStatus, TaskResponse};
-use crate::inventory::hosts::{Host,HostOSType};
+use crate::connection::command::cmd_info;
+use crate::tasks::{TaskRequest,TaskRequestType,TaskResponse};
+use crate::inventory::hosts::Host;
 use crate::playbooks::traversal::RunState;
-use crate::tasks::fields::Field;
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
-use crate::tasks::FileAttributesEvaluated;
-use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_general_input_loose};
-use crate::handle::handle::{CheckRc,TaskHandle};
-use crate::handle::template::Safety;
+use crate::tasks::cmd_library::screen_general_input_loose;
+use crate::handle::handle::CheckRc;
 use crate::handle::response::Response;
 
 pub struct Local {

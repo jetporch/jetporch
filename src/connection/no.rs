@@ -18,7 +18,6 @@ use crate::connection::connection::{Connection};
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
-use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use crate::handle::response::Response;
@@ -37,10 +36,12 @@ impl NoFactory {
 
 impl ConnectionFactory for NoFactory {
     fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
-        panic!("attempting to use the no-factory");
+        let conn : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(NoConnection::new()));
+        return Ok(conn);
     }
     fn get_local_connection(&self, _context: &Arc<RwLock<PlaybookContext>>) -> Result<Arc<Mutex<dyn Connection>>, String> {
-        panic!("attempting to use the no-factory");
+        let conn : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(NoConnection::new()));
+        return Ok(conn);
     }
 }
 

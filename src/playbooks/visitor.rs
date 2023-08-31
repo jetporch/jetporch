@@ -62,7 +62,7 @@ pub trait PlaybookVisitor : Send + Sync {
         //let play = arc.as_ref().unwrap();
         let play = &context.read().unwrap().play;
         self.banner();
-        println!("> play start: {}", play.as_ref().unwrap());
+        println!("> play: {}", play.as_ref().unwrap());
     }
 
     fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
@@ -84,10 +84,13 @@ pub trait PlaybookVisitor : Send + Sync {
         // failed occurs if *ALL* hosts in a play have failed
         let ctx = context.read().unwrap();
         let play_name = ctx.get_play_name();
-        self.banner();
         if ! failed {
-            println!("> play complete: {}", play_name);
+            if ! self.is_syntax_only() {
+                 self.banner();
+                 println!("> play complete: {}", play_name);
+            }
         } else {
+            self.banner();
             println!("{color_red}> play failed: {}{color_reset}", play_name);
 
         }
@@ -100,12 +103,22 @@ pub trait PlaybookVisitor : Send + Sync {
         if self.is_syntax_only() {
             let ctx = context.read().unwrap();
             let play_name = ctx.get_play_name();
+
+
+            let (summary1, summary2) : (String,String) = match ctx.get_hosts_failed_count() {
+                0 => (format!("Ok"), 
+                      format!("No configuration or variable evaluation was attempted.")),
+                _ => (format!("Failed"), 
+                      format!("{} errors", ctx.failed_tasks))
+            };
+
             let elements: Vec<(String,String)> = vec![
                 (String::from("Roles"), format!("{}", ctx.get_role_count())),
                 (String::from("Tasks"), format!("{}", ctx.get_task_count())),
-                (String::from("OK"), String::from("Syntax ok. No configuration attempted.")),
+                (summary1.clone(), summary2.clone()),
             ];
-            two_column_table(&String::from("Play"), &play_name.clone(), &elements);
+            println!("");
+            two_column_table(&String::from("Syntax Check"), &String::from("..."), &elements);
             // playbook would have failed earlier were it not ok.
         } else {
             println!("----------------------------------------------------------");
@@ -115,6 +128,9 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
+        if self.is_syntax_only() { 
+            return;
+        }
         let context = context.read().unwrap();
         let task = context.task.as_ref().unwrap();
         self.banner();
@@ -122,6 +138,9 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
+        if self.is_syntax_only() { 
+            return;
+        }
         self.banner();
         println!("> batch {}/{}, {} hosts", batch_num+1, batch_count, batch_size);
     }
@@ -130,6 +149,9 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+        if self.is_syntax_only() { 
+            return;
+        }
         let host2 = host.read().unwrap();
         println!("… {} => running", host2.name);
     }
@@ -173,6 +195,11 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+        if self.is_syntax_only() { 
+            let context = context.read().unwrap();
+            let task = context.task.as_ref().unwrap();
+            println!("> task: {}", task);
+        }
         let host2 = host.read().unwrap();
         if task_response.msg.is_some() {
             let msg = &task_response.msg;
@@ -187,7 +214,11 @@ pub trait PlaybookVisitor : Send + Sync {
                     println!("    rc: {}{color_reset}", cmd_result.rc);
                 }
             } else {
-                println!("{color_red}! host failed: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
+                if self.is_syntax_only() {
+                    println!("{color_red}! error: {}{color_reset}", msg.as_ref().unwrap());
+                } else {
+                    println!("{color_red}! error: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
+                }
             }
         } else {
             println!("{color_red}! host failed: {}, {color_reset}", host2.name);

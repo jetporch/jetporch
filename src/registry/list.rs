@@ -27,6 +27,7 @@ use std::sync::Arc;
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED
 use crate::modules::copy::CopyTask;
 use crate::modules::echo::EchoTask;
+use crate::modules::file::FileTask;
 use crate::modules::shell::ShellTask;
 use crate::modules::template::TemplateTask;
 
@@ -36,6 +37,7 @@ pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED
     Copy(CopyTask),
     Echo(EchoTask),
+    File(FileTask),
     Shell(ShellTask),
     Template(TemplateTask),
 }
@@ -47,6 +49,7 @@ impl Task {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
             Task::Copy(x)     => x.get_module(), 
             Task::Echo(x)     => x.get_module(), 
+            Task::File(x)     => x.get_module(), 
             Task::Shell(x)    => x.get_module(), 
             Task::Template(x) => x.get_module(), 
         };
@@ -57,6 +60,7 @@ impl Task {
             // ADD NEW MODULES HERE, KEEP ALPHABETIZED
             Task::Copy(x)     => x.get_name(), 
             Task::Echo(x)     => x.get_name(), 
+            Task::File(x)     => x.get_name(), 
             Task::Shell(x)    => x.get_name(), 
             Task::Template(x) => x.get_name(), 
         };
@@ -67,6 +71,7 @@ impl Task {
         return match self {
             Task::Copy(x)     => x.evaluate(handle, request), 
             Task::Echo(x)     => x.evaluate(handle, request), 
+            Task::File(x)     => x.evaluate(handle, request), 
             Task::Shell(x)    => x.evaluate(handle, request), 
             Task::Template(x) => x.evaluate(handle, request), 
         };

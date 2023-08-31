@@ -25,8 +25,10 @@ use crate::tasks::response::{TaskStatus,TaskResponse};
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
+use crate::playbooks::traversal::{FsmMode,HandlerMode};
 
-pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool) -> Result<(), String> {
+
+pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
@@ -39,19 +41,23 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: bool)
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,task);
+                let task_response = run_task_on_host(&run_state,&connection,&host,task,fsm_mode);
 
                 match task_response {
                     Ok(x) => {
                         run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
                     }
                     Err(x) => {
-                        run_state.context.write().unwrap().fail_host(&host);
+                        match fsm_mode { 
+                            FsmMode::FullRun => { run_state.context.write().unwrap().fail_host(&host); }
+                            FsmMode::SyntaxOnly => { run_state.context.write().unwrap().syntax_fail_host(&host); }
+                        }
                         run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
                     },
                 }
             },
             Err(x) => {
+                // connection failures cannot happen in syntax-only check modes so we don't need anything here
                 run_state.visitor.read().unwrap().debug_host(&host, &x);
                 run_state.context.write().unwrap().fail_host(&host);
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
@@ -68,7 +74,8 @@ fn run_task_on_host(
     run_state: &Arc<RunState>,
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>,
-    task: &Task) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    task: &Task,
+    fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
     // FIXME: break into smaller functions...
 
@@ -76,6 +83,13 @@ fn run_task_on_host(
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
     let evaluated = task.evaluate(&handle, &validate)?;
+
+    if fsm_mode == FsmMode::SyntaxOnly {
+        // fake out the response structure 
+        let false_query = TaskRequest::query();
+        return Ok(handle.response.is_matched(&Arc::clone(&false_query)));
+    }
+
     let action = evaluated.action;
     let pre_logic = evaluated.with;
 
