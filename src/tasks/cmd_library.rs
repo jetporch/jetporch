@@ -19,6 +19,7 @@
 
 use crate::inventory::hosts::HostOSType;
 use crate::tasks::FileAttributesInput;
+use crate::tasks::files::Recurse;
 
 // **IMPORTANT**
 // all commands are responsible for screening their inputs within this file
@@ -109,29 +110,51 @@ pub fn get_touch_command(_os_type: HostOSType, untrusted_path: &String) -> Resul
     return Ok(format!("touch {}", path));
 }
 
+pub fn get_create_directory_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("mkdir -p {}", path));
+}
+
 pub fn get_delete_file_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return Ok(format!("rm -f {}", path));
 }
 
-pub fn set_owner_command(_os_type: HostOSType, untrusted_path: &String, untrusted_owner: &String) -> Result<String,String> {
+pub fn get_delete_directory_command(_os_type: HostOSType, untrusted_path: &String, recurse: Recurse) -> Result<String,String>  {
+    let path = screen_path(untrusted_path)?;
+    match recurse {
+        Recurse::No  => { return Ok(format!("rm {}", path));    },
+        Recurse::Yes => { return Ok(format!("rm -r {}", path)); }
+    }
+}
+
+pub fn set_owner_command(_os_type: HostOSType, untrusted_path: &String, untrusted_owner: &String, recurse: Recurse) -> Result<String,String> {
     let path = screen_path(untrusted_path)?;
     let owner = screen_general_input_strict(untrusted_owner)?;
-    return Ok(format!("chown {} {}", owner, path));
+    match recurse {
+        Recurse::No   => { return Ok(format!("chown {} {}", owner, path));    },
+        Recurse::Yes  => { return Ok(format!("chown -R {} {}", owner, path)); }
+    }
 }
 
-pub fn set_group_command(_os_type: HostOSType, untrusted_path: &String, untrusted_group: &String) -> Result<String,String> {
+pub fn set_group_command(_os_type: HostOSType, untrusted_path: &String, untrusted_group: &String, recurse: Recurse) -> Result<String,String> {
     let path = screen_path(untrusted_path)?;
     let group = screen_general_input_strict(untrusted_group)?;
-    return Ok(format!("chgrp {} {}", group, path));
+    match recurse {
+        Recurse::No   => { return Ok(format!("chgrp {} {}", group, path));    },
+        Recurse::Yes  => { return Ok(format!("chgrp -R {} {}", group, path)); }
+    }
 }
 
-pub fn set_mode_command(_os_type: HostOSType, untrusted_path: &String, untrusted_mode: &String) -> Result<String,String> {
+pub fn set_mode_command(_os_type: HostOSType, untrusted_path: &String, untrusted_mode: &String, recurse: Recurse) -> Result<String,String> {
     // mode generally does not have to be screened but someone could call a command directly without going through FileAttributes
     // so let's be thorough.
     let path = screen_path(untrusted_path)?;
     let mode = screen_mode(untrusted_mode)?;
-    return Ok(format!("chmod {} {}", mode, path));
+    match recurse {
+        Recurse::No  => { return Ok(format!("chmod {} {}", mode, path));    },
+        Recurse::Yes => { return Ok(format!("chmod -R {} {}", mode, path)); }
+    }
 }
 
 

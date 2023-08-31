@@ -14,29 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::{Arc,Mutex,RwLock};
-use crate::connection::connection::Connection;
-use crate::connection::command::CommandResult;
+use std::sync::Arc;
 use crate::tasks::request::{TaskRequest, TaskRequestType};
 use crate::tasks::response::{TaskStatus, TaskResponse};
 use crate::inventory::hosts::Host;
 use crate::playbooks::traversal::RunState;
 use crate::tasks::fields::Field;
+use crate::connection::command::CommandResult;
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
+use std::sync::RwLock;
 
 pub struct Response {
     run_state: Arc<RunState>, 
-    connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
 }
 
 impl Response {
 
-    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
+    pub fn new(run_state_handle: Arc<RunState>, host_handle: Arc<RwLock<Host>>) -> Self {
         Self {
             run_state: run_state_handle,
-            connection: connection_handle,
             host: host_handle,
         }
     }

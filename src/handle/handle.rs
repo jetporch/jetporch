@@ -53,7 +53,6 @@ impl TaskHandle {
     pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
         let response = Arc::new(Response::new(
             Arc::clone(&run_state_handle), 
-            Arc::clone(&connection_handle), 
             Arc::clone(&host_handle)
         ));
         let remote = Arc::new(Remote::new(
@@ -70,7 +69,6 @@ impl TaskHandle {
         ));
         let template = Arc::new(Template::new(
             Arc::clone(&run_state_handle), 
-            Arc::clone(&connection_handle), 
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));

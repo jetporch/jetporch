@@ -40,6 +40,12 @@ pub struct FileAttributesEvaluated {
     pub mode: Option<String>
 }
 
+#[derive(Deserialize,Debug,Copy,Clone,PartialEq)]
+pub enum Recurse {
+    No,
+    Yes
+}
+
 impl FileAttributesInput {
 
     // given an octal string, like 0o755 or 755, return the numeric value

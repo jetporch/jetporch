@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::{Arc,Mutex,RwLock};
+use std::sync::{Arc,RwLock};
 use std::path::PathBuf;
-use crate::connection::connection::Connection;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use crate::inventory::hosts::Host;
@@ -34,7 +33,6 @@ pub enum Safety {
 
 pub struct Template {
     run_state: Arc<RunState>, 
-    connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
     response: Arc<Response>,
     syntax_only: bool
@@ -42,11 +40,10 @@ pub struct Template {
 
 impl Template {
 
-    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
+    pub fn new(run_state_handle: Arc<RunState>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
         let syntax_value = run_state_handle.visitor.read().unwrap().is_syntax_only();
         Self {
             run_state: run_state_handle,
-            connection: connection_handle,
             host: host_handle,
             response: response,
             syntax_only: syntax_value
@@ -102,6 +99,12 @@ impl Template {
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        if result.is_ok() {
+            let result_ok = result.as_ref().unwrap();
+            if result_ok.eq("") {
+                return Err(self.response.is_failed(request, &format!("evaluated to empty string")));
+            }
+        }
         let result2 = self.unwrap_string_result(request, &result)?;
         return Ok(result2);
     }
@@ -191,7 +194,7 @@ impl Template {
         let st = self.string(request,field, template)?;
         let x = st.parse::<bool>();
         return match x {
-            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
         }
     }
 
@@ -203,7 +206,7 @@ impl Template {
         let st = self.string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
-            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
         }
     }
 

@@ -23,6 +23,7 @@ use std::path::{PathBuf};
 use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
+use crate::tasks::files::Recurse;
 
 const MODULE: &'static str = "Template";
 
@@ -76,7 +77,7 @@ impl IsAction for TemplateAction {
             TaskRequestType::Query => {
 
                 let mut changes : Vec<Field> = Vec::new();
-                let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
+                let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes, Recurse::No)?;                   
                 if remote_mode.is_none() {
                     return Ok(handle.response.needs_creation(request));
                 }
@@ -94,7 +95,7 @@ impl IsAction for TemplateAction {
 
             TaskRequestType::Create => {
                 self.do_template(handle, request, true)?;               
-                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
+                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes, Recurse::No)?;
                 return Ok(handle.response.is_created(request));
             }
 
@@ -102,7 +103,7 @@ impl IsAction for TemplateAction {
                 if request.changes.contains(&Field::Content) {
                     self.do_template(handle, request, true)?;
                 }
-                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
+                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes, Recurse::No)?;
                 return Ok(handle.response.is_modified(request, request.changes.clone()));
             }
     
