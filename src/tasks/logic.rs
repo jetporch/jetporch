@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::handle::TaskHandle;
+use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
@@ -66,10 +66,10 @@ impl PreLogicInput {
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PreLogicEvaluated {
             cond: match &input2.cond {
-                Some(cond2) => handle.test_cond(request, cond2)?,
+                Some(cond2) => handle.template.test_cond(request, cond2)?,
                 None        => true
             },
-            sudo: handle.template_string_option(request, &String::from("sudo"), &input2.sudo)?
+            sudo: handle.template.string_option(request, &String::from("sudo"), &input2.sudo)?
         }));
     }
 
@@ -84,12 +84,12 @@ impl PostLogicInput {
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
             // unsafe here means the options cannot be sent to the shell, which they are not.
-            changed_when:  handle.template_string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
-            delay:         handle.template_integer_option(request, &String::from("delay"), &input2.delay)?,
-            failed_when:   handle.template_string_option_unsafe(request, &String::from("failed_when"), &input2.failed_when)?,
-            ignore_errors: handle.template_boolean_option(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
-            save:          handle.template_string_option_unsafe(request, &String::from("save"), &input2.save)?,
-            retry:         handle.template_integer_option(request, &String::from("retry"), &input2.retry)?,
+            changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
+            delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
+            failed_when:   handle.template.string_option_unsafe(request, &String::from("failed_when"), &input2.failed_when)?,
+            ignore_errors: handle.template.boolean_option(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            save:          handle.template.string_option_unsafe(request, &String::from("save"), &input2.save)?,
+            retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
         }));
     }
 }

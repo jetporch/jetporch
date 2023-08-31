@@ -16,7 +16,8 @@
 
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
-use crate::tasks::handle::TaskHandle;
+use crate::handle::handle::TaskHandle;
+use crate::handle::response::Response;
 use std::sync::Arc;
 use std::marker::{Send,Sync};
 use std::path::Path;
@@ -27,9 +28,9 @@ pub trait Connection : Send + Sync {
 
     // FIXME: add error return objects
     
-    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>>;
+    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>>;
 
-    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>>;
+    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>>;
 
     fn whoami(&self) -> Result<String,String>;
 
@@ -38,6 +39,6 @@ pub trait Connection : Send + Sync {
     fn get_file(&self, remote_path: String) -> String;
     */
 
-    fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
 
 }

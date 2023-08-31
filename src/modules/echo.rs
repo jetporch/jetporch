@@ -62,15 +62,15 @@ impl IsAction for EchoAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                return handle.response.needs_passive(request);
+                return Ok(handle.response.needs_passive(request));
             },
 
             TaskRequestType::Passive => {
                 handle.debug(&request, &self.msg);
-                return handle.response.is_passive(request);
+                return Ok(handle.response.is_passive(request));
             },
 
-            _ => { return handle.response.not_supported(request); }
+            _ => { return Err(handle.response.not_supported(request)); }
 
         }
 

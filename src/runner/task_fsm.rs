@@ -82,7 +82,7 @@ fn run_task_on_host(
     if pre_logic.is_some() {
         let logic = pre_logic.as_ref().as_ref().unwrap();
         if ! logic.cond {
-            return Ok(handle.is_skipped(&Arc::clone(&validate)));
+            return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
         }
     }
 
@@ -97,7 +97,7 @@ fn run_task_on_host(
     let (_request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
             TaskStatus::IsMatched => {
-                (Arc::clone(&query), Ok(handle.is_matched(&Arc::clone(&query))))
+                (Arc::clone(&query), Ok(handle.response.is_matched(&Arc::clone(&query))))
             },
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
@@ -116,7 +116,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_created(&Arc::clone(&query))))
+                false => (Arc::clone(&query), Ok(handle.response.is_created(&Arc::clone(&query))))
             },
             TaskStatus::NeedsRemoval => match modify_mode {
                 true => {
@@ -133,7 +133,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_removed(&Arc::clone(&query)))),
+                false => (Arc::clone(&query), Ok(handle.response.is_removed(&Arc::clone(&query)))),
             },
             TaskStatus::NeedsModification => match modify_mode {
                 true => {
@@ -150,7 +150,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_modified(&Arc::clone(&query), qrc_ok.changes.clone())))
+                false => (Arc::clone(&query), Ok(handle.response.is_modified(&Arc::clone(&query), qrc_ok.changes.clone())))
             },
             TaskStatus::NeedsExecution => match modify_mode {
                 true => {
@@ -167,7 +167,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_executed(&Arc::clone(&query))))
+                false => (Arc::clone(&query), Ok(handle.response.is_executed(&Arc::clone(&query))))
             },
             TaskStatus::NeedsPassive => match modify_mode {
                 true => {
@@ -184,7 +184,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                false => (Arc::clone(&query), Ok(handle.is_executed(&Arc::clone(&query))))
+                false => (Arc::clone(&query), Ok(handle.response.is_executed(&Arc::clone(&query))))
             },
             TaskStatus::Failed => { panic!("module returned failure inside an Ok(): {:?}", qrc); },
             _ => { panic!("module internal fsm state unknown (on query): {:?}", qrc); }

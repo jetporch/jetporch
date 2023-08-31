@@ -27,6 +27,8 @@ use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::tasks::FileAttributesEvaluated;
 use crate::tasks::cmd_library::{screen_path,screen_general_input_strict,screen_general_input_loose};
+use crate::handle::handle::{CheckRc,TaskHandle};
+use crate::handle::response::Response;
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Safety {
@@ -38,25 +40,34 @@ pub struct Template {
     run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
-    handle: Arc<Option<TaskHandle>>,
+    response: Arc<Response>
 }
 
-impl TemplateC {
+impl Template {
 
-    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
+    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
         Self {
             run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
-            task_handle: Arc::new(None),
+            response: response,
         }
     }
 
-    pub fn attach_handle(task_handle: Arc<TaskHandle>) {
-        self.handle = Some(task_handle);
+    pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
+        return Arc::clone(&self.run_state.context);
     }
 
-    pub fn template_string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    fn unwrap_string_result(&self, request: &Arc<TaskRequest>, str_result: &Result<String,String>) -> Result<String, Arc<TaskResponse>> {
+        return match str_result {
+            Ok(x) => Ok(x.clone()),
+            Err(y) => {
+                return Err(self.response.is_failed(request, &y.clone()));
+            }
+        };
+    }
+
+    pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
@@ -64,46 +75,42 @@ impl TemplateC {
         return Ok(result2);
     }
 
-    pub fn template_string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        let result = self.template_string_unsafe(request, field, template);
+    pub fn string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.string_unsafe(request, field, template);
         return match result {
             Ok(x) => match screen_general_input_strict(&x) {
                 Ok(y) => Ok(y),
-                Err(z) => { return Err(self.is_failed(request, &format!("field {}, {}", field, z))) }
+                Err(z) => { return Err(self.response.is_failed(request, &format!("field {}, {}", field, z))) }
             },
             Err(y) => Err(y)
         };
     }
 
-    pub fn template_path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
         let result2 = self.unwrap_string_result(request, &result)?;
         return match screen_path(&result2) {
-            Ok(x) => Ok(x), Err(y) => { return Err(self.is_failed(request, &format!("{}, for field {}", y, field))) }
+            Ok(x) => Ok(x), Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field {}", y, field))) }
         }
     }
 
-    pub fn template_string_option_unsafe(&self, 
-        request: &Arc<TaskRequest>, 
-        field: &String, 
-        template: &Option<String>) 
-            -> Result<Option<String>,Arc<TaskResponse>> {
+    pub fn string_option_unsafe(&self, request: &Arc<TaskRequest>,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
 
         if template.is_none() { return Ok(None); }
-        let result = self.template_string(request, field, &template.as_ref().unwrap());
+        let result = self.string(request, field, &template.as_ref().unwrap());
         return match result { 
             Ok(x) => Ok(Some(x)), 
-            Err(y) => { Err(self.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
+            Err(y) => { Err(self.response.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
         };
     }
 
-    pub fn template_string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        let result = self.template_string_option_unsafe(request, field, template);
+    pub fn string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let result = self.string_option_unsafe(request, field, template);
         return match result {
             Ok(x1) => match x1 {
                 Some(x) => match screen_general_input_strict(&x) {
                     Ok(y) => Ok(Some(y)),
-                    Err(z) => { return Err(self.is_failed(request, &format!("field {}, {}", field, z))) }
+                    Err(z) => { return Err(self.response.is_failed(request, &format!("field {}, {}", field, z))) }
                 },
                 None => Ok(None)
             },
@@ -111,45 +118,45 @@ impl TemplateC {
         };
     }
 
-    pub fn template_integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
-        let st = self.template_string(request, field, template)?;
+    pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
+        let st = self.string(request, field, template)?;
         let num = st.parse::<i64>();
         return match num {
-            Ok(num) => Ok(num), Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Ok(num) => Ok(num), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
-    pub fn template_integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
+    pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
         if template.is_none() { return Ok(None); }
-        let st = self.template_string(request, field, &template.as_ref().unwrap())?;
+        let st = self.string(request, field, &template.as_ref().unwrap())?;
         let num = st.parse::<i64>();
         // FIXME: these can use map_err
         return match num {
-            Ok(num) => Ok(Some(num)), Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Ok(num) => Ok(Some(num)), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
-    pub fn template_boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
-        let st = self.template_string(request,field, template)?;
+    pub fn boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        let st = self.string(request,field, template)?;
         let x = st.parse::<bool>();
         return match x {
-            Ok(x) => Ok(x), Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 
-    pub fn template_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+    pub fn boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
         if template.is_none() { return Ok(false); }
-        let st = self.template_string(request, field, &template.as_ref().unwrap())?;
+        let st = self.string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
-            Ok(x) => Ok(x), Err(_err) => Err(self.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
+            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an boolean: {}", field, st)))
         }
     }
 
     pub fn test_cond(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
         let result = self.get_context().read().unwrap().test_cond(expr, &self.host);
         return match result {
-            Ok(x) => Ok(x), Err(y) => Err(self.is_failed(request, &y))
+            Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
         }
     }
 
@@ -163,13 +170,13 @@ impl TemplateC {
     }
 
     pub fn get_desired_numeric_mode(&self, request: &Arc<TaskRequest>, attribs: &Option<FileAttributesEvaluated>) -> Result<Option<i32>,Arc<TaskResponse>>{
-        return FileAttributesEvaluated::get_numeric_mode(self, request, attribs); 
+        return FileAttributesEvaluated::get_numeric_mode(&self.response, request, attribs); 
     }
 
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         let prelim = match screen_path(&str_path) {
             Ok(x) => x, 
-            Err(y) => { return Err(self.is_failed(request, &format!("{}, for field: {}", y, field))) }
+            Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field: {}", y, field))) }
         };
         let mut path = PathBuf::new();
         path.push(prelim);
@@ -177,7 +184,7 @@ impl TemplateC {
             if path.is_file() {
                 return Ok(path);
             } else {
-                return Err(self.is_failed(request, &format!("field ({}): no such file: {}", field, str_path)));
+                return Err(self.response.is_failed(request, &format!("field ({}): no such file: {}", field, str_path)));
             }
         } else {
             let mut path2 = PathBuf::new();
@@ -186,7 +193,7 @@ impl TemplateC {
             if path2.is_file() {
                 return Ok(path2);
             } else {
-                return Err(self.is_failed(request, &format!("field field ({}): no such file: {}", field, str_path)));
+                return Err(self.response.is_failed(request, &format!("field field ({}): no such file: {}", field, str_path)));
             }
         }
     }

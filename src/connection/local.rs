@@ -19,9 +19,11 @@ use crate::connection::command::CommandResult;
 use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
 use crate::inventory::hosts::Host;
-use crate::tasks::handle::TaskHandle;
+use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
+use crate::handle::response::Response;
+
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -94,60 +96,60 @@ impl Connection for LocalConnection {
         }
     }
 
-    fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         // FIXME: eventually also add sudo strings in here
         let mut base = Command::new("sh");
         let command = base.arg("-c").arg(cmd).arg("2>&1");
-        return match command.output() {
+        match command.output() {
             Ok(x) => {
                 match x.status.code() {
                     Some(rc) => {
                         let out = convert_out(&x.stdout,&x.stderr);
-                        Ok(handle.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: rc }))))
+                        return Ok(response.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: rc }))));
                     },
                     None => {
-                        Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))))
+                        return Err(response.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 418 }))));
                     }
                 }
             },
             Err(_x) => {
-                Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))))
+                return Err(response.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from(""), rc: 404 }))));
             }
         };
     }
 
-    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
         // FIXME: this (temporary) implementation currently loads the file contents into memory which we do not want
         // copy the files with system calls instead.
         let remote_path2 = Path::new(remote_path);
         let result = std::fs::copy(src, &remote_path2);
         return match result {
             Ok(x) => Ok(()),
-            Err(e) => { return Err(handle.is_failed(&request, &format!("copy failed: {:?}", e))) }
+            Err(e) => { return Err(response.is_failed(&request, &format!("copy failed: {:?}", e))) }
         }
     }
 
-    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
         let path = Path::new(&remote_path);
         if path.exists() {
             let mut file = match jet_file_open(path) {
                 Ok(x) => x,
-                Err(y) => return Err(handle.is_failed(&request, &format!("failed to open: {}: {:?}", remote_path, y)))
+                Err(y) => return Err(response.is_failed(&request, &format!("failed to open: {}: {:?}", remote_path, y)))
             };
             let write_result = write!(file, "{}", data);
             match write_result {
                 Ok(_) => {},
-                Err(y) => return Err(handle.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
+                Err(y) => return Err(response.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
             };
         } else {
             let mut file = match File::create(&path) {
                 Ok(x) => x,
-                Err(y) => return Err(handle.is_failed(&request, &format!("failed to create: {}: {:?}", remote_path, y)))
+                Err(y) => return Err(response.is_failed(&request, &format!("failed to create: {}: {:?}", remote_path, y)))
             };
             let write_result = write!(file, "{}", data);
             match write_result {
                 Ok(_) => {},
-                Err(y) => return Err(handle.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
+                Err(y) => return Err(response.is_failed(&request, &format!("failed to write: {}: {:?}", remote_path, y)))
             };
         }
         return Ok(());

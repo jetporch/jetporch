@@ -76,7 +76,7 @@ impl IsAction for ShellAction {
         match request.request_type {
 
             TaskRequestType::Query => {
-                return handle.needs_execution(&request);
+                return Ok(handle.response.needs_execution(&request));
             },
 
             TaskRequestType::Execute => {
@@ -89,11 +89,11 @@ impl IsAction for ShellAction {
                 let (rc, _out) = cmd_info(&task_result);
                 return match rc {
                     0 => Ok(task_result), 
-                    _ => handle.response.command_failed(request, &Arc::clone(&task_result.command_result)
-                }
+                    _ => Err(handle.response.command_failed(request, &Arc::clone(&task_result.command_result)))
+                };
             },
     
-            _ => { return handle.response.not_supported(&request); }
+            _ => { return Err(handle.response.not_supported(&request)); }
     
         }
     }

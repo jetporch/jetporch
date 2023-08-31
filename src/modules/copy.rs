@@ -76,7 +76,7 @@ impl IsAction for CopyAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
-                    return handle.response.needs_creation(request);
+                    return Ok(handle.response.needs_creation(request));
                 }
                 // this query leg is (at least originally) the same as the template module query except these two lines
                 // to calculate the checksum differently
@@ -87,26 +87,26 @@ impl IsAction for CopyAction {
                     changes.push(Field::Content); 
                 }
                 if ! changes.is_empty() {
-                    return handle.response.needs_modification(request, &changes);
+                    return Ok(handle.response.needs_modification(request, &changes));
                 }
-                return handle.response.is_matched(request);
+                return Ok(handle.response.is_matched(request));
             },
 
             TaskRequestType::Create => {
                 self.do_copy(handle, request)?;               
                 handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
-                return handle.response.is_created(request);
-            }
+                return Ok(handle.response.is_created(request));
+            },
 
             TaskRequestType::Modify => {
                 if request.changes.contains(&Field::Content) {
                     self.do_copy(handle, request)?;
                 }
-                handle.remote_process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
-                return handle.response.is_modified(request, request.changes.clone();
-            }
+                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
+                return Ok(handle.response.is_modified(request, request.changes.clone()));
+            },
     
-            _ => { return handle.response.not_supported(request); }
+            _ => { return Err(handle.response.not_supported(request)); }
     
         }
     }
@@ -116,8 +116,8 @@ impl IsAction for CopyAction {
 impl CopyAction {
 
     pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
-        let remote_put_mode = handle.get_desired_numeric_mode(request, &self.attributes)?;
-        handle.copy_file(request, &self.src, &self.dest, remote_put_mode)?;
+        let remote_put_mode = handle.template.get_desired_numeric_mode(request, &self.attributes)?;
+        handle.remote.copy_file(request, &self.src, &self.dest, remote_put_mode)?;
         return Ok(());
     }
 

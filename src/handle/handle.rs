@@ -48,47 +48,48 @@ pub struct TaskHandle {
     run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>,
-    local: Arc<Remote>,
-    remote: Arc<Remote>,
-    response: Arc<Response>,
-    template: Arc<Template>,
+    pub local: Arc<Local>,
+    pub remote: Arc<Remote>,
+    pub response: Arc<Response>,
+    pub template: Arc<Template>,
 }
 
 impl TaskHandle {
 
     pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
-        let result = Self {
-            run_state: run_state_handle,
-            connection: connection_handle,
-            host: host_handle,
-            remote: Remote::new(
-                Arc::clone(&run_state_handle), 
-                Arc::clone(&connection), 
-                Arc::clone(&host_handle)
-            ),
-            local: Local::new(
-                Arc::clone(&run_state_handle), 
-                Arc::clone(&connection), 
-                Arc::clone(&host_handle)
-            ),
-            response: Response::new(
-                Arc::clone(&run_state_handle), 
-                Arc::clone(&connection), 
-                Arc::clone(&host_handle)
-            ),
-            template: Template::new(
-                Arc::clone(&run_state_handle), 
-                Arc::clone(&connection), 
-                Arc::clone(&host_handle)
-            )
-        }
-        let h = Arc::new(result);
-        result.remote.attach_handle(Arc::clone(&h));
-        result.local.attach_handle(Arc::clone(&h));
-        result.response.attach_handle(Arc::clone(&h));
-        result.template.attach_handle(Arc::clone(&h));
+        let response = Arc::new(Response::new(
+            Arc::clone(&run_state_handle), 
+            Arc::clone(&connection_handle), 
+            Arc::clone(&host_handle)
+        ));
+        let remote = Arc::new(Remote::new(
+            Arc::clone(&run_state_handle), 
+            Arc::clone(&connection_handle), 
+            Arc::clone(&host_handle),
+            Arc::clone(&response)
+        ));
+        let local = Arc::new(Local::new(
+            Arc::clone(&run_state_handle), 
+            Arc::clone(&connection_handle), 
+            Arc::clone(&host_handle),
+            Arc::clone(&response)
+        ));
+        let template = Arc::new(Template::new(
+            Arc::clone(&run_state_handle), 
+            Arc::clone(&connection_handle), 
+            Arc::clone(&host_handle),
+            Arc::clone(&response)
+        ));
 
-        return result;
+        return Self {
+            run_state: Arc::clone(&run_state_handle),
+            connection: Arc::clone(&connection_handle),
+            host: Arc::clone(&host_handle),
+            remote: Arc::clone(&remote),
+            local: Arc::clone(&local),
+            response: Arc::clone(&response),
+            template: Arc::clone(&template),
+        };
     }
 
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {

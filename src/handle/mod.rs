@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pub mod handle
-pub mod local
-pub mod remote
-pub mod response
-pub mod template
+pub mod handle;
+pub mod local;
+pub mod remote;
+pub mod response;
+pub mod template;

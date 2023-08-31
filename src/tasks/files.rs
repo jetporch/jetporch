@@ -14,11 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tasks::handle::TaskHandle;
+use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use serde::Deserialize;
+use crate::handle::response::Response;
 
 // this is storage behind all 'and' and 'with' statements in the program, which
 // are mostly implemented in task_fsm
@@ -54,18 +55,18 @@ impl FileAttributesInput {
 
     // given an octal string, like 0o755 or 755, return the numeric value
     #[inline]
-    fn octal_string_to_number(handle: &TaskHandle, request: &Arc<TaskRequest>, mode: &String) -> Result<i32,Arc<TaskResponse>> {
+    fn octal_string_to_number(response: &Arc<Response>, request: &Arc<TaskRequest>, mode: &String) -> Result<i32,Arc<TaskResponse>> {
         let octal_no_prefix = str::replace(&mode, "0o", "");
         // this error should be screened out by template() below already but return types are important.
         return match i32::from_str_radix(&octal_no_prefix, 8) {
             Ok(x) => Ok(x),
-            Err(y) => { return Err(handle.is_failed(&request, &format!("invalid octal value extracted from mode, was {}, {:?}", octal_no_prefix,y))); }
+            Err(y) => { return Err(response.is_failed(&request, &format!("invalid octal value extracted from mode, was {}, {:?}", octal_no_prefix,y))); }
         }
     }
 
     // template **all** the fields in FileAttributesInput fields, checking values and returning errors as needed
     pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<FileAttributesEvaluated>,Arc<TaskResponse>> {
-        
+
         if input.is_none() {
             return Ok(None);
         }
@@ -81,9 +82,9 @@ impl FileAttributesInput {
 
         if input2.mode.is_some()  { 
             let mode_input = input2.mode.as_ref().unwrap();
-            let templated_mode_string = handle.template_string(request, &String::from("mode"), &mode_input)?;
+            let templated_mode_string = handle.template.string(request, &String::from("mode"), &mode_input)?;
             if ! templated_mode_string.starts_with("0o") {
-                return Err(handle.is_failed(request, &String::from(
+                return Err(handle.response.is_failed(request, &String::from(
                     format!("(a) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
                 )));
             }
@@ -98,7 +99,7 @@ impl FileAttributesInput {
                     final_mode_value = Some(octal_no_prefix);
                 },
                 Err(_y) => { 
-                    return Err(handle.is_failed(request, &String::from(
+                    return Err(handle.response.is_failed(request, &String::from(
                         format!("(b) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
                     )));
                 }
@@ -109,8 +110,8 @@ impl FileAttributesInput {
         }
 
         return Ok(Some(FileAttributesEvaluated {
-            owner:         handle.template_string_option(request, &String::from("owner"), &input2.owner)?,
-            group:         handle.template_string_option(request, &String::from("group"), &input2.group)?,
+            owner:         handle.template.string_option(request, &String::from("owner"), &input2.owner)?,
+            group:         handle.template.string_option(request, &String::from("group"), &input2.group)?,
             mode:          final_mode_value,
         }));
     }
@@ -122,14 +123,14 @@ impl FileAttributesEvaluated {
     // if the action has an evaluated Attributes section, the mode will be stored as an octal string like "777", but we need
     // an integer for some internal APIs like the SSH connection put requests.
 
-    pub fn get_numeric_mode(handle: &TaskHandle, request: &Arc<TaskRequest>, this: &Option<Self>) -> Result<Option<i32>, Arc<TaskResponse>> {
-        
+    pub fn get_numeric_mode(response: &Arc<Response>, request: &Arc<TaskRequest>, this: &Option<Self>) -> Result<Option<i32>, Arc<TaskResponse>> {
+
         return match this.is_some() {
             true => {
                 let mode = &this.as_ref().unwrap().mode;
                 match mode {
                     Some(x) => {
-                        let value = FileAttributesInput::octal_string_to_number(&handle, &request, &x)?;
+                        let value = FileAttributesInput::octal_string_to_number(response, &request, &x)?;
                         return Ok(Some(value));
                     },
                     None => Ok(None)

@@ -74,35 +74,35 @@ impl IsAction for FileAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
-                    if self.delete             { return handle.response.is_matched(request); } 
-                    else                       { return handle.response.needs_creation(request);  }
+                    if self.delete             { return Ok(handle.response.is_matched(request)); } 
+                    else                       { return Ok(handle.response.needs_creation(request));  }
                 } else {
-                    let is_dir = handle.remote_get_is_directory(request, &self.dest)?;
-                    if is_dir                  { return handle.response.is_failed(request, &format!("{} is a directory", self.dest)); }
-                    else if self.delete        { return handle.response.needs_removal(request); }
-                    else if changes.is_empty() { return handle.response.is_matched(request); }
-                    else                       { return handle.response.needs_modification(request, &changes); }
+                    let is_dir = handle.remote.get_is_directory(request, &self.dest)?;
+                    if is_dir                  { return Err(handle.response.is_failed(request, &format!("{} is a directory", self.dest))); }
+                    else if self.delete        { return Ok(handle.response.needs_removal(request)); }
+                    else if changes.is_empty() { return Ok(handle.response.is_matched(request)); }
+                    else                       { return Ok(handle.response.needs_modification(request, &changes)); }
                 }
             },
 
             TaskRequestType::Create => {
                 self.remote.touch_file(handle, request)?;               
                 handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
-                return handle.is_created(request);
+                return Ok(handle.is_created(request));
             },
 
             TaskRequestType::Modify => {
                 handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
-                return handle.is_modified(request, request.changes.clone());
+                return Ok(handle.is_modified(request, request.changes.clone()));
             },
 
             TaskRequestType::Remove => {
                 self.remote.delete_file(handle, request)?;               
-                return handle.is_removed(request)
+                return Ok(handle.is_removed(request))
             }
 
             // no passive or execute leg
-            _ => { return handle.not_supported(request); }
+            _ => { return Err(handle.not_supported(request)); }
 
         
         }

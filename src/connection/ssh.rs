@@ -23,6 +23,7 @@ use crate::connection::local::LocalFactory;
 use crate::tasks::*;
 use crate::inventory::hosts::Host;
 use crate::Inventory;
+use crate::handle::response::Response;
 use std::sync::{Arc,Mutex,RwLock};
 use ssh2::Session;
 use std::io::{Read,Write};
@@ -126,15 +127,10 @@ impl Connection for SshConnection {
         //    let _pubkey = identity.blob();
         //}
 
- 
-        // Connect to the local SSH server
+        // Connect to the local SSH server - need to get socketaddrs first in order to use Duration for timeout
         let seconds = Duration::from_secs(10);
-
         assert!(!self.host.read().expect("host read").name.eq("localhost"));
-
         let connect_str = format!("{host}:{port}", host=self.host.read().expect("host read").name, port=self.port.to_string());
-        
-
         // connect with timeout requires SocketAddr objects instead of just connection strings
         let addrs_iter = connect_str.as_str().to_socket_addrs();
         
@@ -183,56 +179,56 @@ impl Connection for SshConnection {
         return Ok(());
     }
 
-    fn run_command(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let result = run_command_low_level(&self.session.as_ref().unwrap(), cmd);
         match result {
             Ok((rc,s)) => {
                 // note that non-zero return codes are "ok" to the connection plugin, handle elsewhere!
-                return Ok(handle.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
+                return Ok(response.command_ok(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }, 
             Err((rc,s)) => {
-                return Err(handle.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
+                return Err(response.command_failed(request, &Arc::new(Some(CommandResult { cmd: cmd.clone(), out: s.clone(), rc: rc }))));
             }
         }
     }
 
-    fn write_data(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
         let session = self.session.as_ref().expect("session not established");
         let sftp_result = session.sftp();
         let sftp = match sftp_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(request, &format!("sftp connection failed: {y}"))); }
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp connection failed: {y}"))); }
         };
         let sftp_path = Path::new(&remote_path);
         let fh_result = sftp.create(sftp_path);
         let mut fh = match fh_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(request, &format!("sftp write failed (1): {y}"))) }
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed (1): {y}"))) }
         };
         let bytes = data.as_bytes();
         fh.write_all(bytes);
         return Ok(());
     }
 
-    fn copy_file(&self, handle: &TaskHandle, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
 
         let src_open_result = File::open(src);
         let mut src = match src_open_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(request, &format!("failed to open source file: {y}"))); }
+            Err(y) => { return Err(response.is_failed(request, &format!("failed to open source file: {y}"))); }
         };
-        
+
         let session = self.session.as_ref().expect("session not established");
         let sftp_result = session.sftp();
         let sftp = match sftp_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(request, &format!("sftp connection failed: {y}"))); }
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp connection failed: {y}"))); }
         };
         let sftp_path = Path::new(&remote_path);
         let fh_result = sftp.create(sftp_path);
         let mut fh = match fh_result {
             Ok(x) => x,
-            Err(y) => { return Err(handle.is_failed(request, &format!("sftp write failed (1): {y}"))) }
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed (1): {y}"))) }
         };
 
         let chunk_size = 64536;
@@ -243,7 +239,7 @@ impl Connection for SshConnection {
             let take_result = taken.read_to_end(&mut chunk);
             let n = match take_result {
                 Ok(x) => x,
-                Err(y) => { return Err(handle.is_failed(request, &format!("failed during file transfer: {y}"))); }
+                Err(y) => { return Err(response.is_failed(request, &format!("failed during file transfer: {y}"))); }
             };
             if n == 0 { break; }
             fh.write(&chunk);

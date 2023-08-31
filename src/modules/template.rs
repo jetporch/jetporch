@@ -55,7 +55,7 @@ impl IsTask for TemplateTask {
             EvaluatedTask {
                 action: Arc::new(TemplateAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    src:        handle.template.find_path(request, &String::from("src"), &src)?,
+                    src:        handle.template.find_template_path(request, &String::from("src"), &src)?,
                     dest:       handle.template.path(&request, &String::from("dest"), &self.dest)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
                 }),
@@ -78,35 +78,35 @@ impl IsAction for TemplateAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.dest, &self.attributes, &mut changes)?;                   
                 if remote_mode.is_none() {
-                    return handle.response.needs_creation(request);
+                    return Ok(handle.response.needs_creation(request));
                 }
                 let data = self.do_template(handle, request, false)?;
                 let local_512 = sha512(&data);
-                let remote_512 = handle.remote_get_sha512(request, &self.dest)?;
+                let remote_512 = handle.remote.get_sha512(request, &self.dest)?;
                 if ! remote_512.eq(&local_512) { 
                     changes.push(Field::Content); 
                 }
                 if ! changes.is_empty() {
-                    return handle.needs_modification(request, &changes);
+                    return Ok(handle.response.needs_modification(request, &changes));
                 }
-                return handle.response.is_matched(request);
+                return Ok(handle.response.is_matched(request));
             },
 
             TaskRequestType::Create => {
                 self.do_template(handle, request, true)?;               
-                handle.remote_process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
-                return handle.response.is_created(request);
+                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes)?;
+                return Ok(handle.response.is_created(request));
             }
 
             TaskRequestType::Modify => {
                 if request.changes.contains(&Field::Content) {
                     self.do_template(handle, request, true)?;
                 }
-                handle.remote_process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
-                return handle.response.is_modified(request, request.changes.clone();
+                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes)?;
+                return Ok(handle.response.is_modified(request, request.changes.clone()));
             }
     
-            _ => { return handle.response.not_supported(request); }
+            _ => { return Err(handle.response.not_supported(request)); }
     
         }
     }
@@ -116,11 +116,11 @@ impl IsAction for TemplateAction {
 impl TemplateAction {
 
     pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
-        let remote_put_mode = handle.get_desired_numeric_mode(&request, &self.attributes)?;
-        let template_contents = handle.read_local_file(&request, &self.src)?;
-        let data = handle.template_string_unsafe(&request, &String::from("src"), &template_contents)?;
+        let remote_put_mode = handle.template.get_desired_numeric_mode(&request, &self.attributes)?;
+        let template_contents = handle.local.read_file(&request, &self.src)?;
+        let data = handle.template.string_unsafe(&request, &String::from("src"), &template_contents)?;
         if write {
-            handle.remote_write_data(&request, &data, &self.dest, remote_put_mode)?;
+            handle.remote.write_data(&request, &data, &self.dest, remote_put_mode)?;
         }
         return Ok(data);
     }

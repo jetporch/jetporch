@@ -23,6 +23,7 @@ mod connection;
 mod modules;
 mod runner;
 mod tasks;
+mod handle;
 
 use crate::util::io::{quit};
 use crate::inventory::inventory::Inventory;
