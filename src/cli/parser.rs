@@ -34,7 +34,8 @@ pub struct CliParser {
     pub batch_size: Option<usize>,
     pub default_user: Option<String>,
     pub threads: Option<usize>,
-    pub verbosity: u32
+    pub verbosity: u32,
+    pub load_env: bool
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -74,6 +75,8 @@ const ARGUMENT_DEFAULT_USER: &'static str = "--default-user";
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 const ARGUMENT_VERBOSE: &'static str = "-v";
+const ARGUMENT_LOADENV: &'static str = "--loadenv";
+
 
 fn show_help() {
 
@@ -88,55 +91,61 @@ fn show_help() {
     crate::util::terminal::markdown_print(&String::from(header_table));
     println!("");
 
-    let mode_table = "|:-|:-|:-|:-:|\n\
-                      |  | *Mode* | *Description* | *Makes Changes?* \n\
-                      | --- | --- | --- | --- \n\
-                      | utility: | | | \n\
-                      | | syntax| evaluates input files for errors| no\n\
-                      | | | \n\
-                      | | show | displays inventory, playbooks, groups, and hosts | no\n\
-                      | | | \n\
-                      | --- | --- | --- | --- \n\
-                      | local machine management: | | | \n\
-                      | | check-local| looks for changes on the local machine| no\n\
-                      | | | \n\
-                      | | local| manages the local machine| YES\n\
-                      | | | \n\
-                      | --- | --- | --- | --- \n\
-                      | remote machine management: | | | \n\
-                      | | check-ssh | connects to nodes over SSH and looks for potential changes| no\n\
-                      | | | \n\
-                      | | ssh| manages nodes over SSH| YES\n\
-                      |-|-|-";
+    let mode_table = "|:-|:-|:-\n\
+                      | *Category* | *Mode* | *Description*\n\
+                      | --- | --- | ---\n\
+                      | utility: |\n\
+                      | | syntax| scans --playbook files for errors\n\
+                      | |\n\
+                      | | show | displays inventory, specify --groups or --hosts\n\
+                      | |\n\
+                      | --- | --- | ---\n\
+                      | local machine management: |\n\
+                      | | check-local| looks for configuration differences on the local machine\n\
+                      | |\n\
+                      | | local| manages only the local machine\n\
+                      | |\n\
+                      | --- | --- | ---\n\
+                      | remote machine management: |\n\
+                      | | check-ssh | looks for configuration differences over SSH\n\
+                      | |\n\
+                      | | ssh| manages multiple machines over SSH\n\
+                      |-|-";
 
     crate::util::terminal::markdown_print(&String::from(mode_table));
     println!("");
 
-    let flags_table = "|:-|:-|:-|:-:|:-:\n\
-                       | |*Flags*|*Description*|*Required For*|*Optional For*|\n\
-                       | --- | --- | --- | --- | --- |\n\
-                       | basics: | | | |\n\
-                       | | --playbook path1:path2| specifies automation content| most | - |\n\
-                       | | | | |\n\
-                       | | --inventory path1:path2| specifies which systems to manage| ssh | - |\n\
-                       | | | | |\n\
-                       | | --roles path1:path2| provides additional role search paths| - | most\n\
-                       | | | | |\n\
-                       | | --default-user username | use this username to connect by default | - | ssh\n\
-                       | | | | |\n\
-                       | --- | --- | --- | --- | --- |\n\
-                       | scope: | | | |\n\
-                       | | --groups group1:group2| for use with playbook narrowing or 'show' | - | most\n\
-                       | | | | |\n\
-                       | | --hosts host1| for use with playbook narrowing or 'show' | - | most\n\
-                       | | | | |\n\
-                       | --- | --- | --- | --- | --- |\n\
-                       | additional: | | | |\n\
-                       | | --threads N| how many threads to use in SSH operations| - | ssh |\n\
-                       | | | |\n\
-                       | | -v| increments verbosity (can use more than once) | - | most |\n\
-                       | | | |\n\
-                       |-|-|-|-|-";
+    let flags_table = "|:-|:-|\n\
+                       | *Category* | *Flags* |*Description*\n\
+                       | --- | ---\n\
+                       | basics:\n\
+                       | | --playbook path1:path2| specifies automation content\n\
+                       | |\n\
+                       | | --roles path1:path2| adds additional role search paths\n\
+                       | |\n\
+                       | --- | ---\n\
+                       | SSH specific:\n\
+                       | | --inventory path1:path2| (required) specifies which systems to manage\n\
+                       | |\n\
+                       | | --default-user username | use this username to connect instead of $USER\n\
+                       | |\n\
+                       | | --batch-size N| (PENDING FEATURE)\n\
+                       | |\n\
+                       | | --threads N| how many parallel threads to use\n\
+                       | |\n\
+                       | --- | ---\n\
+                       | scope narrowing:\n\
+                       | | --groups group1:group2| limits scope for playbook runs, or used with 'show'\n\
+                       | |\n\
+                       | | --hosts host1| limits scope for playbook runs, or used with 'show'yes\n\
+                       | |\n\
+                       | --- | ---\n\
+                       | misc:\n\
+                       | | --loadenv| allows environment variable access, adding ENV_ prefix and selective redaction\n\
+                       | |\n\
+                       | | -v| increments verbosity (can use more than once)\n\
+                       | |\n\
+                       |-|";
 
     crate::util::terminal::markdown_print(&String::from(flags_table));
     println!("");
@@ -160,7 +169,8 @@ impl CliParser  {
             threads: None,
             inventory_set: false,
             playbook_set: false,
-            verbosity: 0
+            verbosity: 0,
+            load_env: false
         }
     }
 
