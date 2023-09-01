@@ -243,22 +243,22 @@ impl PlaybookContext {
         let vars = self.get_complete_blended_variables(host,BlendTarget::NotTemplateModule);
         let host2 = host.read().unwrap();
 
-        let remote_hostname = match vars.contains_key(&String::from("jet_ssh_remote_hostname")) {
-            true => match vars.get(&String::from("jet_ssh_remote_hostname")).unwrap().as_str() {
+        let remote_hostname = match vars.contains_key(&String::from("jet_ssh_hostname")) {
+            true => match vars.get(&String::from("jet_ssh_hostname")).unwrap().as_str() {
                 Some(x) => String::from(x),
                 None => host2.name.clone()
             },
             false => host2.name.clone()
         };
-        let remote_user = match vars.contains_key(&String::from("jet_ssh_remote_user")) {
-            true => match vars.get(&String::from("jet_ssh_remote_user")).unwrap().as_str() {
+        let remote_user = match vars.contains_key(&String::from("jet_ssh_user")) {
+            true => match vars.get(&String::from("jet_ssh_user")).unwrap().as_str() {
                 Some(x) => String::from(x),
                 None => self.ssh_user.clone()
             },
             false => self.ssh_user.clone()
         };
-        let remote_port = match vars.contains_key(&String::from("jet_ssh_remote_port")) {
-            true => match vars.get(&String::from("jet_ssh_remote_port")).unwrap().as_i64() {
+        let remote_port = match vars.contains_key(&String::from("jet_ssh_port")) {
+            true => match vars.get(&String::from("jet_ssh_port")).unwrap().as_i64() {
                 Some(x) => x,
                 None => self.ssh_port
             },
@@ -401,8 +401,11 @@ impl PlaybookContext {
         
         for (k,v) in env::vars() {
             if ! do_not_load.contains(&k.as_str()) {
+                println!("WRITING: {}", k);
                 my_env.insert(serde_yaml::Value::String(format!("ENV_{k}")) , serde_yaml::Value::String(v));
-            } 
+            } else {
+                println!("NO TO {}", k);
+            }
         }
     }
 
