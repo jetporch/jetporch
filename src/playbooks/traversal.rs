@@ -57,7 +57,6 @@ pub struct RunState {
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
-    pub default_user: Option<String>
 }
 
 // ============================================================================
@@ -71,7 +70,6 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         { 
             let mut ctx = run_state.context.write().unwrap(); 
             ctx.set_playbook_path(playbook_path); 
-            ctx.set_default_remote_user(run_state.default_user.clone());
         }
 
         run_state.visitor.read().unwrap().on_playbook_start(&run_state.context);
@@ -123,6 +121,13 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     {
         let mut ctx = run_state.context.write().unwrap();
         ctx.set_play(play);
+        if play.ssh_user.is_some() {
+            ctx.set_ssh_user(&play.ssh_user.as_ref().unwrap());
+        }
+        if play.ssh_port.is_some() {
+            ctx.set_ssh_port(play.ssh_port.unwrap());
+        }
+
         // FIXME: this shouldn't be set here
         //ctx.set_remote_user(&play, run_state.default_user.clone());
         ctx.unset_role();

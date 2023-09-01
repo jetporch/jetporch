@@ -26,6 +26,12 @@ use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
+pub enum BlendTarget {
+    NotTemplateModule,
+    TemplateModule,
+}
+
+#[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Safety {
     Safe,
     Unsafe
@@ -92,13 +98,13 @@ impl Template {
         };
     }
 
-    pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
         }
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
-        let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, blend_target);
         if result.is_ok() {
             let result_ok = result.as_ref().unwrap();
             if result_ok.eq("") {
@@ -107,6 +113,14 @@ impl Template {
         }
         let result2 = self.unwrap_string_result(request, &result)?;
         return Ok(result2);
+    }
+    
+    pub fn string_for_template_module_use_only(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        return self.template_unsafe_internal(request, field, template, BlendTarget::TemplateModule);
+    }
+
+    pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        return self.template_unsafe_internal(request, field, template, BlendTarget::NotTemplateModule);
     }
 
     pub fn string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
@@ -146,7 +160,7 @@ impl Template {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
         }
-        let result = self.run_state.context.read().unwrap().render_template(template, &self.host);
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, BlendTarget::NotTemplateModule);
         let result2 = self.unwrap_string_result(request, &result)?;
         return match screen_path(&result2) {
             Ok(x) => Ok(x), Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field {}", y, field))) }

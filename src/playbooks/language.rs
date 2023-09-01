@@ -36,7 +36,7 @@ pub struct Play {
     pub vars : Option<serde_yaml::Mapping>,
     pub vars_files: Option<Vec<String>>,
     pub ssh_user : Option<String>,
-    pub ssh_port : Option<String>,
+    pub ssh_port : Option<i64>,
     pub tasks : Option<Vec<Task>>,
     pub handlers : Option<Vec<Task>>,
     pub batch_size : Option<usize>,

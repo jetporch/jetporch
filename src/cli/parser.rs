@@ -32,10 +32,9 @@ pub struct CliParser {
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
-    pub default_user: Option<String>,
+    pub default_user: String,
     pub threads: Option<usize>,
     pub verbosity: u32,
-    pub load_env: bool
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -71,11 +70,10 @@ const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
 const ARGUMENT_GROUPS: &'static str = "--groups";
 const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
-const ARGUMENT_DEFAULT_USER: &'static str = "--default-user";
+const ARGUMENT_DEFAULT_USER: &'static str = "--user";
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 const ARGUMENT_VERBOSE: &'static str = "-v";
-const ARGUMENT_LOADENV: &'static str = "--loadenv";
 
 
 fn show_help() {
@@ -127,7 +125,7 @@ fn show_help() {
                        | SSH specific:\n\
                        | | --inventory path1:path2| (required) specifies which systems to manage\n\
                        | |\n\
-                       | | --default-user username | use this username to connect instead of $USER\n\
+                       | | --user username | use this username for default connections instead of $USER\n\
                        | |\n\
                        | | --batch-size N| (PENDING FEATURE)\n\
                        | |\n\
@@ -141,8 +139,6 @@ fn show_help() {
                        | |\n\
                        | --- | ---\n\
                        | misc:\n\
-                       | | --loadenv| allows environment variable access, adding ENV_ prefix and selective redaction\n\
-                       | |\n\
                        | | -v| increments verbosity (can use more than once)\n\
                        | |\n\
                        |-|";
@@ -157,7 +153,7 @@ impl CliParser  {
 
     pub fn new() -> Self {
 
-        CliParser {
+        let p = CliParser {
             playbook_paths: Arc::new(RwLock::new(Vec::new())),
             inventory_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
@@ -165,15 +161,17 @@ impl CliParser  {
             hosts: Vec::new(),
             groups: Vec::new(),
             batch_size: None,
-            default_user: None,
+            default_user: match env::var("USER") {
+                Ok(x) => x,
+                Err(y) => String::from("root")
+            },
             threads: None,
             inventory_set: false,
             playbook_set: false,
             verbosity: 0,
-            load_env: false
-        }
+        };
+        return p;
     }
-
 
     pub fn show_help(&self) {
         show_help();
@@ -238,7 +236,9 @@ impl CliParser  {
 
                         };
                         if result.is_err() { return result; }
-                        if ! argument_str.eq(ARGUMENT_VERBOSE) {
+                        if argument_str.eq(ARGUMENT_VERBOSE) {
+                            // these do not take arguments
+                        } else {
                             next_is_value = true;
                         }
 
@@ -265,7 +265,7 @@ impl CliParser  {
             CLI_MODE_UNSET => { self.needs_help = true; },
             _ => { panic!("internal error: impossible mode"); }
         }
-        return Ok(())
+        return Ok(());
     }
 
     fn store_mode_value(&mut self, value: &String) -> Result<(), String> {
@@ -316,7 +316,7 @@ impl CliParser  {
     }
 
     fn store_default_user_value(&mut self, value: &String) -> Result<(), String> {
-        self.default_user = Some(value.clone());
+        self.default_user = value.clone();
         return Ok(());
     }
 

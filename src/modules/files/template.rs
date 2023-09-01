@@ -119,7 +119,7 @@ impl TemplateAction {
     pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
         let remote_put_mode = handle.template.get_desired_numeric_mode(&request, &self.attributes)?;
         let template_contents = handle.local.read_file(&request, &self.src)?;
-        let data = handle.template.string_unsafe(&request, &String::from("src"), &template_contents)?;
+        let data = handle.template.string_for_template_module_use_only(&request, &String::from("src"), &template_contents)?;
         if write {
             handle.remote.write_data(&request, &data, &self.dest, remote_put_mode)?;
         }

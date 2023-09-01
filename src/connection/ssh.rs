@@ -79,7 +79,8 @@ impl ConnectionFactory for SshFactory {
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
-                ctx.connection_cache.write().expect("connection cache write").add_connection(&Arc::clone(&host), &Arc::clone(&conn2));
+                ctx.connection_cache.write().expect("connection cache write").add_connection(
+                    &Arc::clone(&host), &Arc::clone(&conn2));
                 Ok(conn2)
             },
             Err(x) => { Err(x) } 
@@ -151,7 +152,7 @@ impl Connection for SshConnection {
         
 
         // try to authenticate with the first identity in the agent.
-        match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(String::from("SSH userauth_agent failed")); } };
+        match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(format!("SSH auth failed for user {}", self.username)); } };
         if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
         
 

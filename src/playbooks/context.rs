@@ -24,7 +24,10 @@ use crate::connection::cache::ConnectionCache;
 use crate::registry::list::Task;
 use crate::util::yaml::blend_variables;
 use crate::playbooks::templar::Templar;
+use crate::cli::parser::CliParser;
+use crate::handle::template::BlendTarget;
 use std::ops::Deref;
+use std::env;
 
 // the playbook context keeps track of where we are in a playbook
 // execution and various results/stats along the way
@@ -57,24 +60,27 @@ pub struct PlaybookContext {
     executed_count_for_host:  HashMap<String, usize>,
     passive_count_for_host:   HashMap<String, usize>,
     failed_count_for_host:    HashMap<String, usize>,
-    pub failed_tasks:         usize,
-
-    pub defaults_storage:        RwLock<serde_yaml::Mapping>,
-    pub vars_storage:            RwLock<serde_yaml::Mapping>,
-    pub role_defaults_storage:   RwLock<serde_yaml::Mapping>,
-
     
-    pub default_remote_user:  Option<String>, // FIXME: wire this up
+    pub failed_tasks:           usize,
+    pub defaults_storage:       RwLock<serde_yaml::Mapping>,
+    pub vars_storage:           RwLock<serde_yaml::Mapping>,
+    pub role_defaults_storage:  RwLock<serde_yaml::Mapping>,
+    pub env_storage:            RwLock<serde_yaml::Mapping>,
+    
+    //pub default_remote_user:  String,
     pub connection_cache:     RwLock<ConnectionCache>,
     pub templar:              RwLock<Templar>,
+
+    pub ssh_user:             String,
+    pub ssh_port:             i64
 
 }
 
 impl PlaybookContext {
 
-    pub fn new(verbosity: u32) -> Self {
-        Self {
-            verbosity: verbosity,
+    pub fn new(parser: &CliParser) -> Self {
+        let mut s = Self {
+            verbosity: parser.verbosity,
             playbook_path: None,
             playbook_directory: None,
             failed_tasks: 0,
@@ -88,7 +94,6 @@ impl PlaybookContext {
             failed_hosts: HashMap::new(),
             role_path: None,
             role_name: None,
-            default_remote_user: None, 
             adjusted_count_for_host:  HashMap::new(),
             attempted_count_for_host: HashMap::new(),
             created_count_for_host:   HashMap::new(),
@@ -101,9 +106,13 @@ impl PlaybookContext {
             templar:                  RwLock::new(Templar::new()),
             defaults_storage:         RwLock::new(serde_yaml::Mapping::new()),
             vars_storage:             RwLock::new(serde_yaml::Mapping::new()),
-            role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new())
-            
-        }
+            role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new()),
+            env_storage:              RwLock::new(serde_yaml::Mapping::new()),
+            ssh_user:                 parser.default_user.clone(),
+            ssh_port:                 22
+        };
+        s.load_environment();
+        return s;
     }
 
     // ===============================================================================
@@ -115,6 +124,14 @@ impl PlaybookContext {
             results.insert(k.clone(), Arc::clone(&v));
         }
         return results;
+    }
+
+    pub fn set_ssh_user(&mut self, ssh_user: &String) {
+        self.ssh_user = ssh_user.clone();
+    }
+
+    pub fn set_ssh_port(&mut self, ssh_port: i64) {
+        self.ssh_port = ssh_port;
     }
 
     pub fn set_targetted_hosts(&mut self, hosts: &Vec<Arc<RwLock<Host>>>) {
@@ -180,22 +197,11 @@ impl PlaybookContext {
         self.role_name = None;
         self.role_path = None;
     }
-    
-    pub fn set_default_remote_user(&mut self, default_username: Option<String>) {
-        match default_username {
-            Some(x) => { self.default_remote_user = Some(x) },
-            None => { }
-        }
-    }
-
-    pub fn get_default_remote_user(&self, _host: &Arc<RwLock<Host>>) -> Option<String> {
-        return self.default_remote_user.clone();
-    }
 
     // ==================================================================================
     // VARIABLES
 
-    pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>) -> serde_yaml::Mapping  {
+    pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> serde_yaml::Mapping  {
         let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let src1 = self.defaults_storage.read().unwrap();
         //.deref();
@@ -206,24 +212,35 @@ impl PlaybookContext {
         let src3 = self.vars_storage.read().unwrap();
         let src3a = src3.deref();
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src3a.clone()));
+
+        match blend_target {
+            BlendTarget::NotTemplateModule => {},
+            BlendTarget::TemplateModule => {
+                // for security reasons env vars from security tools like 'op run' are only exposed to the template module
+                // to prevent accidental leakage into logs and history
+                let src4 = self.env_storage.read().unwrap();
+                let src4a = src4.deref();
+                blend_variables(&mut blended, serde_yaml::Value::Mapping(src4a.clone()));
+            }
+        };
         return match blended {
             serde_yaml::Value::Mapping(x) => x,
             _ => panic!("unexpected, get_blended_variables produced a non-mapping (3)")
         };
     }
 
-    pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>) -> Result<String,String> {
-        let vars = self.get_complete_blended_variables(host);
+    pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> Result<String,String> {
+        let vars = self.get_complete_blended_variables(host, blend_target);
         return self.templar.read().unwrap().render(template, vars);
     }
 
     pub fn test_cond(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {
-        let vars = self.get_complete_blended_variables(host);
+        let vars = self.get_complete_blended_variables(host, BlendTarget::NotTemplateModule);
         return self.templar.read().unwrap().test_cond(expr, vars);
     }
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
-        let vars = self.get_complete_blended_variables(host);
+        let vars = self.get_complete_blended_variables(host,BlendTarget::NotTemplateModule);
         let host2 = host.read().unwrap();
 
         let remote_hostname = match vars.contains_key(&String::from("jet_ssh_remote_hostname")) {
@@ -236,19 +253,16 @@ impl PlaybookContext {
         let remote_user = match vars.contains_key(&String::from("jet_ssh_remote_user")) {
             true => match vars.get(&String::from("jet_ssh_remote_user")).unwrap().as_str() {
                 Some(x) => String::from(x),
-                None => String::from("root")
+                None => self.ssh_user.clone()
             },
-            false => match &self.default_remote_user {
-                Some(x) => x.clone(),
-                None => String::from("root")
-            }
+            false => self.ssh_user.clone()
         };
         let remote_port = match vars.contains_key(&String::from("jet_ssh_remote_port")) {
             true => match vars.get(&String::from("jet_ssh_remote_port")).unwrap().as_i64() {
                 Some(x) => x,
-                None => 22
+                None => self.ssh_port
             },
-            false => 22
+            false => self.ssh_port
         };
 
         return (remote_hostname, remote_user, remote_port)
@@ -369,5 +383,27 @@ impl PlaybookContext {
         return self.seen_hosts.keys().len();
     }
     
+    pub fn load_environment(&mut self) -> () {
+        let mut my_env = self.env_storage.write().unwrap();
+        // some common environment variables that may occur are not useful for playbooks
+        // or they have no need to share that with other hosts
+        let do_not_load = vec![
+            "OLDPWD",
+            "PWD",
+            "SHLVL",
+            "SSH_AUTH_SOCK",
+            "SSH_AGENT_PID",
+            "TERM_SESSION_ID",
+            "XPC_FLAGS",
+            "XPC_SERVICE_NAME",
+            "_"
+        ];
+        
+        for (k,v) in env::vars() {
+            if ! do_not_load.contains(&k.as_str()) {
+                my_env.insert(serde_yaml::Value::String(format!("ENV_{k}")) , serde_yaml::Value::String(v));
+            } 
+        }
+    }
 
 }
