@@ -25,7 +25,7 @@ use std::vec::Vec;
 const MODULE: &'static str = "dnf";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="dnf",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct DnfTask {
     pub name: Option<String>,
     pub package: String,

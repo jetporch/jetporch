@@ -31,6 +31,7 @@ use crate::modules::commands::shell::ShellTask;
 
 // control
 use crate::modules::control::echo::EchoTask;
+use crate::modules::control::facts::FactsTask;
 
 // files
 use crate::modules::files::copy::CopyTask;
@@ -53,6 +54,7 @@ pub enum Task {
     Dnf(DnfTask),
     Directory(DirectoryTask),
     Echo(EchoTask),
+    Facts(FactsTask),
     File(FileTask),
     Sd_Service(SystemdServiceTask),
     Shell(ShellTask),
@@ -66,7 +68,8 @@ impl Task {
             Task::Copy(x)       => x.get_module(),
             Task::Dnf(x)        => x.get_module(),
             Task::Directory(x)  => x.get_module(),
-            Task::Echo(x)       => x.get_module(), 
+            Task::Echo(x)       => x.get_module(),
+            Task::Facts(x)      => x.get_module(), 
             Task::File(x)       => x.get_module(), 
             Task::Sd_Service(x) => x.get_module(),
             Task::Shell(x)      => x.get_module(), 
@@ -80,6 +83,7 @@ impl Task {
             Task::Dnf(x)        => x.get_name(),
             Task::Directory(x)  => x.get_name(),
             Task::Echo(x)       => x.get_name(), 
+            Task::Facts(x)      => x.get_name(),
             Task::File(x)       => x.get_name(), 
             Task::Sd_Service(x) => x.get_name(),
             Task::Shell(x)      => x.get_name(), 
@@ -94,6 +98,7 @@ impl Task {
             Task::Dnf(x)        => x.evaluate(handle, request),
             Task::Directory(x)  => x.evaluate(handle, request), 
             Task::Echo(x)       => x.evaluate(handle, request), 
+            Task::Facts(x)      => x.evaluate(handle, request),
             Task::File(x)       => x.evaluate(handle, request), 
             Task::Sd_Service(x) => x.evaluate(handle, request),
             Task::Shell(x)      => x.evaluate(handle, request), 

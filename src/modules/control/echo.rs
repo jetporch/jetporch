@@ -20,10 +20,10 @@ use crate::handle::handle::TaskHandle;
 use serde::Deserialize;
 use std::sync::Arc;
 
-const MODULE: &'static str = "Echo";
+const MODULE: &'static str = "echo";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="echo",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct EchoTask {
     pub name: Option<String>,
     pub msg: String,

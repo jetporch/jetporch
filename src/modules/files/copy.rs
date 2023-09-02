@@ -27,7 +27,7 @@ use crate::tasks::files::Recurse;
 const MODULE: &'static str = "copy";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="copy",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct CopyTask {
     pub name: Option<String>,
     pub src: String,

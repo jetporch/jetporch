@@ -85,12 +85,6 @@ impl IsAction for SystemdServiceAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let actual = self.get_service_details(handle, request)?; 
 
-                println!("desired enabled = {:?}", self.enabled);
-                println!("desired started = {:?}", self.started);
-                println!("desired restart = {:?}", self.restart);
-                println!("ACTUAL ENABLED = {:?}", actual.enabled);
-                println!("ACTUAL STARTED = {:?}", actual.started);
-
                 match (actual.enabled, self.enabled) {
                     (true, Some(false)) => { changes.push(Field::Disable); },
                     (false, Some(true)) => { changes.push(Field::Enable);  },
@@ -104,7 +98,7 @@ impl IsAction for SystemdServiceAction {
                     (false, None,        true)   => { changes.push(Field::Start);   /* a little weird, but we know what you mean */ },
                     (false, Some(true),  _)      => { changes.push(Field::Start); },
                     (true,  Some(false), false)  => { changes.push(Field::Stop); },      
-                    _                            => { println!("COND 0 {:?} {:?} {:?}", actual.started, self.started, self.restart); },
+                    _                            => { },
                 };
 
 

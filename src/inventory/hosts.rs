@@ -33,7 +33,8 @@ pub struct Host {
     pub groups : HashMap<String, Arc<RwLock<Group>>>,
     pub os_type : Option<HostOSType>,
     pub checksum_cache: HashMap<String,String>,
-    pub checksum_cache_task_id: usize
+    pub checksum_cache_task_id: usize,
+    pub facts: serde_yaml::Value,
 }
 
 impl Host {
@@ -45,7 +46,8 @@ impl Host {
             groups: HashMap::new(),
             os_type: None,
             checksum_cache: HashMap::new(),
-            checksum_cache_task_id: 0
+            checksum_cache_task_id: 0,
+            facts: serde_yaml::Value::from(serde_yaml::Mapping::new())
         }
     }
 
@@ -137,10 +139,16 @@ impl Host {
         }
         let mine = serde_yaml::Value::from(self.get_variables());
         blend_variables(&mut blended, mine);
+        blend_variables(&mut blended, self.facts.clone());
         return match blended {
             serde_yaml::Value::Mapping(x) => x,
             _ => panic!("get_blended_variables produced a non-mapping (1)")
         }
+    }
+
+    pub fn update_facts(&mut self, mapping: &Arc<RwLock<serde_yaml::Mapping>>) {
+        let map = mapping.read().unwrap().clone();
+        blend_variables(&mut self.facts, serde_yaml::Value::Mapping(map));
     }
 
     #[inline]

@@ -26,7 +26,7 @@ use crate::tasks::files::Recurse;
 const MODULE: &'static str = "file";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="file",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct FileTask {
     pub name: Option<String>,
     pub path: String,

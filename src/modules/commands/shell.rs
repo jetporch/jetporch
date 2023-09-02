@@ -24,7 +24,7 @@ use std::sync::Arc;
 const MODULE: &'static str = "Shell";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="shell",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct ShellTask {
     pub name: Option<String>,
     pub cmd: String,

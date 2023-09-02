@@ -26,7 +26,7 @@ use std::vec::Vec;
 const MODULE: &'static str = "directory";
 
 #[derive(Deserialize,Debug)]
-#[serde(tag="directory",deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryTask {
     pub name: Option<String>,
     pub path: String,
