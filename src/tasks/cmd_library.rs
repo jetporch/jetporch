@@ -34,13 +34,9 @@ use crate::tasks::files::Recurse;
 // command in any command sequence.
 
 pub fn screen_path(path: &String) -> Result<String,String> {
-    // NOTE: this only checks paths used in commands and is important because we pass
-    // paths to remote commands.
+    // NOTE: this only checks paths used in commands
     let path2 = path.trim().to_string();
     let path3 = screen_general_input_strict(&path2)?;
-    if path3.find("../").is_some() {
-        return Err(format!("climbout paths using ../ are not allowed, ./relative, ~/home, or /absolute are ok: {}", path3));
-    }
     return Ok(path3.to_string());
 }
 
@@ -89,49 +85,49 @@ pub fn screen_mode(mode: &String) -> Result<String,String> {
 pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return match os_type {
-        HostOSType::Linux => Ok(format!("stat --format '%a' {}", path)),
-        HostOSType::MacOS => Ok(format!("stat -f '%A' {}", path)),
+        HostOSType::Linux => Ok(format!("stat --format '%a' '{}'", path)),
+        HostOSType::MacOS => Ok(format!("stat -f '%A' '{}'", path)),
     }
 }
         
 pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return match os_type {
-        HostOSType::Linux => Ok(format!("sha512sum {}", path)),
-        HostOSType::MacOS => Ok(format!("shasum -b -a 512 {}", path)),
+        HostOSType::Linux => Ok(format!("sha512sum '{}'", path)),
+        HostOSType::MacOS => Ok(format!("shasum -b -a 512 '{}'", path)),
     }
 }
 
 pub fn get_ownership_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
-    return Ok(format!("ls -ld {}", path));
+    return Ok(format!("ls -ld '{}'", path));
 }
 
 pub fn get_is_directory_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
-    return Ok(format!("ls -ld {}", path));
+    return Ok(format!("ls -ld '{}'", path));
 }
 
 pub fn get_touch_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
-    return Ok(format!("touch {}", path));
+    return Ok(format!("touch '{}'", path));
 }
 
 pub fn get_create_directory_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
-    return Ok(format!("mkdir -p {}", path));
+    return Ok(format!("mkdir -p '{}'", path));
 }
 
 pub fn get_delete_file_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
-    return Ok(format!("rm -f {}", path));
+    return Ok(format!("rm -f '{}'", path));
 }
 
 pub fn get_delete_directory_command(_os_type: HostOSType, untrusted_path: &String, recurse: Recurse) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     match recurse {
-        Recurse::No  => { return Ok(format!("rm {}", path));    },
-        Recurse::Yes => { return Ok(format!("rm -r {}", path)); }
+        Recurse::No  => { return Ok(format!("rm '{}'", path));    },
+        Recurse::Yes => { return Ok(format!("rm -r '{}'", path)); }
     }
 }
 
@@ -139,8 +135,8 @@ pub fn set_owner_command(_os_type: HostOSType, untrusted_path: &String, untruste
     let path = screen_path(untrusted_path)?;
     let owner = screen_general_input_strict(untrusted_owner)?;
     match recurse {
-        Recurse::No   => { return Ok(format!("chown {} {}", owner, path));    },
-        Recurse::Yes  => { return Ok(format!("chown -R {} {}", owner, path)); }
+        Recurse::No   => { return Ok(format!("chown '{}' '{}'", owner, path));    },
+        Recurse::Yes  => { return Ok(format!("chown -R '{}' '{}'", owner, path)); }
     }
 }
 
@@ -148,8 +144,8 @@ pub fn set_group_command(_os_type: HostOSType, untrusted_path: &String, untruste
     let path = screen_path(untrusted_path)?;
     let group = screen_general_input_strict(untrusted_group)?;
     match recurse {
-        Recurse::No   => { return Ok(format!("chgrp {} {}", group, path));    },
-        Recurse::Yes  => { return Ok(format!("chgrp -R {} {}", group, path)); }
+        Recurse::No   => { return Ok(format!("chgrp '{}' '{}'", group, path));    },
+        Recurse::Yes  => { return Ok(format!("chgrp -R '{}' '{}'", group, path)); }
     }
 }
 
@@ -159,8 +155,8 @@ pub fn set_mode_command(_os_type: HostOSType, untrusted_path: &String, untrusted
     let path = screen_path(untrusted_path)?;
     let mode = screen_mode(untrusted_mode)?;
     match recurse {
-        Recurse::No  => { return Ok(format!("chmod {} {}", mode, path));    },
-        Recurse::Yes => { return Ok(format!("chmod -R {} {}", mode, path)); }
+        Recurse::No  => { return Ok(format!("chmod '{}' '{}'", mode, path));    },
+        Recurse::Yes => { return Ok(format!("chmod -R '{}' '{}'", mode, path)); }
     }
 }
 

@@ -87,7 +87,7 @@ impl PostLogicInput {
             changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
             delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
             failed_when:   handle.template.string_option_unsafe(request, &String::from("failed_when"), &input2.failed_when)?,
-            ignore_errors: handle.template.boolean_option(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
             save:          handle.template.string_option_no_spaces(request, &String::from("save"), &input2.save)?,
             retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
         }));

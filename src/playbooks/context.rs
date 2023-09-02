@@ -401,10 +401,8 @@ impl PlaybookContext {
         
         for (k,v) in env::vars() {
             if ! do_not_load.contains(&k.as_str()) {
-                println!("WRITING: {}", k);
                 my_env.insert(serde_yaml::Value::String(format!("ENV_{k}")) , serde_yaml::Value::String(v));
             } else {
-                println!("NO TO {}", k);
             }
         }
     }

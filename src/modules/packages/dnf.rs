@@ -22,7 +22,7 @@ use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &'static str = "Dnf";
+const MODULE: &'static str = "dnf";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="dnf",deny_unknown_fields)]
@@ -62,8 +62,8 @@ impl IsTask for DnfTask {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
                     version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
-                    update:     handle.template.boolean_option(&request, &String::from("update"), &self.update)?,
-                    remove:     handle.template.boolean_option(&request, &String::from("remove"), &self.remove)?
+                    update:     handle.template.boolean_option_default_false(&request, &String::from("update"), &self.update)?,
+                    remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?)
@@ -176,19 +176,19 @@ impl DnfAction {
 
     pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
         let cmd = match self.version.is_none() {
-            true => format!("dnf install {} -y", self.package),
-            false => format!("dnf install {}-{} -y", self.package, self.version.as_ref().unwrap())
+            true => format!("dnf install '{}' -y", self.package),
+            false => format!("dnf install '{}-{}' -y", self.package, self.version.as_ref().unwrap())
         };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf update {} -y", self.package);
+        let cmd = format!("dnf update '{}' -y", self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf remove {} -y", self.package);
+        let cmd = format!("dnf remove '{}' -y", self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 

@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::vec::Vec;
 use crate::tasks::files::Recurse;
 
-const MODULE: &'static str = "Copy";
+const MODULE: &'static str = "copy";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="copy",deny_unknown_fields)]

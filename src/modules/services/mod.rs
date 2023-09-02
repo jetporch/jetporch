@@ -14,9 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/** ADD MODULE CATEGORIES HERE, KEEP ALPHABETIZED **/
-pub mod commands;
-pub mod control;
-pub mod files;
-pub mod packages;
-pub mod services;
+/** ADD MODULES HERE, KEEP ALPHABETIZED **/
+
+pub mod sd_service;

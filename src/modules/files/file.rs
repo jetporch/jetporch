@@ -23,14 +23,14 @@ use std::sync::Arc;
 use std::vec::Vec;
 use crate::tasks::files::Recurse;
 
-const MODULE: &'static str = "File";
+const MODULE: &'static str = "file";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="file",deny_unknown_fields)]
 pub struct FileTask {
     pub name: Option<String>,
     pub path: String,
-    pub delete: Option<String>,
+    pub remove: Option<String>,
     pub attributes: Option<FileAttributesInput>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
@@ -38,7 +38,7 @@ pub struct FileTask {
 struct FileAction {
     pub name: String,
     pub path: String,
-    pub delete: bool,
+    pub remove: bool,
     pub attributes: Option<FileAttributesEvaluated>,
 }
 
@@ -52,7 +52,7 @@ impl IsTask for FileTask {
             EvaluatedTask {
                 action: Arc::new(FileAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    delete:     handle.template.boolean_option(&request, &String::from("delete"), &self.delete)?,
+                    remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?,
                     path:       handle.template.path(&request, &String::from("path"), &self.path)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
                 }),
@@ -74,12 +74,12 @@ impl IsAction for FileAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.path, &self.attributes, &mut changes, Recurse::No)?;                   
                 if remote_mode.is_none() {
-                    if self.delete             { return Ok(handle.response.is_matched(request)); } 
+                    if self.remove             { return Ok(handle.response.is_matched(request)); } 
                     else                       { return Ok(handle.response.needs_creation(request));  }
                 } else {
                     let is_dir = handle.remote.get_is_directory(request, &self.path)?;
                     if is_dir                  { return Err(handle.response.is_failed(request, &format!("{} is a directory", self.path))); }
-                    else if self.delete        { return Ok(handle.response.needs_removal(request)); }
+                    else if self.remove        { return Ok(handle.response.needs_removal(request)); }
                     else if changes.is_empty() { return Ok(handle.response.is_matched(request)); }
                     else                       { return Ok(handle.response.needs_modification(request, &changes)); }
                 }

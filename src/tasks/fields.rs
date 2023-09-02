@@ -24,9 +24,14 @@ use std::vec::Vec;
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Field {
     Content,
+    Disable,
+    Enable,
     Group,
     Mode,
     Owner,
+    Restart,
+    Start,
+    Stop,
     Version,
 }
 

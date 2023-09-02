@@ -231,15 +231,35 @@ impl Template {
         }
     }
 
-    pub fn boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
-        if self.is_syntax_skip_eval_option(&template) {
-            return Ok(false);
+    pub fn boolean_option_default_true(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        return self.internal_boolean_option(request, field, template, true);
+    }
+
+    pub fn boolean_option_default_false(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        return self.internal_boolean_option(request, field, template, false);
+    }
+  
+    fn internal_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
+        if self.is_syntax_skip_eval_option(&template) || template.is_none() {
+            return Ok(default);
         }
-        if template.is_none() { return Ok(false); }
         let st = self.string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
-            Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
+            Ok(x) => Ok(x),
+            Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
+        }
+    }
+
+    pub fn boolean_option_default_none(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<Option<bool>,Arc<TaskResponse>>{
+        if self.is_syntax_skip_eval_option(&template) || template.is_none() {
+            return Ok(None);
+        }
+        let st = self.string(request, field, &template.as_ref().unwrap())?;
+        let x = st.parse::<bool>();
+        return match x {
+            Ok(x) => Ok(Some(x)), 
+            Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
         }
     }
 

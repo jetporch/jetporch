@@ -53,10 +53,10 @@ impl IsTask for ShellTask {
                     unsafe_:  {
                         if self.cmd.find("{{").is_none() {
                             // allow all the fancy shell characters unless variables are used, in which case
-                            // do a bit of extra filtering unless users turn it off
+                            // do a bit of extra filtering unless users turn it off.
                             true
                         } else {
-                            handle.template.boolean_option(&request, &String::from("unsafe"), &self.unsafe_)?
+                            handle.template.boolean_option_default_false(&request, &String::from("unsafe"), &self.unsafe_)?
                         }
                     },
                     cmd:  handle.template.string_unsafe(&request, &String::from("cmd"), &self.cmd)?,

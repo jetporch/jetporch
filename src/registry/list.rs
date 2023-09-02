@@ -41,6 +41,10 @@ use crate::modules::files::template::TemplateTask;
 // packages
 use crate::modules::packages::dnf::DnfTask;
 
+// services
+use crate::modules::services::sd_service::SystemdServiceTask;
+
+#[allow(non_camel_case_types)]
 #[derive(Deserialize,Debug)]
 #[serde(rename_all="lowercase")]
 pub enum Task {
@@ -50,6 +54,7 @@ pub enum Task {
     Directory(DirectoryTask),
     Echo(EchoTask),
     File(FileTask),
+    Sd_Service(SystemdServiceTask),
     Shell(ShellTask),
     Template(TemplateTask),
 }
@@ -58,40 +63,41 @@ impl Task {
 
     pub fn get_module(&self) -> String {
         return match self {
-            // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
-            Task::Copy(x)      => x.get_module(),
-            Task::Dnf(x)       => x.get_module(),
-            Task::Directory(x) => x.get_module(),
-            Task::Echo(x)      => x.get_module(), 
-            Task::File(x)      => x.get_module(), 
-            Task::Shell(x)     => x.get_module(), 
-            Task::Template(x)  => x.get_module(), 
+            Task::Copy(x)       => x.get_module(),
+            Task::Dnf(x)        => x.get_module(),
+            Task::Directory(x)  => x.get_module(),
+            Task::Echo(x)       => x.get_module(), 
+            Task::File(x)       => x.get_module(), 
+            Task::Sd_Service(x) => x.get_module(),
+            Task::Shell(x)      => x.get_module(), 
+            Task::Template(x)   => x.get_module(), 
         };
     }
 
     pub fn get_name(&self) -> Option<String> {
         return match self {
-            // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
-            Task::Copy(x)      => x.get_name(), 
-            Task::Dnf(x)       => x.get_name(),
-            Task::Directory(x) => x.get_name(),
-            Task::Echo(x)      => x.get_name(), 
-            Task::File(x)      => x.get_name(), 
-            Task::Shell(x)     => x.get_name(), 
-            Task::Template(x)  => x.get_name(), 
+            Task::Copy(x)       => x.get_name(), 
+            Task::Dnf(x)        => x.get_name(),
+            Task::Directory(x)  => x.get_name(),
+            Task::Echo(x)       => x.get_name(), 
+            Task::File(x)       => x.get_name(), 
+            Task::Sd_Service(x) => x.get_name(),
+            Task::Shell(x)      => x.get_name(), 
+            Task::Template(x)   => x.get_name(), 
         };
     }
 
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
-            Task::Copy(x)      => x.evaluate(handle, request), 
-            Task::Dnf(x)       => x.evaluate(handle, request),
-            Task::Directory(x) => x.evaluate(handle, request), 
-            Task::Echo(x)      => x.evaluate(handle, request), 
-            Task::File(x)      => x.evaluate(handle, request), 
-            Task::Shell(x)     => x.evaluate(handle, request), 
-            Task::Template(x)  => x.evaluate(handle, request), 
+            Task::Copy(x)       => x.evaluate(handle, request), 
+            Task::Dnf(x)        => x.evaluate(handle, request),
+            Task::Directory(x)  => x.evaluate(handle, request), 
+            Task::Echo(x)       => x.evaluate(handle, request), 
+            Task::File(x)       => x.evaluate(handle, request), 
+            Task::Sd_Service(x) => x.evaluate(handle, request),
+            Task::Shell(x)      => x.evaluate(handle, request), 
+            Task::Template(x)   => x.evaluate(handle, request), 
         };
     }
 

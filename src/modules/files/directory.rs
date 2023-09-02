@@ -23,14 +23,14 @@ use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &'static str = "Directory";
+const MODULE: &'static str = "directory";
 
 #[derive(Deserialize,Debug)]
 #[serde(tag="directory",deny_unknown_fields)]
 pub struct DirectoryTask {
     pub name: Option<String>,
     pub path: String,
-    pub delete: Option<String>,
+    pub remove: Option<String>,
     pub recurse: Option<String>,
     pub attributes: Option<FileAttributesInput>,
     pub with: Option<PreLogicInput>,
@@ -39,7 +39,7 @@ pub struct DirectoryTask {
 struct DirectoryAction {
     pub name: String,
     pub path: String,
-    pub delete: bool,
+    pub remove: bool,
     pub recurse: Recurse,
     pub attributes: Option<FileAttributesEvaluated>,
 }
@@ -50,7 +50,7 @@ impl IsTask for DirectoryTask {
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        let recurse = match handle.template.boolean_option(&request, &String::from("recurse"), &self.recurse)? {
+        let recurse = match handle.template.boolean_option_default_false(&request, &String::from("recurse"), &self.recurse)? {
             true => Recurse::Yes,
             false => Recurse::No
         };
@@ -58,7 +58,7 @@ impl IsTask for DirectoryTask {
             EvaluatedTask {
                 action: Arc::new(DirectoryAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
-                    delete:     handle.template.boolean_option(&request, &String::from("delete"), &self.delete)?,
+                    remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?,
                     recurse:    recurse, 
                     path:       handle.template.path(&request, &String::from("path"), &self.path)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
@@ -81,12 +81,12 @@ impl IsAction for DirectoryAction {
                 let mut changes : Vec<Field> = Vec::new();
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.path, &self.attributes, &mut changes, self.recurse)?;                 
                 if remote_mode.is_none() {
-                    if self.delete             { return Ok(handle.response.is_matched(request)); } 
+                    if self.remove             { return Ok(handle.response.is_matched(request)); } 
                     else                       { return Ok(handle.response.needs_creation(request));  }
                 } else {
                     let is_file = handle.remote.get_is_file(request, &self.path)?;
                     if is_file                 { return Err(handle.response.is_failed(request, &format!("{} is not a directory", self.path))); }
-                    else if self.delete        { return Ok(handle.response.needs_removal(request)); }
+                    else if self.remove        { return Ok(handle.response.needs_removal(request)); }
                     else if changes.is_empty() { return Ok(handle.response.is_matched(request)); }
                     else                       { return Ok(handle.response.needs_modification(request, &changes)); }
                 }
