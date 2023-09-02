@@ -40,6 +40,7 @@ use crate::modules::files::file::FileTask;
 use crate::modules::files::template::TemplateTask;
 
 // packages
+use crate::modules::packages::apt::AptTask;
 use crate::modules::packages::dnf::DnfTask;
 
 // services
@@ -50,6 +51,7 @@ use crate::modules::services::sd_service::SystemdServiceTask;
 #[serde(rename_all="lowercase")]
 pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
+    Apt(AptTask),
     Copy(CopyTask),
     Dnf(DnfTask),
     Directory(DirectoryTask),
@@ -65,6 +67,7 @@ impl Task {
 
     pub fn get_module(&self) -> String {
         return match self {
+            Task::Apt(x)        => x.get_module(),
             Task::Copy(x)       => x.get_module(),
             Task::Dnf(x)        => x.get_module(),
             Task::Directory(x)  => x.get_module(),
@@ -79,6 +82,7 @@ impl Task {
 
     pub fn get_name(&self) -> Option<String> {
         return match self {
+            Task::Apt(x)        => x.get_name(),
             Task::Copy(x)       => x.get_name(), 
             Task::Dnf(x)        => x.get_name(),
             Task::Directory(x)  => x.get_name(),
@@ -94,6 +98,7 @@ impl Task {
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
+            Task::Apt(x)        => x.evaluate(handle, request),
             Task::Copy(x)       => x.evaluate(handle, request), 
             Task::Dnf(x)        => x.evaluate(handle, request),
             Task::Directory(x)  => x.evaluate(handle, request), 

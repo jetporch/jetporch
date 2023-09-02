@@ -26,7 +26,7 @@ const MODULE: &'static str = "dnf";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
-pub struct DnfTask {
+pub struct AptTask {
     pub name: Option<String>,
     pub package: String,
     pub version: Option<String>,
@@ -36,7 +36,7 @@ pub struct DnfTask {
     pub and: Option<PostLogicInput>
 }
 
-struct DnfAction {
+struct AptAction {
     pub name: String,
     pub package: String,
     pub version: Option<String>,
@@ -50,7 +50,7 @@ struct PackageDetails {
     version: String,
 }
 
-impl IsTask for DnfTask {
+impl IsTask for AptTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
@@ -58,7 +58,7 @@ impl IsTask for DnfTask {
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
-                action: Arc::new(DnfAction {
+                action: Arc::new(AptAction {
                     name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
                     version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
@@ -74,16 +74,13 @@ impl IsTask for DnfTask {
 }
 
 
-impl IsAction for DnfAction {
+impl IsAction for AptAction {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
         match request.request_type {
 
             TaskRequestType::Query => {
-
-                // FIXME: ALL of this query logic is shared between dnf and apt, move this to a common function in tasks
-                // before we make too many package manager modules!
 
                 let mut changes : Vec<Field> = Vec::new();
                 let package_details = self.get_package_details(handle, request)?; 
@@ -99,6 +96,8 @@ impl IsAction for DnfAction {
                         changes.push(Field::Version);
                     } else if self.version.is_some() {
                         let specified_version = self.version.as_ref().unwrap();
+                        println!("V1={}.", specified_version);
+                        println!("V2={}.", pkg.version);
                         if ! pkg.version.eq(specified_version) { changes.push(Field::Version); }
                     }
 
@@ -140,58 +139,55 @@ impl IsAction for DnfAction {
 
 }
 
-impl DnfAction {
+impl AptAction {
 
     pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
-        let cmd = match self.version.is_none() {
-            true => format!("dnf info {}", self.package),
-            false => format!("dnf info {}-{}", self.package, self.version.as_ref().unwrap())
-        };
-        let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
-        let (rc,out) = cmd_info(&result);
-        let details = self.parse_package_details(&out.clone())?;
-        return Ok(details);
-    }
-
-    pub fn parse_package_details(&self, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
-        let mut name: Option<String> = None;
-        let mut version: Option<String> = None;
-        for line in out.lines() {
-            if line.starts_with("Available") {
+        let cmd = format!("dpkg-query -W '{}'", self.package);
+        let result = handle.remote.run(request, &cmd, CheckRc::Unchecked);
+        if result.is_ok() {
+            let (rc,out) = cmd_info(&result.unwrap());
+            if rc == 0 {
+                let details = self.parse_package_details(handle, &out.clone())?;
+                return Ok(details);
+            } else {
                 return Ok(None);
             }
-            let mut tokens = line.split(":");
-            let key = tokens.nth(0);
-            let value = tokens.nth(0);
-            if key.is_some() && value.is_some() {
-                let key2 = key.unwrap().trim();
-                let value2 = value.unwrap().trim();
-                if key2.eq("Name")    { name = Some(value2.to_string());           }
-                if key2.eq("Version") { version = Some(value2.to_string()); break; }
-            }
-        }
-        if name.is_some() && version.is_some() {
-            return Ok(Some(PackageDetails { name: name.unwrap().clone(), version: version.unwrap().clone() }));
         } else {
+            return Err(result.unwrap());
+        }
+    }
+
+    pub fn parse_package_details(&self, handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        let mut tokens = out.split("\t");
+        let version = tokens.nth(1);
+        if version.is_some() {
+            println!("FOUND SOME!");
+            return Ok(Some(PackageDetails { name: self.name.clone(), version: version.unwrap().trim().to_string() }));
+        } else {
+            println!("FOUND NONE!");
+            // shouldn't occur with rc=0, still don't want to call panic.
             return Ok(None);
         }
     }
 
     pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
         let cmd = match self.version.is_none() {
-            true => format!("dnf install '{}' -y", self.package),
-            false => format!("dnf install '{}-{}' -y", self.package, self.version.as_ref().unwrap())
+            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' -qq", self.package),
+            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' -qq", self.package, self.version.as_ref().unwrap())
         };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf update '{}' -y", self.package);
+        let cmd = match self.version.is_none() {
+            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' --only-upgrade -qq", self.package),
+            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' --only-upgrade -qq", self.package, self.version.as_ref().unwrap())
+        };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf remove '{}' -y", self.package);
+        let cmd = format!("DEBIAN_FRONTEND=noninteractive apt-get remove '{}' -qq", self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
