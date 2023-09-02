@@ -82,8 +82,8 @@ impl IsAction for DnfAction {
 
             TaskRequestType::Query => {
 
-                // FIXME: ALL of this query logic is shared between dnf and apt, move this to a common function in tasks
-                // before we make too many package manager modules!
+                // FIXME: ALL of this query logic is shared between dnf and apt, but it is likely other package managers
+                // will diverge.  Still, consider a common function.
 
                 let mut changes : Vec<Field> = Vec::new();
                 let package_details = self.get_package_details(handle, request)?; 
