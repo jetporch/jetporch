@@ -64,15 +64,15 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, response: &Arc<Response>, _request: &Arc<TaskRequest>, _cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+   fn run_command(&self, _response: &Arc<Response>, _request: &Arc<TaskRequest>, _cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
        panic!("attempting to use the no-connection");
    }
 
-   fn write_data(&self, response: &Arc<Response>, _request: &Arc<TaskRequest>, _data: &String, _remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>>{
+   fn write_data(&self, _response: &Arc<Response>, _request: &Arc<TaskRequest>, _data: &String, _remote_path: &String) -> Result<(),Arc<TaskResponse>>{
        panic!("attempting to use the no-connection");
    }
 
-   fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+   fn copy_file(&self, _response: &Arc<Response>, _request: &Arc<TaskRequest>, _src: &Path, _dest: &String) -> Result<(), Arc<TaskResponse>> {
        panic!("attempting to use the no-connection");
    }
 

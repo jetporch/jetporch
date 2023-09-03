@@ -192,7 +192,7 @@ impl Connection for SshConnection {
         }
     }
 
-    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String, mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String) -> Result<(),Arc<TaskResponse>> {
         let session = self.session.as_ref().expect("session not established");
         let sftp_result = session.sftp();
         let sftp = match sftp_result {
@@ -203,14 +203,18 @@ impl Connection for SshConnection {
         let fh_result = sftp.create(sftp_path);
         let mut fh = match fh_result {
             Ok(x) => x,
-            Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed (1): {y}"))) }
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp open failed: {y}"))) }
         };
         let bytes = data.as_bytes();
-        fh.write_all(bytes);
+        match fh.write_all(bytes) {
+            Ok(_x) => {},
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed: {y}"))); }
+        }
+
         return Ok(());
     }
 
-    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String) -> Result<(), Arc<TaskResponse>> {
 
         let src_open_result = File::open(src);
         let mut src = match src_open_result {
@@ -242,7 +246,10 @@ impl Connection for SshConnection {
                 Err(y) => { return Err(response.is_failed(request, &format!("failed during file transfer: {y}"))); }
             };
             if n == 0 { break; }
-            fh.write(&chunk);
+            match fh.write(&chunk) {
+                Ok(_x) => {},
+                Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed: {y}"))); }
+            }
         }
 
         return Ok(());

@@ -37,7 +37,6 @@ pub struct CopyTask {
     pub and: Option<PostLogicInput>
 }
 struct CopyAction {
-    pub name: String,
     pub src: PathBuf,
     pub dest: String,
     pub attributes: Option<FileAttributesEvaluated>,
@@ -53,7 +52,6 @@ impl IsTask for CopyTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(CopyAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     src:        handle.template.find_file_path(request, &String::from("src"), &src)?,
                     dest:       handle.template.path(&request, &String::from("dest"), &self.dest)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
@@ -117,8 +115,7 @@ impl IsAction for CopyAction {
 impl CopyAction {
 
     pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
-        let remote_put_mode = handle.template.get_desired_numeric_mode(request, &self.attributes)?;
-        handle.remote.copy_file(request, &self.src, &self.dest, remote_put_mode)?;
+        handle.remote.copy_file(request, &self.src, &self.dest)?;
         return Ok(());
     }
 

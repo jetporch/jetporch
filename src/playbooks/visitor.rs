@@ -102,7 +102,7 @@ pub trait PlaybookVisitor : Send + Sync {
 
         if self.is_syntax_only() {
             let ctx = context.read().unwrap();
-            let play_name = ctx.get_play_name();
+            //let play_name = ctx.get_play_name();
 
 
             let (summary1, summary2) : (String,String) = match ctx.get_hosts_failed_count() {

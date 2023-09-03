@@ -34,7 +34,6 @@ pub struct ShellTask {
     pub unsafe_: Option<String>,
 }
 struct ShellAction {
-    pub name: String,
     pub cmd: String,
     pub unsafe_: bool,
 }
@@ -49,7 +48,6 @@ impl IsTask for ShellTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(ShellAction {
-                    name: self.name.clone().unwrap_or(String::from(MODULE)),
                     unsafe_:  {
                         if self.cmd.find("{{").is_none() {
                             // allow all the fancy shell characters unless variables are used, in which case
@@ -80,7 +78,7 @@ impl IsAction for ShellAction {
             },
 
             TaskRequestType::Execute => {
-                let mut task_result : Arc<TaskResponse>;
+                let task_result : Arc<TaskResponse>;
                 if self.unsafe_ {
                     task_result = handle.remote.run_unsafe(&request, &self.cmd.clone(), CheckRc::Unchecked)?;
                 } else {

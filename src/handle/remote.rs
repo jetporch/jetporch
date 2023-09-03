@@ -75,7 +75,7 @@ impl Remote {
         // for parameterized calls that use that
         if safe == Safety::Safe {
             match screen_general_input_loose(&cmd) {
-                Ok(x) => {},
+                Ok(_x) => {},
                 Err(y) => return Err(self.response.is_failed(request, &y.clone()))
             }
         }
@@ -105,19 +105,18 @@ impl Remote {
     }
 
     // writes a string (for example, from a template) to a remote file location
-    pub fn write_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
-        return self.connection.lock().unwrap().write_data(&self.response, request, &data.clone(), &path.clone(), mode);
+    pub fn write_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String) -> Result<(), Arc<TaskResponse>> {
+        return self.connection.lock().unwrap().write_data(&self.response, request, &data.clone(), &path.clone());
     }
 
-    pub fn copy_file(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+    pub fn copy_file(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String) -> Result<(), Arc<TaskResponse>> {
         let owner_result = self.get_ownership(request, dest)?;
-        let (mut old_owner, mut old_group) = (String::from("root"), String::from("root"));
-        let whoami : String;
+        let (mut old_owner, mut _old_group) = (String::from("root"), String::from("root"));
         let mut flip_owner: bool = false;
 
         if owner_result.is_some() {
             // the file exists
-            (old_owner, old_group) = owner_result.unwrap();
+            (old_owner, _old_group) = owner_result.unwrap();
             let whoami = match self.get_whoami() {
                 Ok(x) => x,
                 Err(y) => { return Err(self.response.is_failed(request, &y.clone())) }
@@ -127,7 +126,7 @@ impl Remote {
                 self.set_owner(request, &dest, &whoami, Recurse::No)?;
             }
         }
-        self.connection.lock().unwrap().copy_file(&self.response, &request, src, &dest.clone(), mode)?;
+        self.connection.lock().unwrap().copy_file(&self.response, &request, src, &dest.clone())?;
         if flip_owner {
             self.set_owner(request, &dest, &old_owner, Recurse::No)?;
         }
@@ -160,7 +159,7 @@ impl Remote {
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
         
         let result = self.run(request, &cmd, CheckRc::Checked)?;
-        let (rc, out) = cmd_info(&result);
+        let (_rc, out) = cmd_info(&result);
         // so far this assumes reliable ls -ld output across all supported operating systems, this may change
         // in wich case we may need to consider os_type here
         if out.starts_with("d") {

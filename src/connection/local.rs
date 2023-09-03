@@ -78,7 +78,7 @@ impl Connection for LocalConnection {
         let user_result = env::var("USER");
         return match user_result {
             Ok(x) => Ok(x),
-            Err(y) => Err(String::from("environment variable $USER: {y}"))
+            Err(y) => Err(format!("environment variable $USER: {y}"))
         };
     }
 
@@ -89,7 +89,7 @@ impl Connection for LocalConnection {
             return Ok(());
         }
         else {
-            let (rc, out) = result.unwrap_err();
+            let (_rc, out) = result.unwrap_err();
             return Err(out);
         }
     }
@@ -116,18 +116,18 @@ impl Connection for LocalConnection {
         };
     }
 
-    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String, mode: Option<i32>) -> Result<(), Arc<TaskResponse>> {
+    fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String) -> Result<(), Arc<TaskResponse>> {
         // FIXME: this (temporary) implementation currently loads the file contents into memory which we do not want
         // copy the files with system calls instead.
         let remote_path2 = Path::new(remote_path);
         let result = std::fs::copy(src, &remote_path2);
         return match result {
-            Ok(x) => Ok(()),
+            Ok(_x) => Ok(()),
             Err(e) => { return Err(response.is_failed(&request, &format!("copy failed: {:?}", e))) }
         }
     }
 
-    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String, _mode: Option<i32>) -> Result<(),Arc<TaskResponse>> {
+    fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String) -> Result<(),Arc<TaskResponse>> {
         let path = Path::new(&remote_path);
         if path.exists() {
             let mut file = match jet_file_open(path) {

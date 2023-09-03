@@ -37,7 +37,6 @@ pub struct SystemdServiceTask {
 }
 
 struct SystemdServiceAction {
-    pub name: String,
     pub service: String,
     pub enabled: Option<bool>,
     pub started: Option<bool>,
@@ -59,7 +58,6 @@ impl IsTask for SystemdServiceTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(SystemdServiceAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     service:    handle.template.string_no_spaces(request, &String::from("service"), &self.service)?,
                     enabled:    handle.template.boolean_option_default_none(&request, &String::from("enabled"), &self.enabled)?,
                     started:    handle.template.boolean_option_default_none(&request, &String::from("started"), &self.started)?,
@@ -133,13 +131,13 @@ impl SystemdServiceAction {
 
     pub fn get_service_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<ServiceDetails,Arc<TaskResponse>> {
         
-        let mut is_enabled : bool = false;
-        let mut is_active  : bool = false;
+        let is_enabled : bool;
+        let is_active  : bool;
         let is_enabled_cmd = format!("systemctl is-enabled '{}'", self.service);
         let is_active_cmd = format!("systemctl is-active '{}'", self.service);
         
         let result = handle.remote.run(request, &is_enabled_cmd, CheckRc::Unchecked)?;
-        let (rc,out) = cmd_info(&result);
+        let (_rc,out) = cmd_info(&result);
         if out.find("disabled").is_some() { is_enabled = false; }
         else if out.find("enabled").is_some() { is_enabled = true; } 
         else {
@@ -147,7 +145,7 @@ impl SystemdServiceAction {
         }
 
         let result2 = handle.remote.run(request, &is_active_cmd, CheckRc::Unchecked)?;
-        let (rc2,out2) = cmd_info(&result2);
+        let (_rc2,out2) = cmd_info(&result2);
         if out2.find("inactive").is_some() { is_active = false; }
         else if out2.find("active").is_some() { is_active = true; }
         else { 

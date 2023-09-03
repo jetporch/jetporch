@@ -163,7 +163,7 @@ impl CliParser  {
             batch_size: None,
             default_user: match env::var("USER") {
                 Ok(x) => x,
-                Err(y) => String::from("root")
+                Err(_) => String::from("root")
             },
             threads: None,
             inventory_set: false,

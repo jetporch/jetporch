@@ -27,34 +27,42 @@ use serde::Deserialize;
 #[serde(deny_unknown_fields)]
 pub struct PreLogicInput {
     pub cond: Option<String>,
+    pub notify: Option<String>,
+    // soon:
     pub sudo: Option<String>
 }
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
     pub cond: bool,
+    pub notify: Option<String>,
+    // soon:
     pub sudo: Option<String>
 }
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PostLogicInput {
-    pub changed_when: Option<String>,
-    pub delay: Option<String>,
-    pub failed_when: Option<String>,
-    pub ignore_errors: Option<String>,
-    pub save: Option<String>,
-    pub retry: Option<String>
+    // soon:
+    pub subscribe: Option<String>
+    // pub changed_when: Option<String>,
+    //pub delay: Option<String>,
+    //pub failed_when: Option<String>,
+    //pub ignore_errors: Option<String>,
+    //pub save: Option<String>,
+    //pub retry: Option<String>
 }
 
 #[derive(Debug)]
 pub struct PostLogicEvaluated {
-    pub changed_when: Option<String>,
-    pub delay: Option<i64>,
-    pub failed_when: Option<String>,
-    pub ignore_errors: bool,
-    pub save: Option<String>,
-    pub retry: Option<i64>
+    pub subscribe: Option<String>
+    // soon:
+    //pub changed_when: Option<String>,
+    //pub delay: Option<i64>,
+    //pub failed_when: Option<String>,
+    //pub ignore_errors: bool,
+    //pub save: Option<String>,
+    //pub retry: Option<i64>
 }
 
 impl PreLogicInput {
@@ -69,6 +77,7 @@ impl PreLogicInput {
                 Some(cond2) => handle.template.test_cond(request, cond2)?,
                 None        => true
             },
+            notify: handle.template.string_option(request, &String::from("notify"), &input2.notify)?,
             sudo: handle.template.string_option(request, &String::from("sudo"), &input2.sudo)?
         }));
     }
@@ -77,19 +86,20 @@ impl PreLogicInput {
 
 impl PostLogicInput {
 
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, _request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
+            subscribe:       handle.template.no_template_string_option_trim(&input2.subscribe),
             // unsafe here means the options cannot be sent to the shell, which they are not.
-            changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
-            delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
-            failed_when:   handle.template.string_option_unsafe(request, &String::from("failed_when"), &input2.failed_when)?,
-            ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
-            save:          handle.template.string_option_no_spaces(request, &String::from("save"), &input2.save)?,
-            retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
+            //changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
+            //delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
+            //failed_when:   handle.template.string_option_unsafe(request, &String::from("failed_when"), &input2.failed_when)?,
+            //ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            //save:          handle.template.string_option_no_spaces(request, &String::from("save"), &input2.save)?,
+            //retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
         }));
     }
 }

@@ -37,7 +37,6 @@ pub struct DnfTask {
 }
 
 struct DnfAction {
-    pub name: String,
     pub package: String,
     pub version: Option<String>,
     pub update: bool,
@@ -59,7 +58,6 @@ impl IsTask for DnfTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(DnfAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
                     version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
                     update:     handle.template.boolean_option_default_false(&request, &String::from("update"), &self.update)?,
@@ -148,7 +146,7 @@ impl DnfAction {
             false => format!("dnf info {}-{}", self.package, self.version.as_ref().unwrap())
         };
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
-        let (rc,out) = cmd_info(&result);
+        let (_rc,out) = cmd_info(&result);
         let details = self.parse_package_details(&out.clone())?;
         return Ok(details);
     }

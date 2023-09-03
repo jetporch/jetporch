@@ -37,7 +37,6 @@ pub struct AptTask {
 }
 
 struct AptAction {
-    pub name: String,
     pub package: String,
     pub version: Option<String>,
     pub update: bool,
@@ -59,7 +58,6 @@ impl IsTask for AptTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(AptAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
                     version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
                     update:     handle.template.boolean_option_default_false(&request, &String::from("update"), &self.update)?,
@@ -82,6 +80,9 @@ impl IsAction for AptAction {
 
             TaskRequestType::Query => {
 
+                // FIXME: ALL of this query logic is shared between dnf and apt, but it is likely other package managers
+                // will diverge.  Still, consider a common function.
+
                 let mut changes : Vec<Field> = Vec::new();
                 let package_details = self.get_package_details(handle, request)?; 
 
@@ -96,8 +97,6 @@ impl IsAction for AptAction {
                         changes.push(Field::Version);
                     } else if self.version.is_some() {
                         let specified_version = self.version.as_ref().unwrap();
-                        println!("V1={}.", specified_version);
-                        println!("V2={}.", pkg.version);
                         if ! pkg.version.eq(specified_version) { changes.push(Field::Version); }
                     }
 
@@ -157,14 +156,12 @@ impl AptAction {
         }
     }
 
-    pub fn parse_package_details(&self, handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    pub fn parse_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let mut tokens = out.split("\t");
         let version = tokens.nth(1);
         if version.is_some() {
-            println!("FOUND SOME!");
-            return Ok(Some(PackageDetails { name: self.name.clone(), version: version.unwrap().trim().to_string() }));
+            return Ok(Some(PackageDetails { name: self.package.clone(), version: version.unwrap().trim().to_string() }));
         } else {
-            println!("FOUND NONE!");
             // shouldn't occur with rc=0, still don't want to call panic.
             return Ok(None);
         }

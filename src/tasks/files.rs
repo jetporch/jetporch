@@ -54,8 +54,8 @@ impl FileAttributesInput {
         let octal_no_prefix = str::replace(&mode, "0o", "");
         // this error should be screened out by template() below already but return types are important.
         return match i32::from_str_radix(&octal_no_prefix, 8) {
-            Ok(x) => true,
-            Err(y) => false 
+            Ok(_x) => true,
+            Err(_y) => false 
         }
     }
 

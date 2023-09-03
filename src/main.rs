@@ -42,7 +42,7 @@ fn main() {
 fn liftoff() -> Result<(),String> {
 
     let mut cli_parser = CliParser::new();
-    let cli_flags = cli_parser.parse()?;
+    cli_parser.parse()?;
 
     // jetp --help was given, or no arguments
     if cli_parser.needs_help {

@@ -37,7 +37,6 @@ pub struct DirectoryTask {
     pub and: Option<PostLogicInput>
 }
 struct DirectoryAction {
-    pub name: String,
     pub path: String,
     pub remove: bool,
     pub recurse: Recurse,
@@ -57,7 +56,6 @@ impl IsTask for DirectoryTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(DirectoryAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?,
                     recurse:    recurse, 
                     path:       handle.template.path(&request, &String::from("path"), &self.path)?,

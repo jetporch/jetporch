@@ -39,7 +39,6 @@ pub struct TemplateTask {
 }
 
 struct TemplateAction {
-    pub name: String,
     pub src: PathBuf,
     pub dest: String,
     pub attributes: Option<FileAttributesEvaluated>,
@@ -55,7 +54,6 @@ impl IsTask for TemplateTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(TemplateAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     src:        handle.template.find_template_path(request, &String::from("src"), &src)?,
                     dest:       handle.template.path(&request, &String::from("dest"), &self.dest)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
@@ -117,11 +115,10 @@ impl IsAction for TemplateAction {
 impl TemplateAction {
 
     pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
-        let remote_put_mode = handle.template.get_desired_numeric_mode(&request, &self.attributes)?;
         let template_contents = handle.local.read_file(&request, &self.src)?;
         let data = handle.template.string_for_template_module_use_only(&request, &String::from("src"), &template_contents)?;
         if write {
-            handle.remote.write_data(&request, &data, &self.dest, remote_put_mode)?;
+            handle.remote.write_data(&request, &data, &self.dest)?;
         }
         return Ok(data);
     }

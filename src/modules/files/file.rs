@@ -36,7 +36,6 @@ pub struct FileTask {
     pub and: Option<PostLogicInput>
 }
 struct FileAction {
-    pub name: String,
     pub path: String,
     pub remove: bool,
     pub attributes: Option<FileAttributesEvaluated>,
@@ -51,7 +50,6 @@ impl IsTask for FileTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(FileAction {
-                    name:       self.name.clone().unwrap_or(String::from(MODULE)),
                     remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?,
                     path:       handle.template.path(&request, &String::from("path"), &self.path)?,
                     attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?

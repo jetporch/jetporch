@@ -21,7 +21,6 @@ use crate::tasks::response::TaskResponse;
 use crate::inventory::hosts::Host;
 use crate::playbooks::traversal::RunState;
 use crate::playbooks::context::PlaybookContext;
-use crate::tasks::FileAttributesEvaluated;
 use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
 
@@ -156,6 +155,15 @@ impl Template {
         return Ok(prelim.clone());
     }
 
+
+    pub fn no_template_string_option_trim(&self, input: &Option<String>) -> Option<String> {
+        if input.is_some() {
+            let value = input.as_ref().unwrap();
+            return Some(value.trim().to_string());
+        }
+        return None;
+    }
+
     pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
@@ -280,10 +288,6 @@ impl Template {
 
     pub fn find_file_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         return self.find_sub_path(&String::from("files"), request, field, str_path);
-    }
-
-    pub fn get_desired_numeric_mode(&self, request: &Arc<TaskRequest>, attribs: &Option<FileAttributesEvaluated>) -> Result<Option<i32>,Arc<TaskResponse>>{
-        return FileAttributesEvaluated::get_numeric_mode(&self.response, request, attribs); 
     }
 
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {

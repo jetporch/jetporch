@@ -32,8 +32,6 @@ pub struct FactsTask {
 }
 #[allow(dead_code)]
 struct FactsAction {
-    pub name: String,
-
 }
 
 impl IsTask for FactsTask {
@@ -45,7 +43,6 @@ impl IsTask for FactsTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(FactsAction {
-                    name: self.name.clone().unwrap_or(String::from(MODULE)),
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, &self.and)?),
@@ -94,7 +91,7 @@ impl FactsAction {
         mapping.write().unwrap().insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::String(value.clone())); 
     }
 
-    fn do_mac_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+    fn do_mac_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         // sets jet_os_type=MacOS
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("MacOS"));
         return Ok(());
