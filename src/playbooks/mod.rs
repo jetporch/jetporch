@@ -19,3 +19,4 @@ pub mod context;
 pub mod visitor;
 pub mod traversal;
 pub mod templar;
+pub mod task_fsm;

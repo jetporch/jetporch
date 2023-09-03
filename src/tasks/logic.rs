@@ -27,24 +27,24 @@ use serde::Deserialize;
 #[serde(deny_unknown_fields)]
 pub struct PreLogicInput {
     pub cond: Option<String>,
-    pub notify: Option<String>,
+    pub subscribe: Option<String>,
     // soon:
-    pub sudo: Option<String>
+    //pub sudo: Option<String>
 }
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
     pub cond: bool,
-    pub notify: Option<String>,
+    pub subscribe: Option<String>,
     // soon:
-    pub sudo: Option<String>
+    //pub sudo: Option<String>
 }
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PostLogicInput {
+    pub notify: Option<String>
     // soon:
-    pub subscribe: Option<String>
     // pub changed_when: Option<String>,
     //pub delay: Option<String>,
     //pub failed_when: Option<String>,
@@ -55,7 +55,7 @@ pub struct PostLogicInput {
 
 #[derive(Debug)]
 pub struct PostLogicEvaluated {
-    pub subscribe: Option<String>
+    pub notify: Option<String>
     // soon:
     //pub changed_when: Option<String>,
     //pub delay: Option<i64>,
@@ -77,8 +77,8 @@ impl PreLogicInput {
                 Some(cond2) => handle.template.test_cond(request, cond2)?,
                 None        => true
             },
-            notify: handle.template.string_option(request, &String::from("notify"), &input2.notify)?,
-            sudo: handle.template.string_option(request, &String::from("sudo"), &input2.sudo)?
+            subscribe:       handle.template.no_template_string_option_trim(&input2.subscribe),
+            //sudo: handle.template.string_option(request, &String::from("sudo"), &input2.sudo)?
         }));
     }
 
@@ -86,13 +86,14 @@ impl PreLogicInput {
 
 impl PostLogicInput {
 
-    pub fn template(handle: &TaskHandle, _request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
-            subscribe:       handle.template.no_template_string_option_trim(&input2.subscribe),
+            notify: handle.template.string_option(request, &String::from("notify"), &input2.notify)?,
+
             // unsafe here means the options cannot be sent to the shell, which they are not.
             //changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
             //delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,

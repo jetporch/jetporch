@@ -156,6 +156,11 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("… {} => running", host2.name);
     }
 
+    fn on_notify_handler(&self, host: &Arc<RwLock<Host>>, which_handler: &String) {
+        let host2 = host.read().unwrap();
+        println!("… {} => notified: {}", host2.name, which_handler);
+    }
+
     // FIXME: this pattern of the visitor accessing the context is cleaner than the FSM code that accesses both in sequence, so do
     // more of this below.
 

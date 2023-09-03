@@ -43,6 +43,7 @@ pub struct PlaybookContext {
     pub role: Option<String>,
     pub role_path: Option<String>,
     pub role_name: Option<String>,
+    pub play_count: usize,
     pub role_count: usize,
 
     pub task_count: usize,
@@ -87,6 +88,7 @@ impl PlaybookContext {
             play: None,
             role: None,
             task: None,
+            play_count : 0,
             role_count : 0,
             task_count : 0,
             seen_hosts: HashMap::new(),
@@ -179,6 +181,7 @@ impl PlaybookContext {
 
     pub fn set_play(&mut self, play: &Play) {
         self.play = Some(play.name.clone());
+        self.play_count = self.play_count + 1;
     }
 
     pub fn get_play_name(&self) -> String {

@@ -19,6 +19,7 @@ use crate::util::yaml::blend_variables;
 use std::sync::Arc;
 use crate::inventory::groups::Group;
 use std::sync::RwLock;
+use std::collections::HashSet;
 use serde_yaml;
 
 #[derive(Clone,Copy,Debug)]
@@ -28,13 +29,14 @@ pub enum HostOSType {
 }
 
 pub struct Host {
-    pub name : String,
-    pub variables : serde_yaml::Mapping,
-    pub groups : HashMap<String, Arc<RwLock<Group>>>,
-    pub os_type : Option<HostOSType>,
-    pub checksum_cache: HashMap<String,String>,
-    pub checksum_cache_task_id: usize,
-    pub facts: serde_yaml::Value,
+    pub name               : String,
+    pub groups             : HashMap<String, Arc<RwLock<Group>>>,
+    pub variables          : serde_yaml::Mapping,
+    pub os_type            : Option<HostOSType>,
+    checksum_cache         : HashMap<String,String>,
+    checksum_cache_task_id : usize,
+    facts                  : serde_yaml::Value,
+    notified_handlers      : HashMap<usize, HashSet<String>>
 }
 
 impl Host {
@@ -47,7 +49,25 @@ impl Host {
             os_type: None,
             checksum_cache: HashMap::new(),
             checksum_cache_task_id: 0,
-            facts: serde_yaml::Value::from(serde_yaml::Mapping::new())
+            facts: serde_yaml::Value::from(serde_yaml::Mapping::new()),
+            notified_handlers: HashMap::new()
+        }
+    }
+
+    pub fn notify(&mut self, play_number: usize, signal: &String) {
+        if ! self.notified_handlers.contains_key(&play_number) {
+            self.notified_handlers.insert(play_number, HashSet::new());
+        }
+        let entry = self.notified_handlers.get_mut(&play_number).unwrap();
+        entry.insert(signal.clone());
+    }
+
+    pub fn is_notified(&self, play_number: usize, signal: &String) -> bool {
+        let entry = self.notified_handlers.get(&play_number);
+        if entry.is_none() {
+            return false;
+        } else {
+            return entry.unwrap().contains(&signal.clone());
         }
     }
 
@@ -93,12 +113,10 @@ impl Host {
         return results;
     }
 
-    #[inline]
     pub fn get_group_names(&self) -> Vec<String> {
         return self.get_groups().iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    #[inline]
     pub fn add_group(&mut self, name: &String, group: Arc<RwLock<Group>>) {
         self.groups.insert(name.clone(), Arc::clone(&group));
     }
@@ -115,17 +133,14 @@ impl Host {
         return results;
     }
 
-    #[inline]
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
         return self.get_ancestor_groups(20usize).iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    #[inline]
     pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
     
-    #[inline]
     pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
         self.variables = variables.clone();
     }
@@ -151,7 +166,6 @@ impl Host {
         blend_variables(&mut self.facts, serde_yaml::Value::Mapping(map));
     }
 
-    #[inline]
     pub fn get_variables_yaml(&self) -> Result<String, String> {
         let result = serde_yaml::to_string(&self.get_variables());
         return match result {
@@ -160,7 +174,6 @@ impl Host {
         }
     }
 
-    #[inline]
     pub fn get_blended_variables_yaml(&self) -> Result<String,String> {
         let result = serde_yaml::to_string(&self.get_blended_variables());
         return match result {

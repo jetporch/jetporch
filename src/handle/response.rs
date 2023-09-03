@@ -58,7 +58,6 @@ impl Response {
         });
     }
 
-    #[inline]
     pub fn not_supported(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         return self.is_failed(request, &String::from("not supported"));
     }

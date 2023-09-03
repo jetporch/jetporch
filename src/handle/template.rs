@@ -281,7 +281,6 @@ impl Template {
         }
     }
 
-    #[inline]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         return self.find_sub_path(&String::from("templates"), request, field, str_path);
     }

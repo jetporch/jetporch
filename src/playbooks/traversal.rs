@@ -20,7 +20,7 @@ use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::language::Role;
 use crate::connection::factory::ConnectionFactory;
 use crate::registry::list::Task;
-use crate::runner::task_fsm::fsm_run_task;
+use crate::playbooks::task_fsm::fsm_run_task;
 use crate::inventory::inventory::Inventory;
 use crate::inventory::hosts::Host;
 use crate::util::io::{jet_file_open,directory_as_string};
@@ -339,10 +339,6 @@ fn validate_hosts(_run_state: &Arc<RunState>, _play: &Play, hosts: &Vec<Arc<RwLo
 fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
 
     let ctx = run_state.context.write().unwrap();
-
-    // BOOKMARK ------ VVVVVVVVVVVVVVVV ---- FIXME
-    // FIXME: use these - not the context versions - and set into context at the end.
-
     let mut ctx_vars_storage = serde_yaml::Value::from(serde_yaml::Mapping::new());
     let mut ctx_defaults_storage = serde_yaml::Value::from(serde_yaml::Mapping::new());
     

@@ -28,7 +28,7 @@ use rayon::prelude::*;
 use crate::playbooks::traversal::{FsmMode,HandlerMode};
 
 
-pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
+pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
@@ -36,12 +36,15 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: Handl
     for (_,v) in hosts { host_objects.push(Arc::clone(&v)); }
 
     let _total : i64 = host_objects.par_iter().map(|host| {
+
+        // the parallel threaded part that runs on each host
+
         let connection_result = run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host);
         match connection_result {
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,task,fsm_mode);
+                let task_response = run_task_on_host(&run_state,&connection,&host,task,are_handlers,fsm_mode);
 
                 match task_response {
                     Ok(x) => {
@@ -64,6 +67,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, _are_handlers: Handl
             }
         }
         return 1;
+
     }).sum();
     return Ok(());
 }
@@ -75,26 +79,39 @@ fn run_task_on_host(
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>,
     task: &Task,
+    are_handlers: HandlerMode, 
     fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
     // FIXME: break into smaller functions...
 
+    let play_count = run_state.context.read().unwrap().play_count;
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
     let evaluated = task.evaluate(&handle, &validate)?;
 
-    if fsm_mode == FsmMode::SyntaxOnly {
-        // fake out the response structure 
-        let false_query = TaskRequest::query();
-        return Ok(handle.response.is_matched(&Arc::clone(&false_query)));
-    }
-
     let action = evaluated.action;
     let pre_logic = evaluated.with;
+    let post_logic = evaluated.and;
+
+    if fsm_mode == FsmMode::SyntaxOnly {
+        if are_handlers == HandlerMode::Handlers  {
+            if pre_logic.is_none() || pre_logic.as_ref().as_ref().unwrap().subscribe.is_none() {
+                return Err(handle.response.is_failed(&Arc::clone(&validate), &String::from("with/subscribe missing in handler task definition")));
+            }
+        }
+        return Ok(handle.response.is_matched(&Arc::clone(&validate)));
+    }
 
     if pre_logic.is_some() {
         let logic = pre_logic.as_ref().as_ref().unwrap();
+        let my_host = host.read().unwrap();
+        if are_handlers == HandlerMode::Handlers  {
+            if ! my_host.is_notified(play_count, &logic.subscribe.as_ref().unwrap().clone()) {
+                return Ok(handle.response.is_skipped(&Arc::clone(&validate))); 
+            } else {
+            }
+        }
         if ! logic.cond {
             return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
         }
@@ -116,7 +133,6 @@ fn run_task_on_host(
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
                     let req = TaskRequest::create();
-                    println!("CREATE DISPATCH! {:?}", req);
                     let crc = action.dispatch(&handle, &req);
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {
@@ -208,6 +224,25 @@ fn run_task_on_host(
             _ => { panic!("module returned a non-failure code inside an Err: {:?}", x); }
         }
     };
+
+
+    if result.is_ok() {
+        if post_logic.is_some() {
+            let logic = post_logic.as_ref().as_ref().unwrap();
+            if are_handlers == HandlerMode::NormalTasks && result.is_ok() {
+                let notify = logic.notify.as_ref().unwrap().clone();
+
+                let status = &result.as_ref().unwrap().status;
+                match status {
+                    TaskStatus::IsCreated | TaskStatus::IsModified | TaskStatus::IsRemoved | TaskStatus::IsExecuted => {
+                        run_state.visitor.read().unwrap().on_notify_handler(host, &notify.clone());
+                        host.write().unwrap().notify(play_count, &notify.clone());
+                    },
+                    _ => { }
+                }
+            }
+        }
+    }
 
     // FIXME: apply post-logic ("and") to result here (in function)
 

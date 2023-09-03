@@ -26,7 +26,6 @@ use std::io::Read;
 // ==============================================================================================================
 
 // read a directory as per the normal rust way, but map any errors to strings
-#[inline]
 pub fn jet_read_dir(path: &Path) -> Result<ReadDir, String> {
     return fs::read_dir(path).map_err(
         |_x| format!("failed to read directory: {}", path.display())
@@ -46,7 +45,6 @@ pub fn path_walk<F>(path: &Path, mut with_each_path: F) -> Result<(), String>
 }
 
 // open a file per the normal rust way, but map any errors to strings
-#[inline]
 pub fn jet_file_open(path: &Path) -> Result<std::fs::File, String> {
     return std::fs::File::open(path).map_err(
         |_x| format!("unable to open file: {}", path.display())
@@ -68,20 +66,17 @@ pub fn read_local_file(path: &Path) -> Result<String,String> {
 
 // get the last part of the file ignoring the directory part
 
-#[inline]
 pub fn path_basename_as_string(path: &Path) -> String {
     return path.file_name().unwrap().to_str().unwrap().to_string();
 }
 
 // get the last part of the file ignoring the directory part
 
-#[inline]
 pub fn path_as_string(path: &Path) -> String {
     return path.to_str().unwrap().to_string();
 
 }
 
-#[inline]
 pub fn directory_as_string(path: &Path) -> String {
     assert!(path.is_file(), "path should be a file");
     return path.parent().unwrap().to_str().unwrap().to_string();
@@ -101,7 +96,6 @@ pub fn is_executable(path: &Path) -> bool {
 
 // quit with a message - don't use this except in main.rs!
 
-#[inline]
 pub fn quit(s: &String) {
     println!("{}", s); 
     process::exit(0x01)
