@@ -19,7 +19,6 @@ use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use std::sync::Arc;
 use serde::Deserialize;
-use crate::handle::response::Response;
 
 // this is storage behind all 'and' and 'with' statements in the program, which
 // are mostly implemented in task_fsm
@@ -60,6 +59,7 @@ impl FileAttributesInput {
     }
 
     // given an octal string, like 0o755 or 755, return the numeric value
+    /*
     #[inline]
     fn octal_string_to_number(response: &Arc<Response>, request: &Arc<TaskRequest>, mode: &String) -> Result<i32,Arc<TaskResponse>> {
         let octal_no_prefix = str::replace(&mode, "0o", "");
@@ -69,6 +69,7 @@ impl FileAttributesInput {
             Err(y) => { return Err(response.is_failed(&request, &format!("invalid octal value extracted from mode, was {}, {:?}", octal_no_prefix,y))); }
         }
     }
+    */
 
     // template **all** the fields in FileAttributesInput fields, checking values and returning errors as needed
     pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<FileAttributesEvaluated>,Arc<TaskResponse>> {
@@ -129,6 +130,7 @@ impl FileAttributesEvaluated {
     // if the action has an evaluated Attributes section, the mode will be stored as an octal string like "777", but we need
     // an integer for some internal APIs like the SSH connection put requests.
 
+    /*
     pub fn get_numeric_mode(response: &Arc<Response>, request: &Arc<TaskRequest>, this: &Option<Self>) -> Result<Option<i32>, Arc<TaskResponse>> {
 
         return match this.is_some() {
@@ -145,5 +147,6 @@ impl FileAttributesEvaluated {
             false => Ok(None),
         };
     }
+    */
 
 }

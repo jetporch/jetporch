@@ -31,7 +31,7 @@ use crate::handle::response::Response;
 use crate::tasks::files::Recurse;
 
 pub struct Remote {
-    run_state: Arc<RunState>, 
+    _run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
     response: Arc<Response>
@@ -41,7 +41,7 @@ impl Remote {
 
     pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response: Arc<Response>) -> Self {
         Self {
-            run_state: run_state_handle,
+            _run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
             response: response,

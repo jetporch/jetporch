@@ -97,7 +97,7 @@ impl Template {
         };
     }
 
-    fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
+    fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, _field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
         }

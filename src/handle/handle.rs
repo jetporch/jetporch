@@ -19,8 +19,6 @@ use crate::connection::connection::Connection;
 use crate::tasks::request::TaskRequest;
 use crate::inventory::hosts::Host;
 use crate::playbooks::traversal::RunState;
-use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
 
 use crate::handle::local::Local;
 use crate::handle::remote::Remote;
@@ -40,7 +38,7 @@ pub enum CheckRc {
 
 pub struct TaskHandle {
     run_state: Arc<RunState>, 
-    connection: Arc<Mutex<dyn Connection>>,
+    _connection: Arc<Mutex<dyn Connection>>,
     pub host: Arc<RwLock<Host>>,
     pub local: Arc<Local>,
     pub remote: Arc<Remote>,
@@ -63,7 +61,6 @@ impl TaskHandle {
         ));
         let local = Arc::new(Local::new(
             Arc::clone(&run_state_handle), 
-            Arc::clone(&connection_handle), 
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));
@@ -75,7 +72,7 @@ impl TaskHandle {
 
         return Self {
             run_state: Arc::clone(&run_state_handle),
-            connection: Arc::clone(&connection_handle),
+            _connection: Arc::clone(&connection_handle),
             host: Arc::clone(&host_handle),
             remote: Arc::clone(&remote),
             local: Arc::clone(&local),
@@ -84,26 +81,34 @@ impl TaskHandle {
         };
     }
 
+    /*
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
+    */
 
+    /*
     pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
     }
+    */
 
+    /*
     pub fn get_localhost(&self) -> Arc<RwLock<Host>> {
         let inventory = self.run_state.inventory.read().unwrap();
         return inventory.get_host(&String::from("localhost"));
     }
+    */
 
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
 
+    /*
     pub fn debug_lines(&self, _request: &Arc<TaskRequest>, messages: &Vec<String>) {
         self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
     }
+    */
 
 
 }

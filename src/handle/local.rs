@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::sync::{Arc,Mutex,RwLock};
+use std::sync::{Arc,RwLock};
 use std::path::Path;
-use crate::connection::connection::Connection;
 use crate::connection::command::cmd_info;
 use crate::tasks::{TaskRequest,TaskRequestType,TaskResponse};
 use crate::inventory::hosts::Host;
@@ -27,18 +26,16 @@ use crate::handle::response::Response;
 
 pub struct Local {
     run_state: Arc<RunState>, 
-    connection: Arc<Mutex<dyn Connection>>,
-    host: Arc<RwLock<Host>>, 
+    _host: Arc<RwLock<Host>>, 
     response: Arc<Response>,
 }
 
 impl Local {
 
-    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
+    pub fn new(run_state_handle: Arc<RunState>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
         Self {
             run_state: run_state_handle,
-            connection: connection_handle,
-            host: host_handle,
+            _host: host_handle,
             response: response
         }
     }
@@ -60,7 +57,7 @@ impl Local {
         assert!(request.request_type == TaskRequestType::Query, "local commands can only be run in query stage (was: {:?})", request.request_type);
         // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         match screen_general_input_loose(&cmd) {
-            Ok(x) => {},
+            Ok(_x) => {},
             Err(y) => return Err(self.response.is_failed(request, &y.clone()))
         }
         let ctx = &self.run_state.context;

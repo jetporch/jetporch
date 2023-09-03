@@ -16,8 +16,9 @@
 
 use crate::connection::connection::Connection;
 use crate::connection::command::CommandResult;
-use crate::connection::factory::ConnectionFactory;
 use crate::playbooks::context::PlaybookContext;
+use crate::connection::factory::ConnectionFactory;
+
 use crate::inventory::hosts::Host;
 use crate::handle::response::Response;
 use crate::tasks::{TaskRequest,TaskResponse};

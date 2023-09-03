@@ -30,7 +30,6 @@ pub enum TaskStatus {
     IsCreated,
     IsRemoved,
     IsModified,
-    IsChanged,
     IsExecuted,
     IsPassive,
     IsMatched,

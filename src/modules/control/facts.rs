@@ -62,7 +62,7 @@ impl IsAction for FactsAction {
             },
 
             TaskRequestType::Passive => {
-                self.do_facts(handle, request);
+                self.do_facts(handle, request)?;
                 return Ok(handle.response.is_passive(request));
             },
 
@@ -77,7 +77,7 @@ impl FactsAction {
     
     fn do_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
         let os_type = handle.host.read().unwrap().os_type;
-        let mut facts = Arc::new(RwLock::new(serde_yaml::Mapping::new()));
+        let facts = Arc::new(RwLock::new(serde_yaml::Mapping::new()));
         match os_type {
             Some(HostOSType::Linux) => { self.do_linux_facts(handle, request, &facts)?; },
             Some(HostOSType::MacOS) => { self.do_mac_facts(handle, request, &facts)?;   }
