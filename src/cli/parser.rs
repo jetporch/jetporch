@@ -22,6 +22,32 @@ use std::vec::Vec;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
 
+//extern crate built;
+use built;
+
+// Use of a mod or pub mod is not actually necessary.
+pub mod built_info {
+    // The file has been placed there by the build script.
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+ }
+
+ /// The time this crate was built
+pub fn built_time() -> built::chrono::DateTime<built::chrono::Local> {
+    built::util::strptime(built_info::BUILT_TIME_UTC).with_timezone(&built::chrono::offset::Local)
+}
+
+pub fn git_version() -> String {
+    let g1 = match built_info::GIT_HEAD_REF {
+        Some(x) => x.to_string(),
+        None => String::from("?"),
+    };
+    let g2 =  match built_info::GIT_COMMIT_HASH {
+        Some(x) => x.to_string(),
+        None => String::from("?"),
+    };
+    return format!("{} @ {}", g1, g2);
+}
+
 pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
@@ -30,6 +56,7 @@ pub struct CliParser {
     pub playbook_set: bool,
     pub mode: u32,
     pub needs_help: bool,
+    pub needs_version: bool,
     pub hosts: Vec<String>,
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
@@ -37,6 +64,8 @@ pub struct CliParser {
     pub default_port: i64,
     pub threads: usize,
     pub verbosity: u32,
+    pub git_version: String,
+    pub build_time: String,
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -67,6 +96,7 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     }
 }
 
+const ARGUMENT_VERSION: &'static str  = "--version";
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_INVENTORY_SHORT: &'static str = "-i";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
@@ -87,18 +117,28 @@ const ARGUMENT_VERBOSE: &'static str = "-v";
 const ARGUMENT_VERBOSER: &'static str = "-vv";
 const ARGUMENT_VERBOSEST: &'static str = "-vvv";
 
-fn show_help() {
+fn show_version(git_version: &String, build_time: &String) {
 
-    let header_table = "|-|:-\n\
-                        |jetp | jetporch: the enterprise performance orchestrator |\n\
-                        | | (C) Michael DeHaan, 2023\n\
-                        | --- | ---\n\
-                        | | usage: jetp <MODE> [flags]\n\
-                        |-|-";
+    let header_table = format!("|-|:-\n\
+                                |jetp | http://www.jetporch.com/\n\
+                                | | (C) Michael DeHaan + contributors, 2023\n\
+                                | |\n\
+                                | build | {}\n\
+                                | | {}\n\
+                                | time | {}\n\
+                                | --- | ---\n\
+                                | | usage: jetp <MODE> [flags]\n\
+                                |-|-", git_version, built_info::TARGET.to_string(), built_time());
 
     println!("");
     crate::util::terminal::markdown_print(&String::from(header_table));
     println!("");
+}
+
+
+fn show_help(git_version: &String, build_time: &String) {
+
+    show_version(git_version, build_time);
 
     let mode_table = "|:-|:-|:-\n\
                       | *Category* | *Mode* | *Description*\n\
@@ -171,6 +211,7 @@ impl CliParser  {
             inventory_paths: Arc::new(RwLock::new(Vec::new())),
             role_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
+            needs_version: false,
             mode: CLI_MODE_UNSET,
             hosts: Vec::new(),
             groups: Vec::new(),
@@ -205,12 +246,18 @@ impl CliParser  {
             inventory_set: false,
             playbook_set: false,
             verbosity: 0,
+            git_version: git_version(),
+            build_time: format!("{:?}", built_time())
         };
         return p;
     }
 
     pub fn show_help(&self) {
-        show_help();
+        show_help(&self.git_version, &self.build_time);
+    }
+
+    pub fn show_version(&self) {
+        show_version(&self.git_version, &self.build_time);
     }
 
     pub fn parse(&mut self) -> Result<(), String> {
@@ -237,6 +284,10 @@ impl CliParser  {
                         self.needs_help = true;
                         return Ok(())
                     }
+                    if argument == ARGUMENT_VERSION {
+                        self.needs_version = true;
+                        return Ok(());
+                    }
 
                     // if it's not --help, then the second argument is the
                     // required 'mode' parameter
@@ -255,6 +306,10 @@ impl CliParser  {
                         // following value
                         if argument_str == ARGUMENT_HELP {
                             self.needs_help = true;
+                            return Ok(())
+                        }
+                        if argument_str == ARGUMENT_VERSION {
+                            self.needs_version = true;
                             return Ok(())
                         }
 

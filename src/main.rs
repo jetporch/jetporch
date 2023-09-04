@@ -48,6 +48,10 @@ fn liftoff() -> Result<(),String> {
         cli_parser.show_help();
         return Ok(());
     }
+    if cli_parser.needs_version {
+        cli_parser.show_version();
+        return Ok(());
+    }
 
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
 
