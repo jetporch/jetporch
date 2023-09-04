@@ -54,6 +54,7 @@ pub enum HandlerMode {
 pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,

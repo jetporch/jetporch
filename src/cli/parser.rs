@@ -25,6 +25,7 @@ use std::sync::{Arc,RwLock};
 pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_set: bool,
     pub playbook_set: bool,
     pub mode: u32,
@@ -33,7 +34,8 @@ pub struct CliParser {
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
     pub default_user: String,
-    pub threads: Option<usize>,
+    pub default_port: i64,
+    pub threads: usize,
     pub verbosity: u32,
     // FIXME: threads and other arguments should be added here.
 }
@@ -66,15 +68,24 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
 }
 
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
+const ARGUMENT_INVENTORY_SHORT: &'static str = "-i";
 const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
+const ARGUMENT_PLAYBOOK_SHORT: &'static str  = "-p";
+const ARGUMENT_ROLES: &'static str  = "--roles";
+const ARGUMENT_ROLES_SHORT: &'static str  = "-r";
 const ARGUMENT_GROUPS: &'static str = "--groups";
 const ARGUMENT_HOSTS: &'static str = "--hosts";
 const ARGUMENT_HELP: &'static str = "--help";
-const ARGUMENT_DEFAULT_USER: &'static str = "--user";
+const ARGUMENT_PORT: &'static str = "--port";
+const ARGUMENT_USER: &'static str = "--user";
+const ARGUMENT_USER_SHORT: &'static str = "-u";
+
 const ARGUMENT_THREADS: &'static str = "--threads";
+const ARGUMENT_THREADS_SHORT: &'static str = "-t";
 const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 const ARGUMENT_VERBOSE: &'static str = "-v";
-
+const ARGUMENT_VERBOSER: &'static str = "-vv";
+const ARGUMENT_VERBOSEST: &'static str = "-vvv";
 
 fn show_help() {
 
@@ -117,29 +128,31 @@ fn show_help() {
                        | *Category* | *Flags* |*Description*\n\
                        | --- | ---\n\
                        | basics:\n\
-                       | | --playbook path1:path2| specifies automation content\n\
+                       | | -p, --playbook path1:path2| specifies automation content\n\
                        | |\n\
-                       | | --roles path1:path2| adds additional role search paths\n\
+                       | | -r, --roles path1:path2| adds additional role search paths. Also uses $JET_ROLES_PATH\n\
                        | |\n\
                        | --- | ---\n\
                        | SSH specific:\n\
-                       | | --inventory path1:path2| (required) specifies which systems to manage\n\
+                       | | -i, --inventory path1:path2| (required) specifies which systems to manage\n\
                        | |\n\
-                       | | --user username | use this username for default connections instead of $USER\n\
+                       | | -u, --user username | use this default username instead of $JET_SSH_USER or $USER\n\
                        | |\n\
-                       | | --batch-size N| (PENDING FEATURE)\n\
+                       | | --port N | use this default port instead of $JET_SSH_PORT or 22\n\
                        | |\n\
-                       | | --threads N| how many parallel threads to use\n\
+                       | | -t, --threads N| how many parallel threads to use. Alternatively set $JET_THREADS\n\
+                       | |\n\
+                       | | --batch N| (PENDING FEATURE)\n\
                        | |\n\
                        | --- | ---\n\
                        | scope narrowing:\n\
                        | | --groups group1:group2| limits scope for playbook runs, or used with 'show'\n\
                        | |\n\
-                       | | --hosts host1| limits scope for playbook runs, or used with 'show'yes\n\
+                       | | --hosts host1| limits scope for playbook runs, or used with 'show'\n\
                        | |\n\
                        | --- | ---\n\
                        | misc:\n\
-                       | | -v| increments verbosity (can use more than once)\n\
+                       | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
                        |-|";
 
@@ -156,16 +169,39 @@ impl CliParser  {
         let p = CliParser {
             playbook_paths: Arc::new(RwLock::new(Vec::new())),
             inventory_paths: Arc::new(RwLock::new(Vec::new())),
+            role_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
             mode: CLI_MODE_UNSET,
             hosts: Vec::new(),
             groups: Vec::new(),
             batch_size: None,
-            default_user: match env::var("USER") {
-                Ok(x) => x,
-                Err(_) => String::from("root")
+            default_user: match env::var("JET_SSH_USER") {
+                Ok(x) => {
+                    println!("$JET_SSH_USER: {}", x);
+                    x
+                },
+                Err(_) => match env::var("USER") {
+                    Ok(y) => y,
+                    Err(_) => String::from("root")
+                }
             },
-            threads: None,
+            default_port: match env::var("JET_SSH_PORT") {
+                Ok(x) => match x.parse::<i64>() {
+                    Ok(i)  => {
+                        println!("$JET_SSH_PORT: {}", i);
+                        i
+                    },
+                    Err(y) => { println!("environment variable JET_SSH_PORT has an invalid value, ignoring: {}", x); 22 }
+                },
+                Err(_) => 22
+            },
+            threads: match env::var("JET_THREADS") {
+                Ok(x) => match x.parse::<usize>() {
+                        Ok(i)  => i,
+                        Err(y) => { println!("environment variable JET_THREADS has an invalid value, ignoring: {}", x); 20 }
+                },
+                Err(_) => 20
+            },
             inventory_set: false,
             playbook_set: false,
             verbosity: 0,
@@ -223,16 +259,24 @@ impl CliParser  {
                         }
 
                         let result = match argument_str {
-                            ARGUMENT_PLAYBOOK     => self.store_playbook_value(&args[arg_count]),
-                            ARGUMENT_INVENTORY    => self.store_inventory_value(&args[arg_count]),
-                            ARGUMENT_GROUPS       => self.store_groups_value(&args[arg_count]),
-                            ARGUMENT_HOSTS        => self.store_hosts_value(&args[arg_count]),
-                            ARGUMENT_DEFAULT_USER => self.store_default_user_value(&args[arg_count]),
-                            ARGUMENT_BATCH_SIZE   => self.store_batch_size_value(&args[arg_count]),
-                            ARGUMENT_THREADS      => self.store_threads_value(&args[arg_count]),
-                            ARGUMENT_VERBOSE      => self.increment_verbosity(),
-
-                            _                  => Err(format!("invalid flag: {}", argument_str)),
+                            ARGUMENT_PLAYBOOK          => self.append_playbook_value(&args[arg_count]),
+                            ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook_value(&args[arg_count]),
+                            ARGUMENT_ROLES             => self.append_roles_value(&args[arg_count]),
+                            ARGUMENT_ROLES_SHORT       => self.append_roles_value(&args[arg_count]),
+                            ARGUMENT_INVENTORY         => self.append_inventory_value(&args[arg_count]),
+                            ARGUMENT_INVENTORY_SHORT   => self.append_inventory_value(&args[arg_count]),
+                            ARGUMENT_USER              => self.store_default_user_value(&args[arg_count]),
+                            ARGUMENT_USER_SHORT        => self.store_default_user_value(&args[arg_count]),
+                            ARGUMENT_GROUPS            => self.store_groups_value(&args[arg_count]),
+                            ARGUMENT_HOSTS             => self.store_hosts_value(&args[arg_count]),
+                            ARGUMENT_BATCH_SIZE        => self.store_batch_size_value(&args[arg_count]),
+                            ARGUMENT_THREADS           => self.store_threads_value(&args[arg_count]),
+                            ARGUMENT_THREADS_SHORT     => self.store_threads_value(&args[arg_count]),
+                            ARGUMENT_PORT              => self.store_port_value(&args[arg_count]),
+                            ARGUMENT_VERBOSE           => self.increase_verbosity(1),
+                            ARGUMENT_VERBOSER          => self.increase_verbosity(2),
+                            ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
+                            _                          => Err(format!("invalid flag: {}", argument_str)),
 
                         };
                         if result.is_err() { return result; }
@@ -248,23 +292,29 @@ impl CliParser  {
                     }
                 } // end argument numbers 3-N
             }
+
+
+        }
+
+        // make adjustments based on modes
+        match self.mode {
+            CLI_MODE_LOCAL       => { self.threads = 1 },
+            CLI_MODE_CHECK_LOCAL => { self.threads = 1 },
+            CLI_MODE_SYNTAX      => { self.threads = 1 },
+            CLI_MODE_SHOW        => { self.threads = 1 },
+            CLI_MODE_UNSET       => { self.needs_help = true; },
+            _ => {}
+        }
+
+        if self.playbook_set {
+            self.add_role_paths_from_environment()?;
+            self.add_implicit_role_paths()?;
         }
 
         return self.validate_internal_consistency()
     }
 
     fn validate_internal_consistency(&mut self) -> Result<(), String> {
-
-        match self.mode {
-            CLI_MODE_SSH => (),
-            CLI_MODE_CHECK_SSH => (),
-            CLI_MODE_LOCAL => (),
-            CLI_MODE_CHECK_LOCAL => (),
-            CLI_MODE_SYNTAX => (),
-            CLI_MODE_SHOW => (),
-            CLI_MODE_UNSET => { self.needs_help = true; },
-            _ => { panic!("internal error: impossible mode"); }
-        }
         return Ok(());
     }
 
@@ -276,24 +326,46 @@ impl CliParser  {
         return Err(format!("jetp mode ({}) is not valid, see --help", value))
      }
 
-    fn store_playbook_value(&mut self, value: &String) -> Result<(), String> {
+    fn append_playbook_value(&mut self, value: &String) -> Result<(), String> {
         self.playbook_set = true;
-        match parse_paths(value) {
-            Ok(paths)  =>  { *self.playbook_paths.write().expect("playbook paths write") = paths; },
+        match parse_paths(&String::from("-p/--playbook"), value) {
+            Ok(paths)  =>  { 
+                for p in paths.iter() {
+                    self.playbook_paths.write().unwrap().push(p.clone()); 
+                }
+            },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
         }
         return Ok(());
     }
 
-    fn store_inventory_value(&mut self, value: &String) -> Result<(), String> {
+    fn append_roles_value(&mut self, value: &String) -> Result<(), String> {
+
+        // FIXME: TODO: also load from environment at JET_ROLES_PATH
+        match parse_paths(&String::from("-r/--roles"), value) {
+            Ok(paths)  =>  { 
+                for p in paths.iter() {
+                    self.role_paths.write().unwrap().push(p.clone()); 
+                }
+            },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_ROLES, err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn append_inventory_value(&mut self, value: &String) -> Result<(), String> {
 
         self.inventory_set = true;
         if self.mode == CLI_MODE_LOCAL || self.mode == CLI_MODE_CHECK_LOCAL {
             return Err(format!("--inventory cannot be specified for local modes"));
         }
 
-        match parse_paths(value) {
-            Ok(paths)  =>  { *self.inventory_paths.write().expect("inventory paths write") = paths; },
+        match parse_paths(&String::from("-i/--inventory"),value) {
+            Ok(paths)  =>  { 
+                for p in paths.iter() {
+                    self.inventory_paths.write().unwrap().push(p.clone());
+                }
+            }
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_INVENTORY, err_msg)),
         }
         return Ok(());
@@ -321,22 +393,60 @@ impl CliParser  {
     }
 
     fn store_batch_size_value(&mut self, value: &String) -> Result<(), String> {
+        if self.batch_size.is_some() {
+            return Err(format!("{} has been specified already", ARGUMENT_BATCH_SIZE));
+        }
         match value.parse::<usize>() {
             Ok(n) => { self.batch_size = Some(n); return Ok(()); },
-            Err(_e) => { return Err(format!("--{}: invalid value",ARGUMENT_BATCH_SIZE)); }
+            Err(_e) => { return Err(format!("{}: invalid value",ARGUMENT_BATCH_SIZE)); }
         }
     }
 
     fn store_threads_value(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<usize>() {
-            Ok(n) =>  { self.threads = Some(n); return Ok(()); }
-            Err(_e) => { return Err(format!("--{}: invalid value", ARGUMENT_THREADS)); }
+            Ok(n) =>  { self.threads = n; return Ok(()); }
+            Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_THREADS)); }
         }
     }
 
-    fn increment_verbosity(&mut self) -> Result<(), String> {
-        self.verbosity = self.verbosity + 1;
+    fn store_port_value(&mut self, value: &String) -> Result<(), String> {
+        match value.parse::<i64>() {
+            Ok(n) =>  { self.default_port = n; return Ok(()); }
+            Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_PORT)); }
+        }
+    }
+
+    fn increase_verbosity(&mut self, amount: u32) -> Result<(), String> {
+        self.verbosity = self.verbosity + amount;
         return Ok(())
+    }
+
+    fn add_implicit_role_paths(&mut self) -> Result<(), String> {
+        let paths = self.playbook_paths.read().unwrap();
+        for pb in paths.iter() {
+            let dirname = pb.parent().unwrap();
+            let mut pathbuf = PathBuf::new();
+            pathbuf.push(dirname);
+            pathbuf.push("/roles");
+            self.role_paths.write().unwrap().push(pathbuf);
+        }
+        return Ok(());
+    }
+
+    fn add_role_paths_from_environment(&mut self) -> Result<(), String> {
+        let env_roles_path = env::var("JET_ROLES_PATH");
+        if env_roles_path.is_ok() {
+            match parse_paths(&String::from("$JET_ROLES_PATH"), &env_roles_path.unwrap()) {
+                Ok(paths) => {
+                    for p in paths.iter() {
+                        println!("role path added from $JET_ROLES_PATH: {:?}", p);
+                        self.role_paths.write().unwrap().push(p.to_path_buf());
+                    }
+                },
+                Err(y) => return Err(y)
+            };
+        }
+        return Ok(());
     }
 
 }
@@ -346,7 +456,7 @@ fn split_string(value: &String) -> Result<Vec<String>, String> {
 }
 
 // accept paths eliminated by ":" and return a list of paths, provided they exist
-fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
+fn parse_paths(from: &String, value: &String) -> Result<Vec<PathBuf>, String> {
     let string_paths = value.split(":");
     let mut results = Vec::new();
     for string_path in string_paths {
@@ -355,7 +465,7 @@ fn parse_paths(value: &String) -> Result<Vec<PathBuf>, String> {
         if path_buf.exists() {
             results.push(path_buf)
         } else {
-            return Err(format!("path ({}) does not exist", string_path));
+            return Err(format!("path ({}) specified by ({}) does not exist", string_path, from));
         }
     }
     return Ok(results);

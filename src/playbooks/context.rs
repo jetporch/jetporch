@@ -111,7 +111,7 @@ impl PlaybookContext {
             role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new()),
             env_storage:              RwLock::new(serde_yaml::Mapping::new()),
             ssh_user:                 parser.default_user.clone(),
-            ssh_port:                 22
+            ssh_port:                 parser.default_port
         };
         s.load_environment();
         return s;
@@ -243,6 +243,7 @@ impl PlaybookContext {
     }
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
+
         let vars = self.get_complete_blended_variables(host,BlendTarget::NotTemplateModule);
         let host2 = host.read().unwrap();
 
@@ -262,10 +263,16 @@ impl PlaybookContext {
         };
         let remote_port = match vars.contains_key(&String::from("jet_ssh_port")) {
             true => match vars.get(&String::from("jet_ssh_port")).unwrap().as_i64() {
-                Some(x) => x,
-                None => self.ssh_port
+                Some(x) => {
+                    x
+                },
+                None => {
+                    self.ssh_port
+                }
             },
-            false => self.ssh_port
+            false => {
+                self.ssh_port
+            }
         };
 
         return (remote_hostname, remote_user, remote_port)

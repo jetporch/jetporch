@@ -43,10 +43,11 @@ impl PlaybookVisitor for LiveVisitor {
     fn is_check_mode(&self)     -> bool { return false; }
 }
 
-pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, parser: &CliParser) -> i32 {
+pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
-        playbook_paths: Arc::clone(playbook_paths),
+        playbook_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),
@@ -57,10 +58,11 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, playbook_paths: 
     };
 }
 
-pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, parser: &CliParser) -> i32 {
+pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
-        playbook_paths: Arc::clone(playbook_paths),
+        playbook_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(SshFactory::new(inventory))),
@@ -71,10 +73,11 @@ pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwL
     };
 }
 
-pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, playbook_paths: &Arc<RwLock<Vec<PathBuf>>>, parser: &CliParser) -> i32 {
+pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
-        playbook_paths: Arc::clone(playbook_paths),
+        playbook_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.playbook_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(LocalFactory::new(inventory))),
