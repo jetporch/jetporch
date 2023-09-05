@@ -78,7 +78,6 @@ pub fn path_as_string(path: &Path) -> String {
 }
 
 pub fn directory_as_string(path: &Path) -> String {
-    assert!(path.is_file(), "path should be a file");
     return path.parent().unwrap().to_str().unwrap().to_string();
 
 }

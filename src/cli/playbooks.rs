@@ -22,7 +22,6 @@ use crate::playbooks::traversal::{playbook_traversal,RunState};
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::inventory::inventory::Inventory;
-use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
 
 struct SyntaxVisitor {}
@@ -47,14 +46,14 @@ pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, parser: &CliPars
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
-        role_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.role_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
         connection_factory: Arc::new(RwLock::new(NoFactory::new())),
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
-        Err(_) => 1
+        Err(s) => { println!("{}", s); 1 }
     };
 }
 
@@ -62,14 +61,14 @@ pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
-        role_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.role_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(SshFactory::new(inventory))),
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
-        Err(_) => 1
+        Err(s) => { println!("{}", s); 1 }
     };
 }
 
@@ -77,14 +76,14 @@ pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) ->
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
-        role_paths: Arc::clone(&parser.playbook_paths),
+        role_paths: Arc::clone(&parser.role_paths),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: Arc::new(RwLock::new(LiveVisitor::new())),
         connection_factory: Arc::new(RwLock::new(LocalFactory::new(inventory))),
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
-        Err(_) => 1
+        Err(s) => { println!("{}", s); 1 }
     };
 }
 

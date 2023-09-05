@@ -24,9 +24,7 @@ use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
 use std::marker::{Send,Sync};
 use crate::connection::command::CommandResult;
-
-// the visitor is a trait with lots of default implementation that can be overridden
-// for various CLI commands. It is called extensively during playbook traversal
+use crate::playbooks::traversal::HandlerMode;
 
 pub trait PlaybookVisitor : Send + Sync {
 
@@ -50,7 +48,6 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
-        //let arc = context.playbook_path.lock().unwrap();
         let ctx = context.read().unwrap();
         let path = ctx.playbook_path.as_ref().unwrap();
         self.banner();
@@ -58,26 +55,15 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
-        //let arc = context.play.lock().unwrap();
-        //let play = arc.as_ref().unwrap();
         let play = &context.read().unwrap().play;
         self.banner();
         println!("> play: {}", play.as_ref().unwrap());
     }
 
-    fn on_role_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
-        //let arc = context.role_name.lock().unwrap();
-        //let role = arc.as_ref().unwrap();
-        let role = &context.read().unwrap().role;
-        self.banner();
-        println!("> role start: {}", role.as_ref().unwrap());
+    fn on_role_start(&self, _context: &Arc<RwLock<PlaybookContext>>) {
     }
 
-    fn on_role_stop(&self, context: &Arc<RwLock<PlaybookContext>>) {
-        //let arc = context.role_name.lock().unwrap();
-        let role = &context.read().unwrap().role;
-        self.banner();
-        println!("> role stop: {}", role.as_ref().unwrap());
+    fn on_role_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
     }
 
     fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>, failed: bool) {
@@ -97,13 +83,9 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> () {
-        //let arc = context.play.lock().unwrap();
-        //let play = arc.as_ref().unwrap();
 
         if self.is_syntax_only() {
             let ctx = context.read().unwrap();
-            //let play_name = ctx.get_play_name();
-
 
             let (summary1, summary2) : (String,String) = match ctx.get_hosts_failed_count() {
                 0 => (format!("Ok"), 
@@ -119,7 +101,6 @@ pub trait PlaybookVisitor : Send + Sync {
             ];
             println!("");
             two_column_table(&String::from("Syntax Check"), &String::from("..."), &elements);
-            // playbook would have failed earlier were it not ok.
         } else {
             println!("----------------------------------------------------------");
             println!("");
@@ -127,14 +108,26 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, is_handler: HandlerMode) {
         if self.is_syntax_only() { 
             return;
         }
         let context = context.read().unwrap();
         let task = context.task.as_ref().unwrap();
+        let role = &context.role;
+
+        let what = match is_handler {
+            HandlerMode::NormalTasks => String::from("task"),
+            HandlerMode::Handlers    => String::from("handler")
+        };
+
         self.banner();
-        println!("> begin task: {}", task);
+        if role.is_none() {
+            println!("> begin {}: {}", what, task);
+        }
+        else {
+            println!("> ({}) begin {}: {}", role.as_ref().unwrap().name, what, task);
+        }
     }
 
     fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
@@ -160,9 +153,6 @@ pub trait PlaybookVisitor : Send + Sync {
         let host2 = host.read().unwrap();
         println!("… {} => notified: {}", host2.name, which_handler);
     }
-
-    // FIXME: this pattern of the visitor accessing the context is cleaner than the FSM code that accesses both in sequence, so do
-    // more of this below.
 
     fn on_host_task_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
@@ -212,7 +202,6 @@ pub trait PlaybookVisitor : Send + Sync {
                 {
                     let cmd_result = task_response.command_result.as_ref().as_ref().unwrap();
                     let _lock = context.write().unwrap();
-                    // FIXME: add similar output for verbose modes above
                     println!("{color_red}! {} => failed", host2.name);
                     println!("    cmd: {}", cmd_result.cmd);
                     println!("    out: {}", cmd_result.out);
@@ -230,7 +219,6 @@ pub trait PlaybookVisitor : Send + Sync {
         }
 
         context.write().unwrap().increment_failed_for_host(&host2.name);
-        //println!("> task failed on host: {}", host);
     }
 
     fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
@@ -271,14 +259,11 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-
     fn is_syntax_only(&self) -> bool;
 
     fn is_check_mode(&self) -> bool;
 
 }
-
-
 
 pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
 
@@ -288,7 +273,6 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let role_ct = ctx.get_role_count();
     let task_ct = ctx.get_task_count();
     let action_ct = ctx.get_total_attempted_count();
-    //let action_hosts = ctx.get_hosts_attempted_count();
     let created_ct = ctx.get_total_creation_count();
     let created_hosts = ctx.get_hosts_creation_count();
     let modified_ct = ctx.get_total_modified_count();
@@ -305,8 +289,6 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let unchanged_ct = action_ct - adjusted_ct;
     let failed_ct    = ctx.get_total_failed_count();
     let failed_hosts = ctx.get_hosts_failed_count();
-
-
 
     let summary = match failed_hosts {
         0 => match adjusted_hosts {

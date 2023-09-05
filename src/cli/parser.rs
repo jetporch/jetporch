@@ -18,9 +18,11 @@
 // this may change later.
 
 use std::env;
+use std::fs;
 use std::vec::Vec;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
+use crate::util::io::directory_as_string;
 
 //extern crate built;
 use built;
@@ -117,7 +119,7 @@ const ARGUMENT_VERBOSE: &'static str = "-v";
 const ARGUMENT_VERBOSER: &'static str = "-vv";
 const ARGUMENT_VERBOSEST: &'static str = "-vvv";
 
-fn show_version(git_version: &String, build_time: &String) {
+fn show_version(git_version: &String) {
 
     let header_table = format!("|-|:-\n\
                                 |jetp | http://www.jetporch.com/\n\
@@ -136,9 +138,9 @@ fn show_version(git_version: &String, build_time: &String) {
 }
 
 
-fn show_help(git_version: &String, build_time: &String) {
+fn show_help(git_version: &String) {
 
-    show_version(git_version, build_time);
+    show_version(git_version);
 
     let mode_table = "|:-|:-|:-\n\
                       | *Category* | *Mode* | *Description*\n\
@@ -232,14 +234,14 @@ impl CliParser  {
                         println!("$JET_SSH_PORT: {}", i);
                         i
                     },
-                    Err(y) => { println!("environment variable JET_SSH_PORT has an invalid value, ignoring: {}", x); 22 }
+                    Err(_) => { println!("environment variable JET_SSH_PORT has an invalid value, ignoring: {}", x); 22 }
                 },
                 Err(_) => 22
             },
             threads: match env::var("JET_THREADS") {
                 Ok(x) => match x.parse::<usize>() {
                         Ok(i)  => i,
-                        Err(y) => { println!("environment variable JET_THREADS has an invalid value, ignoring: {}", x); 20 }
+                        Err(_) => { println!("environment variable JET_THREADS has an invalid value, ignoring: {}", x); 20 }
                 },
                 Err(_) => 20
             },
@@ -253,11 +255,11 @@ impl CliParser  {
     }
 
     pub fn show_help(&self) {
-        show_help(&self.git_version, &self.build_time);
+        show_help(&self.git_version);
     }
 
     pub fn show_version(&self) {
-        show_version(&self.git_version, &self.build_time);
+        show_version(&self.git_version);
     }
 
     pub fn parse(&mut self) -> Result<(), String> {
@@ -335,7 +337,7 @@ impl CliParser  {
 
                         };
                         if result.is_err() { return result; }
-                        if argument_str.eq(ARGUMENT_VERBOSE) {
+                        if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST) {
                             // these do not take arguments
                         } else {
                             next_is_value = true;
@@ -386,7 +388,12 @@ impl CliParser  {
         match parse_paths(&String::from("-p/--playbook"), value) {
             Ok(paths)  =>  { 
                 for p in paths.iter() {
-                    self.playbook_paths.write().unwrap().push(p.clone()); 
+                    if p.is_file() {
+                        let full = std::fs::canonicalize(p.as_path()).unwrap();
+                        self.playbook_paths.write().unwrap().push(full.to_path_buf()); 
+                    } else {
+                        return Err(format!("playbook file missing: {:?}", p));
+                    }
                 }
             },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
@@ -400,7 +407,12 @@ impl CliParser  {
         match parse_paths(&String::from("-r/--roles"), value) {
             Ok(paths)  =>  { 
                 for p in paths.iter() {
-                    self.role_paths.write().unwrap().push(p.clone()); 
+                    if p.is_dir() {
+                        let full = std::fs::canonicalize(p.as_path()).unwrap();
+                        self.role_paths.write().unwrap().push(full.to_path_buf()); 
+                    } else {
+                        return Err(format!("roles directory not found: {:?}", p));
+                    }
                 }
             },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_ROLES, err_msg)),
@@ -477,25 +489,35 @@ impl CliParser  {
     }
 
     fn add_implicit_role_paths(&mut self) -> Result<(), String> {
+        println!("*****SET 2");
+
         let paths = self.playbook_paths.read().unwrap();
         for pb in paths.iter() {
-            let dirname = pb.parent().unwrap();
+            let dirname = directory_as_string(pb.as_path());
             let mut pathbuf = PathBuf::new();
             pathbuf.push(dirname);
-            pathbuf.push("/roles");
-            self.role_paths.write().unwrap().push(pathbuf);
+            pathbuf.push("roles");
+            if pathbuf.is_dir() {
+                let full = fs::canonicalize(pathbuf.as_path()).unwrap();
+                self.role_paths.write().unwrap().push(full.to_path_buf());
+            } else {
+                // ignore as there does not need to be a roles/ dir alongside playbooks
+            }
         }
         return Ok(());
     }
 
     fn add_role_paths_from_environment(&mut self) -> Result<(), String> {
+
         let env_roles_path = env::var("JET_ROLES_PATH");
         if env_roles_path.is_ok() {
             match parse_paths(&String::from("$JET_ROLES_PATH"), &env_roles_path.unwrap()) {
                 Ok(paths) => {
                     for p in paths.iter() {
-                        println!("role path added from $JET_ROLES_PATH: {:?}", p);
-                        self.role_paths.write().unwrap().push(p.to_path_buf());
+                        if p.is_dir() {
+                            let full = fs::canonicalize(p.as_path()).unwrap();
+                            self.role_paths.write().unwrap().push(full.to_path_buf());
+                        }
                     }
                 },
                 Err(y) => return Err(y)

@@ -204,6 +204,7 @@ impl Template {
         };
     }
 
+    #[allow(dead_code)]
     pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(0);
@@ -215,6 +216,7 @@ impl Template {
         }
     }
 
+    #[allow(dead_code)]
     pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval_option(&template) {
             return Ok(Some(0));
@@ -228,6 +230,7 @@ impl Template {
         }
     }
 
+    #[allow(dead_code)]
     pub fn boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(false);
@@ -239,6 +242,7 @@ impl Template {
         }
     }
 
+    #[allow(dead_code)]
     pub fn boolean_option_default_true(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
         return self.internal_boolean_option(request, field, template, true);
     }

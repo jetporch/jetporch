@@ -60,11 +60,15 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     //if error_line < YAML_ERROR_SHOW_LINES {
     //    show_start = 1;
     // }
-    let mut show_start = error_line - YAML_ERROR_SHOW_LINES;
-    let mut show_stop = error_line + YAML_ERROR_SHOW_LINES;
-    if show_start < 1 {
-        show_start = 1;
+    let show_start: usize;
+    let mut show_stop : usize = error_line + YAML_ERROR_SHOW_LINES;
+    
+    if error_line < YAML_ERROR_SHOW_LINES {
+        show_start = 0; 
+    } else {
+        show_start = error_line - YAML_ERROR_SHOW_LINES;
     }
+
     if show_stop > line_count {
         show_stop = line_count;
     }

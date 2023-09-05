@@ -15,7 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::util::io::{path_as_string,directory_as_string};
-use crate::playbooks::language::Play;
+use crate::playbooks::language::{Play,Role,RoleInvocation};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use crate::inventory::hosts::Host;
@@ -40,9 +40,9 @@ pub struct PlaybookContext {
     pub playbook_directory: Option<String>,
     pub play: Option<String>,
     
-    pub role: Option<String>,
+    pub role: Option<Role>,
     pub role_path: Option<String>,
-    pub role_name: Option<String>,
+    //pub role_name: Option<String>,
     pub play_count: usize,
     pub role_count: usize,
 
@@ -66,6 +66,7 @@ pub struct PlaybookContext {
     pub defaults_storage:       RwLock<serde_yaml::Mapping>,
     pub vars_storage:           RwLock<serde_yaml::Mapping>,
     pub role_defaults_storage:  RwLock<serde_yaml::Mapping>,
+    pub role_vars_storage:      RwLock<serde_yaml::Mapping>,
     pub env_storage:            RwLock<serde_yaml::Mapping>,
     
     //pub default_remote_user:  String,
@@ -96,7 +97,7 @@ impl PlaybookContext {
             targetted_hosts: HashMap::new(),
             failed_hosts: HashMap::new(),
             role_path: None,
-            role_name: None,
+            //role_name: None,
             adjusted_count_for_host:  HashMap::new(),
             attempted_count_for_host: HashMap::new(),
             created_count_for_host:   HashMap::new(),
@@ -109,6 +110,7 @@ impl PlaybookContext {
             templar:                  RwLock::new(Templar::new()),
             defaults_storage:         RwLock::new(serde_yaml::Mapping::new()),
             vars_storage:             RwLock::new(serde_yaml::Mapping::new()),
+            role_vars_storage:        RwLock::new(serde_yaml::Mapping::new()),
             role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new()),
             env_storage:              RwLock::new(serde_yaml::Mapping::new()),
             ssh_user:                 parser.default_user.clone(),
@@ -192,30 +194,55 @@ impl PlaybookContext {
         }
     }
 
-    pub fn set_role(&mut self, role_name: String, role_path: String) {
-        self.role_name  = Some(role_name.clone());
+    pub fn set_role(&mut self, role: &Role, invocation: &RoleInvocation, role_path: &String) {
+        self.role = Some(role.clone());
+        //self.role_name  = Some(role.name.clone());
         self.role_path = Some(role_path.clone());
+
+        //let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
+        //blend_variables(&mut blended, serde_yaml::Value::Mapping(src2));
+        //let src1 = self.defaults_storage.read().unwrap();
+        if role.defaults.is_some() { 
+             *self.role_defaults_storage.write().unwrap() = role.defaults.as_ref().unwrap().clone();
+        }
+        if invocation.vars.is_some() { 
+            *self.role_vars_storage.write().unwrap() = invocation.vars.as_ref().unwrap().clone();
+        }
     }
+    // FIXME: need to clear after leaving role.
 
     pub fn unset_role(&mut self) {
-        self.role_name = None;
+        self.role = None;
+        //self.role_name = None;
         self.role_path = None;
+        self.role_defaults_storage.write().unwrap().clear();
+        self.role_vars_storage.write().unwrap().clear();
     }
 
     // ==================================================================================
     // VARIABLES
 
     pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> serde_yaml::Mapping  {
+        
         let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let src1 = self.defaults_storage.read().unwrap();
-        //.deref();
         let src1a = src1.deref();
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src1a.clone()));
+        
+        let src1r = self.role_defaults_storage.read().unwrap();
+        let src1ar = src1r.deref();
+        blend_variables(&mut blended, serde_yaml::Value::Mapping(src1ar.clone()));
+
         let src2 = host.read().unwrap().get_blended_variables();
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src2));
+
         let src3 = self.vars_storage.read().unwrap();
         let src3a = src3.deref();
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src3a.clone()));
+
+        let src3r = self.role_vars_storage.read().unwrap();
+        let src3ar = src3r.deref();
+        blend_variables(&mut blended, serde_yaml::Value::Mapping(src3ar.clone()));
 
         match blend_target {
             BlendTarget::NotTemplateModule => {},

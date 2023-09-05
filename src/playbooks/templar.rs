@@ -36,7 +36,6 @@ impl Templar {
     }
 
     pub fn render(&self, template: &String, data: serde_yaml::Mapping) -> Result<String, String> {
-        //let handlebars = Handlebars::new();
         let result : Result<String, RenderError> = HANDLEBARS.render_template(template, &data);
         return match result {
             Ok(x) => {
@@ -49,7 +48,6 @@ impl Templar {
     }
 
     pub fn test_cond(&self, expr: &String, data: serde_yaml::Mapping) -> Result<bool, String> {
-        // see https://docs.rs/handlebars/latest/handlebars/
         let template = format!("{{{{#if {expr} }}}}true{{{{ else }}}}false{{{{/if}}}}");
         let result = self.render(&template, data);
         match result {

@@ -17,7 +17,7 @@
 use crate::playbooks::language::Play;
 use crate::playbooks::visitor::PlaybookVisitor;
 use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::language::Role;
+use crate::playbooks::language::{Role,RoleInvocation};
 use crate::connection::factory::ConnectionFactory;
 use crate::registry::list::Task;
 use crate::playbooks::task_fsm::fsm_run_task;
@@ -29,7 +29,6 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Arc,RwLock};
 use std::path::Path;
-//use std::ops::Deref;
 use std::env;
 
 #[derive(PartialEq,Copy,Debug,Clone)]
@@ -44,13 +43,6 @@ pub enum HandlerMode {
     Handlers
 }
 
-
-// traversal code walks a playbook and does "things" to it, different behaviors
-// are available, see cli/playbooks.rs.  The RunState encapsulates common
-// parameters to avoid functions taking extremely large signatures, but it should
-// not be thought of as a pseudo-global, for instance modules are eventually
-// only given access to the context and visitor portions.
-
 pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
@@ -59,10 +51,6 @@ pub struct RunState {
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
 }
-
-// ============================================================================
-// PUBLIC API, see syntax.rs/etc for usage
-// ============================================================================
 
 pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         
@@ -86,9 +74,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         let previous = p1.as_path();
         
 
-        //println!("PP: {}", playbook_path.display());
         let pbdirname = directory_as_string(playbook_path);
-        //println!("dirname: {}", pbdirname);
         let pbdir = Path::new(&pbdirname);
         if pbdirname.eq(&String::from("")) {
         } else {
@@ -99,7 +85,7 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
         for play in plays.iter() {
             match handle_play(&run_state, play) {
                 Ok(_) => {},
-                Err(_s) => { break; }
+                Err(s) => { return Err(s); }
             }
             run_state.context.read().unwrap().connection_cache.write().unwrap().clear();
         }
@@ -114,11 +100,8 @@ pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
     return Ok(())
 }
 
-// ==============================================================================
-
 fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
 
-    // configure the current playbook context
     {
         let mut ctx = run_state.context.write().unwrap();
         ctx.set_play(play);
@@ -128,24 +111,17 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
         if play.ssh_port.is_some() {
             ctx.set_ssh_port(play.ssh_port.unwrap());
         }
-
-        // FIXME: this shouldn't be set here
-        //ctx.set_remote_user(&play, run_state.default_user.clone());
         ctx.unset_role();
     }
     run_state.visitor.read().unwrap().on_play_start(&run_state.context);
 
-    // load the basic setup details before dealing with tasks
-    //load_play_vars(run_state, play)?;
-    //load_play_vars_files(run_state, play)?;
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
     validate_hosts(run_state, play, &hosts)?;
     load_vars_into_context(run_state, play)?;
-    load_external_modules(run_state, play)?;
+    //load_external_modules(run_state, play)?;
 
-    // support for serialization of push configuration
-    // in non-push modes the batch size is irrelevant
+    // support for serialization if using push configuration
     let batch_size_num = play.batch_size.unwrap_or(0);
     let (_batch_size, batch_count, batches) = get_host_batches(run_state, play, batch_size_num, hosts);
 
@@ -180,8 +156,6 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     }
 }
 
-// ==============================================================================
-
 fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<Host>>>) -> Result<(), String> {
 
     // assign the batch
@@ -190,7 +164,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
     // handle role tasks
     if play.roles.is_some() {
         let roles = play.roles.as_ref().unwrap();
-        for role in roles.iter() { process_role(run_state, &play, &role, HandlerMode::NormalTasks)?; }
+        for invocation in roles.iter() { process_role(run_state, &play, &invocation, HandlerMode::NormalTasks)?; }
     }
     { let mut ctx = run_state.context.write().unwrap(); ctx.unset_role(); }
 
@@ -203,7 +177,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
     // handle role handlers
     if play.roles.is_some() {
         let roles = play.roles.as_ref().unwrap();
-        for role in roles.iter() { process_role(run_state, &play, &role, HandlerMode::Handlers)?; }
+        for invocation in roles.iter() { process_role(run_state, &play, &invocation, HandlerMode::Handlers)?; }
     }   
     { let mut ctx = run_state.context.write().unwrap(); ctx.unset_role(); }  
 
@@ -216,66 +190,98 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
 
 }
 
-// ==============================================================================
-
 fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
 
     run_state.context.write().unwrap().set_task(&task);
-    run_state.visitor.read().unwrap().on_task_start(&run_state.context);
+    run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
     run_state.context.write().unwrap().increment_task_count();
-
-    // launch a task, possibly using the thread pool
-    // this method contains all logic for module dispatch and result handling
 
     if !run_state.visitor.read().unwrap().is_syntax_only() {
         fsm_run_task(run_state, task, are_handlers, FsmMode::FullRun)?;
     } else {
-        let result = fsm_run_task(run_state, task, are_handlers, FsmMode::SyntaxOnly);
-        // discard results but accumulate error counts
-        match result {
-            Ok(_) => (),
-            Err(_) => ()
-        }
+        let _ = fsm_run_task(run_state, task, are_handlers, FsmMode::SyntaxOnly);
     }
 
     return Ok(());
 }
 
+fn process_role(run_state: &Arc<RunState>, play: &Play, invocation: &RoleInvocation, are_handlers: HandlerMode) -> Result<(), String> {
 
-// ==============================================================================
-
-fn process_role(run_state: &Arc<RunState>, play: &Play, role: &Role, are_handlers: HandlerMode) -> Result<(), String> {
-
-    // pre-process role loads all variables and module paths into
-    // the context.  It does not execute any tasks.
-
-    let role_name = role.name.clone();
-    let role_path = find_role(run_state, &play, role_name.clone())?;
-
-    let pathbuf = role_path.to_path_buf();
-    // TODO: FIXME: role parameters also need to be set into the context
-    // TODO: FIXME: blending functions need to take the context as a parameter
+    let role_name = invocation.role.clone();
+    let (role, role_path) = find_role(run_state, &play, role_name.clone())?;
     {
         let mut ctx = run_state.context.write().unwrap();
-        ctx.set_role(role.name.clone(), directory_as_string(&pathbuf));
+        let str_path = directory_as_string(&role_path);
+        ctx.set_role(&role, invocation, &str_path);
+        if are_handlers == HandlerMode::NormalTasks {
+            ctx.increment_role_count();
+        }
     }
     run_state.visitor.read().unwrap().on_role_start(&run_state.context);
-    load_defaults_directory_for_role(run_state, &play)?;
-    load_external_modules(run_state, &play)?;
-    load_tasks_directory_for_role(run_state, &play, are_handlers)?;
+
+
+    let files = match are_handlers {
+        HandlerMode::NormalTasks => role.tasks,
+        HandlerMode::Handlers    => role.handlers
+    };
+
+    if files.is_some() {
+        
+        let p1 = env::current_dir().expect("could not get current directory");
+        let previous = p1.as_path();
+        //let role_dirname = directory_as_string(&role_path);
+        //let role_dir = Path::new(&role_dirname);
+        
+        match env::set_current_dir(&role_path) {
+            Ok(_) => {}, Err(s) => { return Err(format!("could not chdir into role directory {:?}, {}", role_path, s)) }
+        }
+
+        for task_file in files.unwrap().iter() {
+
+
+            let task_buf = match task_file.starts_with("/") {
+                true => {
+                    Path::new(task_file).to_path_buf()
+                }
+                false => {
+                    let mut pb = PathBuf::new();
+                    pb.push(role_path.clone());
+                    match are_handlers {
+                        HandlerMode::NormalTasks => { pb.push("tasks"); },
+                        HandlerMode::Handlers    => { pb.push("handlers"); },
+                    };
+                    pb.push(task_file);
+                    pb
+                }
+            };
+
+            let task_fh = jet_file_open(&task_buf.as_path())?;
+            let parsed: Result<Vec<Task>, serde_yaml::Error> = serde_yaml::from_reader(task_fh);
+            if parsed.is_err() {
+                show_yaml_error_in_context(&parsed.unwrap_err(), &task_buf.as_path());
+                return Err(format!("edit the file and try again?"));
+            }   
+            let tasks = parsed.unwrap();
+            for task in tasks.iter() {
+                process_task(run_state, &play, &task, are_handlers)?;
+            }
+        }
+
+        match env::set_current_dir(&previous) {
+            Ok(_) => {}, Err(s) => { return Err(format!("could not restore previous directory after role evaluation: {:?}, {}", previous, s)) }
+        }
+
+    }
 
     run_state.visitor.read().unwrap().on_role_stop(&run_state.context);
     return Ok(())
 
 }
 
-// ============================================================================
+// FIXME: this is not yet implemented to make --batch-size work
 
 fn get_host_batches(_run_state: &Arc<RunState>, _play: &Play, _batch_size: usize, hosts: Vec<Arc<RwLock<Host>>>) 
     -> (usize, usize, HashMap<usize, Vec<Arc<RwLock<Host>>>>) {
-
-    // partition a list of hosts into a number of batches.
-    // FIXME: not implemented!
 
     let mut results : HashMap<usize, Vec<Arc<RwLock<Host>>>> = HashMap::new();
     //for host in hosts.iter() {
@@ -287,11 +293,7 @@ fn get_host_batches(_run_state: &Arc<RunState>, _play: &Play, _batch_size: usize
 
 }
 
-// ==============================================================================
-
 fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>>> {
-
-    // given a list of group names, return a vector of all hosts selected by those groups.
     let groups = &play.groups;
     let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
     for group in groups.iter() {
@@ -304,15 +306,7 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
     return results.iter().map(|(_k,v)| Arc::clone(&v)).collect();
 }
 
-// ==============================================================================
-
 fn validate_groups(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
-
-    // given a list of group names verify at least one of the group names is actually present
-    // in inventory.  
-
-    // FIXME: warn if any group names are not found in inventory if this does not produce
-    // an error.
     let groups = &play.groups;
     let inv = run_state.inventory.read().unwrap();
     for group_name in groups.iter() {
@@ -323,19 +317,12 @@ fn validate_groups(run_state: &Arc<RunState>, play: &Play) -> Result<(), String>
     return Ok(());
 }
 
-// ==============================================================================
-
 fn validate_hosts(_run_state: &Arc<RunState>, _play: &Play, hosts: &Vec<Arc<RwLock<Host>>>) -> Result<(), String> {
-    
-    // given a list of a hosts, verify there is at least one host, otherwise the play should fail
-    
     if hosts.is_empty() {
         return Err(String::from("no hosts selected by groups in play"));
     }
     return Ok(());
 }
-
-// ==============================================================================
 
 fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
 
@@ -353,12 +340,12 @@ fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), 
         for pathname in vars_files {
             let path = Path::new(&pathname);
             let vars_file = jet_file_open(&path)?;
-            let vars_file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(vars_file);
-            if vars_file_parse_result.is_err() {
-                show_yaml_error_in_context(&vars_file_parse_result.unwrap_err(), &path);
+            let parsed: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(vars_file);
+            if parsed.is_err() {
+                show_yaml_error_in_context(&parsed.unwrap_err(), &path);
                 return Err(format!("edit the file and try again?"));
             }
-            blend_variables(&mut ctx_vars_storage, serde_yaml::Value::Mapping(vars_file_parse_result.unwrap()));
+            blend_variables(&mut ctx_vars_storage, serde_yaml::Value::Mapping(parsed.unwrap()));
         }
     }
 
@@ -379,86 +366,25 @@ fn load_vars_into_context(run_state: &Arc<RunState>, play: &Play) -> Result<(), 
     return Ok(());
 }
 
+fn find_role(run_state: &Arc<RunState>, _play: &Play, role_name: String) -> Result<(Role,PathBuf), String> {
+    for path_buf in run_state.role_paths.read().unwrap().iter() {
+        let mut pb = path_buf.clone();
+        pb.push(role_name.clone());
+        let mut pb2 = pb.clone();
+        pb2.push("role.yml");
 
-// ==============================================================================
-
-fn find_role(run_state: &Arc<RunState>, _play: &Play, _rolename: String) -> Result<PathBuf, String> {
-
-    // given a role name, return the location...
-    // FIXME: not sure why the tuple is in the return type here
-
-    run_state.visitor.read().unwrap().debug(&String::from("finding role..."));
-
-    // look in context.get_roles_paths() and also in "./roles" (that first) for a role with the right name.
-    // if not found, raise an error
-    // then raise an error if there is not one of the valid roles subdirectories:
-    //     tasks defaults files templates jet_modules handlers
-
-    /*
-        path_walk(path, |groups_file_path| {
-        let group_name = path_basename_as_string(&groups_file_path).clone();
-        let groups_file = jet_file_open(&groups_file_path)?;
-        let groups_file_parse_result: Result<YamlGroup, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
-    */
-
-
-    return Err(String::from("find role path is not implemented"));
+        if pb2.exists() {
+            let path = pb2.as_path();
+            let role_file = jet_file_open(&path)?;
+            let parsed: Result<Role, serde_yaml::Error> = serde_yaml::from_reader(role_file);
+            if parsed.is_err() {
+                show_yaml_error_in_context(&parsed.unwrap_err(), &path);
+                return Err(format!("edit the file and try again?"));
+            }   
+            let role = parsed.unwrap();
+            return Ok((role,pb));
+        }
+    }
+    return Err(format!("role not found: {}", role_name));
 }  
-
-// ==============================================================================
-
-
-fn load_defaults_directory_for_role(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
-
-    // loads a defaults directory into context
-    // TODO: check the context, we a role might be involved, in which case, look there also
-
-    // FIXME
-    // all the files in the defaults directory should be loaded as YAML files and then send to the context
-    // easiest if we just use the blend functions
-    //visitor.read().unwrap().debug(String::from("loading defaults directory"));
-    return Ok(());
-}
-
-// ==============================================================================
-
-fn load_external_modules(_run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
-
-    // makes an external module findable by adding to the search path
-    // TODO: check the context, if we are in a role the path is different
-
-    // FIXME
-    // if there are any files found in the modules directory add their module names to the modules registry in the context
-    // object.  We should look in context.role_paths directories as well as if there is a module path parameter
-    // in the CLI, which there is currently not.  Also pbdir/jet_modules
-    // then the "External" module code can  use this to find the actual module.  What we should register is the full
-    // path
-
-    // FIXME: look at the context and see if there is an active role, use an appropriate search path.
-
-    //visitor.read().unwrap().debug(String::from("loading modules directory"));
-    return Ok(());
-}
-
-// ==============================================================================
-
-fn load_tasks_directory_for_role(_run_state: &Arc<RunState>, _play: &Play, _are_handlers: HandlerMode) -> Result<(), String> {
-
-    // this should read main.yaml in the role and run all tasks within it.
-
-        // FIXME:
-        // get all YAML files in the task directory, do main.yml first, the context
-        // given to the include module should allow it to find things in the right place
-        // so technically this is not a full traversal, the Include module must then
-        // call the same function this would call on other files with the same
-        // parameters.  From Include, we may need to tell the Workflow to not
-        // parallelize further.
-
-        // use context.get_hosts for what hosts to talk to.
-
-    // FIXME
-    //visitor.read().unwrap().debug(String::from("loading tasks directory"));
-    return Ok(());
-
-}
 

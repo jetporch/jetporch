@@ -139,7 +139,7 @@ impl SystemdServiceAction {
         let result = handle.remote.run(request, &is_enabled_cmd, CheckRc::Unchecked)?;
         let (_rc,out) = cmd_info(&result);
         if out.find("disabled").is_some() { is_enabled = false; }
-        else if out.find("enabled").is_some() { is_enabled = true; } 
+        else if out.find("enabled").is_some() || out.find("alias").is_some() { is_enabled = true; } 
         else {
             return Err(handle.response.is_failed(request, &format!("systemctl status unexpected for service({}): {}", self.service, out))); 
         }

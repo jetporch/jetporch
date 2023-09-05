@@ -15,8 +15,6 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{Deserialize};
-use serde_yaml::{Value};
-use std::collections::HashMap;
 use crate::registry::list::Task;
 
 #[derive(Debug,Deserialize)]
@@ -31,7 +29,7 @@ pub enum AsInteger {
 pub struct Play {
     pub name : String,
     pub groups : Vec<String>,
-    pub roles : Option<Vec<Role>>,
+    pub roles : Option<Vec<RoleInvocation>>,
     pub defaults: Option<serde_yaml::Mapping>,
     pub vars : Option<serde_yaml::Mapping>,
     pub vars_files: Option<Vec<String>>,
@@ -42,11 +40,20 @@ pub struct Play {
     pub batch_size : Option<usize>,
 }
 
-#[derive(Debug,Deserialize)]
+#[derive(Debug,Deserialize,Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Role {
     pub name: String,
-    pub params: Option<HashMap<String,Value>>
+    pub defaults: Option<serde_yaml::Mapping>,
+    pub tasks: Option<Vec<String>>,
+    pub handlers: Option<Vec<String>>
+}
+
+#[derive(Debug,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoleInvocation {
+    pub role: String,
+    pub vars: Option<serde_yaml::Mapping>
 }
 
 
