@@ -28,6 +28,7 @@ use crate::cli::parser::CliParser;
 use crate::handle::template::BlendTarget;
 use std::ops::Deref;
 use std::env;
+use guid_create::GUID;
 
 // the playbook context keeps track of where we are in a playbook
 // execution and various results/stats along the way
@@ -445,6 +446,10 @@ impl PlaybookContext {
             } else {
             }
         }
+    }
+
+    pub fn get_guid(&self) -> String {
+        return GUID::rand().to_string();
     }
 
 }

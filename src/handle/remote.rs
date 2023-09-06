@@ -31,10 +31,9 @@ use crate::handle::response::Response;
 use crate::handle::template::Template;
 use crate::tasks::files::Recurse;
 use std::path::PathBuf;
-use guid_create::GUID;
 
 pub struct Remote {
-    _run_state: Arc<RunState>, 
+    run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
     template: Arc<Template>,
@@ -57,7 +56,7 @@ impl Remote {
         response: Arc<Response>) -> Self {
         
         Self {
-            _run_state: run_state_handle,
+            run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
             template: template_handle,
@@ -89,7 +88,7 @@ impl Remote {
         };
         pb.push(tmpdir);
         let mut pb2 = pb.clone();
-        let guid = GUID::rand().to_string();
+        let guid = self.run_state.context.read().unwrap().get_guid();
         pb2.push(guid.as_str());
         let create_tmp_dir = format!("mkdir -p '{}'", pb.display());
         self.run_no_sudo(request, &create_tmp_dir, CheckRc::Checked)?;
@@ -196,11 +195,15 @@ impl Remote {
         };
     }
 
-    fn conditionally_move_back(&self, request: &Arc<TaskRequest>, temp_path: Option<PathBuf>, temp_dir: Option<PathBuf>, desired_path: &String) -> Result<(), Arc<TaskResponse>> {
+    fn conditionally_move_back(&self, request: &Arc<TaskRequest>, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, desired_path: &String) -> Result<(), Arc<TaskResponse>> {
         if temp_dir.is_some() {
             let move_to_correct_location = format!("mv '{}' '{}'", temp_path.as_ref().unwrap().display(), desired_path);
             let delete_tmp_location = format!("rm '{}'", temp_path.as_ref().unwrap().display());
-            self.run(request, &move_to_correct_location, CheckRc::Checked)?;
+            let result = self.run(request, &move_to_correct_location, CheckRc::Checked);
+            if result.is_err() {
+                let _ = self.run(request, &delete_tmp_location, CheckRc::Unchecked);
+                return Err(result.unwrap_err());
+            }
         }
         Ok(())
     }
