@@ -53,10 +53,16 @@ impl TaskHandle {
             Arc::clone(&run_state_handle), 
             Arc::clone(&host_handle)
         ));
+        let template = Arc::new(Template::new(
+            Arc::clone(&run_state_handle), 
+            Arc::clone(&host_handle),
+            Arc::clone(&response)
+        ));
         let remote = Arc::new(Remote::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&connection_handle), 
             Arc::clone(&host_handle),
+            Arc::clone(&template),
             Arc::clone(&response)
         ));
         let local = Arc::new(Local::new(
@@ -64,11 +70,7 @@ impl TaskHandle {
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));
-        let template = Arc::new(Template::new(
-            Arc::clone(&run_state_handle), 
-            Arc::clone(&host_handle),
-            Arc::clone(&response)
-        ));
+
 
         return Self {
             run_state: Arc::clone(&run_state_handle),

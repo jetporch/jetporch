@@ -28,14 +28,15 @@ use serde::Deserialize;
 pub struct PreLogicInput {
     pub cond: Option<String>,
     pub subscribe: Option<String>,
-    // soon:
-    //pub sudo: Option<String>
+    pub sudo: Option<String>
+
 }
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
     pub cond: bool,
     pub subscribe: Option<String>,
+    pub sudo: Option<String>
     // soon:
     //pub sudo: Option<String>
 }
@@ -77,8 +78,8 @@ impl PreLogicInput {
                 Some(cond2) => handle.template.test_cond(request, cond2)?,
                 None        => true
             },
-            subscribe:       handle.template.no_template_string_option_trim(&input2.subscribe),
-            //sudo: handle.template.string_option(request, &String::from("sudo"), &input2.sudo)?
+            sudo: handle.template.string_option_no_spaces(request, &String::from("sudo"), &input2.sudo)?,
+            subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
         }));
     }
 
@@ -92,7 +93,7 @@ impl PostLogicInput {
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
-            notify: handle.template.string_option(request, &String::from("notify"), &input2.notify)?,
+            notify: handle.template.string_option_no_spaces(request, &String::from("notify"), &input2.notify)?,
 
             // unsafe here means the options cannot be sent to the shell, which they are not.
             //changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,

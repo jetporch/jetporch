@@ -23,6 +23,8 @@ use crate::playbooks::traversal::RunState;
 use crate::playbooks::context::PlaybookContext;
 use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
+use crate::playbooks::templar::Templar;
+use crate::tasks::request::SudoDetails;
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum BlendTarget {
@@ -40,7 +42,8 @@ pub struct Template {
     run_state: Arc<RunState>, 
     host: Arc<RwLock<Host>>, 
     response: Arc<Response>,
-    syntax_only: bool
+    syntax_only: bool,
+    detached_templar: Templar
 }
 
 impl Template {
@@ -51,7 +54,8 @@ impl Template {
             run_state: run_state_handle,
             host: host_handle,
             response: response,
-            syntax_only: syntax_value
+            syntax_only: syntax_value,
+            detached_templar: Templar::new()
         }
     }
 
@@ -325,5 +329,23 @@ impl Template {
         let found = input.find(" ");
         return found.is_some();
     }
+
+    pub fn add_sudo_details(&self, cmd: &String, sudo_details: &Option<SudoDetails>) -> Result<String, String> {
+        if sudo_details.is_none() || sudo_details.unwrap().user.is_none() {
+            println!("XDEBUG: sudo_details/sudo details user is None");
+            return Ok(cmd.clone());
+        }
+        let details = sudo_details.unwrap();
+        let user = details.user.unwrap();
+        let sudo_template = details.template.clone();
+        let data = serde_yaml::Mapping::new();            
+        println!("XDEBUG: sudo details: {:?}", sudo_details);
+        data.insert(serde_yaml::Value::String(String::from("jet_sudo_user")), serde_yaml::Value::String(user.clone()));
+        data.insert(serde_yaml::Value::String(String::from("jet_command")), serde_yaml::Value::String(cmd.clone()));
+        let result = self.detached_templar.render(&sudo_template, data)?;
+        println!("XDEBUG: final command: {:?}", result);
+        return Ok(result)
+    }
+
 
 }

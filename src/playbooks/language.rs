@@ -33,6 +33,8 @@ pub struct Play {
     pub defaults: Option<serde_yaml::Mapping>,
     pub vars : Option<serde_yaml::Mapping>,
     pub vars_files: Option<Vec<String>>,
+    pub sudo: Option<String>,
+    pub sudo_template: Option<String>,
     pub ssh_user : Option<String>,
     pub ssh_port : Option<i64>,
     pub tasks : Option<Vec<Task>>,

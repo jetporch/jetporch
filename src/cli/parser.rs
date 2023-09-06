@@ -63,6 +63,7 @@ pub struct CliParser {
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
     pub default_user: String,
+    pub default_sudo: Option<String>,
     pub default_port: i64,
     pub threads: usize,
     pub verbosity: u32,
@@ -111,6 +112,7 @@ const ARGUMENT_HELP: &'static str = "--help";
 const ARGUMENT_PORT: &'static str = "--port";
 const ARGUMENT_USER: &'static str = "--user";
 const ARGUMENT_USER_SHORT: &'static str = "-u";
+const ARGUMENT_SUDO: &'static str = "--sudo";
 
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_THREADS_SHORT: &'static str = "-t";
@@ -194,6 +196,8 @@ fn show_help(git_version: &String) {
                        | |\n\
                        | --- | ---\n\
                        | misc:\n\
+                       | | --sudo username | sudo to this user by default for all tasks\n\
+                       | |\n\
                        | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
                        |-|";
@@ -228,6 +232,7 @@ impl CliParser  {
                     Err(_) => String::from("root")
                 }
             },
+            default_sudo: None,
             default_port: match env::var("JET_SSH_PORT") {
                 Ok(x) => match x.parse::<i64>() {
                     Ok(i)  => {

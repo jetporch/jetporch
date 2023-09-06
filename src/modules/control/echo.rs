@@ -30,6 +30,7 @@ pub struct EchoTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
+
 #[allow(dead_code)]
 struct EchoAction {
     pub name: String,

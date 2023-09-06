@@ -18,17 +18,16 @@ use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::handle::handle::TaskHandle;
 use crate::playbooks::traversal::RunState;
-use crate::tasks::request::TaskRequest;
+use crate::tasks::request::{TaskRequest,SudoDetails};
 use crate::inventory::hosts::Host;
 use crate::tasks::response::{TaskStatus,TaskResponse};
-//use crate::tasks::logic::PreLogicInput;
+use crate::playbooks::traversal::{FsmMode,HandlerMode};
+use crate::playbooks::language::Play;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
-use crate::playbooks::traversal::{FsmMode,HandlerMode};
 
-
-pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
+pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
@@ -44,7 +43,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, task: &Task, are_handlers: Handle
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,task,are_handlers,fsm_mode);
+                let task_response = run_task_on_host(&run_state,&connection,&host,play,task,are_handlers,fsm_mode);
 
                 match task_response {
                     Ok(x) => {
@@ -78,6 +77,7 @@ fn run_task_on_host(
     run_state: &Arc<RunState>,
     connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>,
+    play: &Play, 
     task: &Task,
     are_handlers: HandlerMode, 
     fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
@@ -94,6 +94,15 @@ fn run_task_on_host(
     let pre_logic = evaluated.with;
     let post_logic = evaluated.and;
 
+    let mut sudo : Option<String> = match play.sudo.is_some() {
+        true => play.sudo.clone(),
+        false => run_state.context.read().unwrap().sudo.clone() 
+    };
+    let sudo_template = match play.sudo_template {
+        None => String::from("sudo -u '{{jet_sudo_user}}' {{jet_command}}"),
+        Some(x) => x.clone()
+    };
+    
     if fsm_mode == FsmMode::SyntaxOnly {
         if are_handlers == HandlerMode::Handlers  {
             if pre_logic.is_none() || pre_logic.as_ref().as_ref().unwrap().subscribe.is_none() {
@@ -115,15 +124,23 @@ fn run_task_on_host(
         if ! logic.cond {
             return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
         }
+        if logic.sudo.is_some() {
+            sudo = Some(logic.sudo.unwrap());
+        }
     }
+
+    let sudo_details = SudoDetails {
+        user     : sudo.clone(),
+        template : sudo_template.clone()
+    };
 
     // this looks like overkill but there's a lot of extra checking to make sure modules
     // don't return the wrong states, even when returning an error, to prevent
     // unpredictability in the program
 
     // FIXME: break up into smaller functions
-    let query = TaskRequest::query();
-    let qrc = action.dispatch(&handle, &TaskRequest::query());
+    let query = TaskRequest::query(sudo_details);
+    let qrc = action.dispatch(&handle, &query);
 
     let (_request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
@@ -132,7 +149,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
-                    let req = TaskRequest::create();
+                    let req = TaskRequest::create(sudo_details);
                     let crc = action.dispatch(&handle, &req);
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {
@@ -150,7 +167,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsRemoval => match modify_mode {
                 true => {
-                    let req = TaskRequest::remove();
+                    let req = TaskRequest::remove(sudo_details);
                     let rrc = action.dispatch(&handle, &req);
                     match rrc {
                         Ok(ref rrc_ok) => match rrc_ok.status {
@@ -167,7 +184,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsModification => match modify_mode {
                 true => {
-                    let req = TaskRequest::modify(qrc_ok.changes.clone());
+                    let req = TaskRequest::modify(sudo_details, qrc_ok.changes.clone());
                     let mrc = action.dispatch(&handle, &req);
                     match mrc {
                         Ok(ref mrc_ok) => match mrc_ok.status {
@@ -184,7 +201,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsExecution => match modify_mode {
                 true => {
-                    let req = TaskRequest::execute();
+                    let req = TaskRequest::execute(sudo_details);
                     let erc = action.dispatch(&handle, &req);
                     match erc {
                         Ok(ref erc_ok) => match erc_ok.status {
@@ -201,7 +218,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsPassive => match modify_mode {
                 true => {
-                    let req = TaskRequest::passive();
+                    let req = TaskRequest::passive(sudo_details);
                     let prc = action.dispatch(&handle, &req);
                     match prc {
                         Ok(ref prc_ok) => match prc_ok.status {

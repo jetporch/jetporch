@@ -74,7 +74,8 @@ pub struct PlaybookContext {
     pub templar:              RwLock<Templar>,
 
     pub ssh_user:             String,
-    pub ssh_port:             i64
+    pub ssh_port:             i64,
+    pub sudo:                 Option<String>,
    
 
 }
@@ -114,7 +115,8 @@ impl PlaybookContext {
             role_defaults_storage:    RwLock::new(serde_yaml::Mapping::new()),
             env_storage:              RwLock::new(serde_yaml::Mapping::new()),
             ssh_user:                 parser.default_user.clone(),
-            ssh_port:                 parser.default_port
+            ssh_port:                 parser.default_port,
+            sudo:                     parser.default_sudo.clone()
         };
         s.load_environment();
         return s;

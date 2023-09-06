@@ -30,7 +30,6 @@ pub struct FactsTask {
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
-#[allow(dead_code)]
 struct FactsAction {
 }
 

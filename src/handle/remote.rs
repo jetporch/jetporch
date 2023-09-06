@@ -28,22 +28,32 @@ use crate::tasks::cmd_library::screen_general_input_loose;
 use crate::handle::handle::CheckRc;
 use crate::handle::template::Safety;
 use crate::handle::response::Response;
+use crate::handle::template::Template;
 use crate::tasks::files::Recurse;
+
 
 pub struct Remote {
     _run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
     host: Arc<RwLock<Host>>, 
+    template: Arc<Template>,
     response: Arc<Response>
 }
 
 impl Remote {
 
-    pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>, response: Arc<Response>) -> Self {
+    pub fn new(
+        run_state_handle: Arc<RunState>, 
+        connection_handle: Arc<Mutex<dyn Connection>>, 
+        host_handle: Arc<RwLock<Host>>, 
+        template_handle: Arc<Template>,
+        response: Arc<Response>) -> Self {
+        
         Self {
             _run_state: run_state_handle,
             connection: connection_handle,
             host: host_handle,
+            template: template_handle,
             response: response,
         }
     }
@@ -79,7 +89,13 @@ impl Remote {
                 Err(y) => return Err(self.response.is_failed(request, &y.clone()))
             }
         }
-        let result = self.connection.lock().unwrap().run_command(&self.response, request, cmd);
+
+        let cmd_out = match self.template.add_sudo_details(cmd, &request.sudo_details) {
+            Ok(x) => x,
+            Err(y) => { return Err(self.response.is_failed(request, &format!("failure constructing sudo command: {}", y))); }
+        };
+
+        let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out);
 
         // FIXME: this is reused below, move into function (see run_local)
         if check_rc == CheckRc::Checked {
@@ -106,10 +122,22 @@ impl Remote {
 
     // writes a string (for example, from a template) to a remote file location
     pub fn write_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String) -> Result<(), Arc<TaskResponse>> {
+
+        // FIXME
+        // BOOKMARK
+        // THIS WILL NEED TO UNDERSTAND HOW TO CHOOSE A TEMPFILE LOCATION AND MOVE THE FILE USING SUDO
+        // IF request.sudo_details.user is not None
+
         return self.connection.lock().unwrap().write_data(&self.response, request, &data.clone(), &path.clone());
     }
 
     pub fn copy_file(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String) -> Result<(), Arc<TaskResponse>> {
+
+        // FIXME
+        // BOOKMARK
+        // THIS WILL NEED TO UNDERSTAND HOW TO CHOOSE A TEMPFILE LOCATION AND MOVE THE FILE USING SUDO
+        // IF request.sudo_details.user is not None
+
         let owner_result = self.get_ownership(request, dest)?;
         let (mut old_owner, mut _old_group) = (String::from("root"), String::from("root"));
         let mut flip_owner: bool = false;

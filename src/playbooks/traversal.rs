@@ -190,16 +190,16 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
 
 }
 
-fn process_task(run_state: &Arc<RunState>, _play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
+fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
 
     run_state.context.write().unwrap().set_task(&task);
     run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
     run_state.context.write().unwrap().increment_task_count();
 
     if !run_state.visitor.read().unwrap().is_syntax_only() {
-        fsm_run_task(run_state, task, are_handlers, FsmMode::FullRun)?;
+        fsm_run_task(run_state, play, task, are_handlers, FsmMode::FullRun)?;
     } else {
-        let _ = fsm_run_task(run_state, task, are_handlers, FsmMode::SyntaxOnly);
+        let _ = fsm_run_task(run_state, play, task, are_handlers, FsmMode::SyntaxOnly);
     }
 
     return Ok(());

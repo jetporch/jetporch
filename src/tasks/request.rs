@@ -38,7 +38,14 @@ pub enum TaskRequestType {
 #[derive(Debug)]
 pub struct TaskRequest {
     pub request_type: TaskRequestType,
-    pub changes: Vec<Field>
+    pub changes: Vec<Field>,
+    pub sudo_details: Option<SudoDetails>
+}
+
+#[derive(Debug,PartialEq,Clone)]
+pub struct SudoDetails {
+    pub user: Option<String>,
+    pub template: String
 }
 
 // most of the various methods in task requests are constructors for different TaskRequest type variants
@@ -50,68 +57,70 @@ impl TaskRequest {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Validate, 
-                changes: Vec::new()
+                changes: Vec::new(),
+                sudo_details: None
             }
         )
     }
 
-    pub fn query() -> Arc<Self> {
+    pub fn query(sudo_details: SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Query, 
-                changes: Vec::new() 
+                changes: Vec::new(),
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    pub fn create() -> Arc<Self> {
+    pub fn create(sudo_details: SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Create, 
-                changes: Vec::new()
+                changes: Vec::new(),
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    pub fn remove() -> Arc<Self> {
+    pub fn remove(sudo_details: SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Remove, 
-                changes: Vec::new()
+                changes: Vec::new(),
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    pub fn modify(changes: Vec<Field>) -> Arc<Self> {
+    pub fn modify(sudo_details: SudoDetails, changes: Vec<Field>) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Modify, 
-                changes: changes
+                changes: changes,
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    pub fn execute() -> Arc<Self> {
+    pub fn execute(sudo_details: SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Execute, 
-                changes: Vec::new() 
+                changes: Vec::new(),
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    pub fn passive() -> Arc<Self> {
+    pub fn passive(sudo_details: SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Passive, 
-                changes: Vec::new() 
+                changes: Vec::new(),
+                sudo_details: Some(sudo_details.clone())
             }
         )
     }
 
-    // FIXME, hashset?
-    //pub fn get_requested_changes(&self) -> Arc<Option<HashMap<String, String>>>  {
-    //    assert!(self.request_type == TaskRequestType::Modify, "accessing change request parameters outside of TaskRequestType::Modify");
-    //    return Arc::clone(&self.changes);
-    //}
 }
