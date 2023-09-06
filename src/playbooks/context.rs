@@ -116,7 +116,7 @@ impl PlaybookContext {
             env_storage:              RwLock::new(serde_yaml::Mapping::new()),
             ssh_user:                 parser.default_user.clone(),
             ssh_port:                 parser.default_port,
-            sudo:                     parser.default_sudo.clone()
+            sudo:                     parser.sudo.clone()
         };
         s.load_environment();
         return s;

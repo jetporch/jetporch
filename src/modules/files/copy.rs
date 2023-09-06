@@ -92,16 +92,17 @@ impl IsAction for CopyAction {
             },
 
             TaskRequestType::Create => {
-                self.do_copy(handle, request)?;               
-                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes, Recurse::No)?;
+                self.do_copy(handle, request, None)?;               
                 return Ok(handle.response.is_created(request));
             },
 
             TaskRequestType::Modify => {
                 if request.changes.contains(&Field::Content) {
-                    self.do_copy(handle, request)?;
+                    self.do_copy(handle, request, Some(request.changes.clone()))?;
                 }
-                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes, Recurse::No)?;
+                else {
+                    handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes, Recurse::No)?;
+                }
                 return Ok(handle.response.is_modified(request, request.changes.clone()));
             },
     
@@ -114,8 +115,18 @@ impl IsAction for CopyAction {
 
 impl CopyAction {
 
-    pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
-        handle.remote.copy_file(request, &self.src, &self.dest)?;
+    pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, changes: Option<Vec<Field>>) -> Result<(), Arc<TaskResponse>> {
+        handle.remote.copy_file(request, &self.src, &self.dest, |f| { /* after save */
+            if changes.is_none() { /* if for create */
+                match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
+                    Ok(x) => Ok(()), Err(y) => Err(y)
+                }
+            } else { /* if for modify */
+                match handle.remote.process_common_file_attributes(request, &f, &self.attributes, &changes.as_ref().unwrap(), Recurse::No) {
+                    Ok(x) => Ok(()), Err(y) => Err(y)
+                }
+            }
+        })?;
         return Ok(());
     }
 

@@ -21,6 +21,7 @@ use handlebars::{Handlebars,RenderError};
 
 static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     let mut hb = Handlebars::new();
+    hb.register_escape_fn(handlebars::no_escape);
     hb.set_strict_mode(true);
     return hb;
 });

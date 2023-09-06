@@ -63,7 +63,7 @@ pub struct CliParser {
     pub groups: Vec<String>,
     pub batch_size: Option<usize>,
     pub default_user: String,
-    pub default_sudo: Option<String>,
+    pub sudo: Option<String>,
     pub default_port: i64,
     pub threads: usize,
     pub verbosity: u32,
@@ -232,7 +232,7 @@ impl CliParser  {
                     Err(_) => String::from("root")
                 }
             },
-            default_sudo: None,
+            sudo: None,
             default_port: match env::var("JET_SSH_PORT") {
                 Ok(x) => match x.parse::<i64>() {
                     Ok(i)  => {
@@ -327,6 +327,7 @@ impl CliParser  {
                             ARGUMENT_ROLES_SHORT       => self.append_roles_value(&args[arg_count]),
                             ARGUMENT_INVENTORY         => self.append_inventory_value(&args[arg_count]),
                             ARGUMENT_INVENTORY_SHORT   => self.append_inventory_value(&args[arg_count]),
+                            ARGUMENT_SUDO              => self.store_sudo_value(&args[arg_count]),
                             ARGUMENT_USER              => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_USER_SHORT        => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_GROUPS            => self.store_groups_value(&args[arg_count]),
@@ -459,6 +460,11 @@ impl CliParser  {
         return Ok(());
     }
 
+    fn store_sudo_value(&mut self, value: &String) -> Result<(), String> {
+        self.sudo = Some(value.clone());
+        return Ok(());
+    }
+
     fn store_default_user_value(&mut self, value: &String) -> Result<(), String> {
         self.default_user = value.clone();
         return Ok(());
@@ -494,8 +500,6 @@ impl CliParser  {
     }
 
     fn add_implicit_role_paths(&mut self) -> Result<(), String> {
-        println!("*****SET 2");
-
         let paths = self.playbook_paths.read().unwrap();
         for pb in paths.iter() {
             let dirname = directory_as_string(pb.as_path());

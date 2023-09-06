@@ -30,7 +30,8 @@ use crate::handle::template::Safety;
 use crate::handle::response::Response;
 use crate::handle::template::Template;
 use crate::tasks::files::Recurse;
-
+use std::path::PathBuf;
+use guid_create::GUID;
 
 pub struct Remote {
     _run_state: Arc<RunState>, 
@@ -38,6 +39,12 @@ pub struct Remote {
     host: Arc<RwLock<Host>>, 
     template: Arc<Template>,
     response: Arc<Response>
+}
+
+#[derive(Debug,Copy,Clone,PartialEq)]
+pub enum UseSudo {
+    Yes,
+    No
 }
 
 impl Remote {
@@ -71,18 +78,41 @@ impl Remote {
         return self.connection.lock().unwrap().whoami();
     }
 
+    pub fn make_temp_path(&self, who: &String, request: &Arc<TaskRequest>) -> Result<(PathBuf, PathBuf), Arc<TaskResponse>> {
+        let mut pb = PathBuf::new();
+        // slight buglet, if the user has no homedir access in this location it this will not work, but it seemed better than trusting $HOME
+        // users can make a symlink in the worst case
+
+        let tmpdir = match who.eq("root") {
+            false => format!("/home/{}/.jet/tmp", who),
+            true => String::from("/root/.jet/tmp")
+        };
+        pb.push(tmpdir);
+        let mut pb2 = pb.clone();
+        let guid = GUID::rand().to_string();
+        pb2.push(guid.as_str());
+        let create_tmp_dir = format!("mkdir -p '{}'", pb.display());
+        self.run_no_sudo(request, &create_tmp_dir, CheckRc::Checked)?;
+        return Ok((pb.clone(), pb2.clone()));
+    }
+
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, Safety::Safe, check_rc);
+        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes);
+    }
+
+    pub fn run_no_sudo(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No);
     }
 
     pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, Safety::Unsafe, check_rc);
+        return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes);
     }
 
-    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc, use_sudo: UseSudo) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         // for parameterized calls that use that
+                
         if safe == Safety::Safe {
             match screen_general_input_loose(&cmd) {
                 Ok(_x) => {},
@@ -90,9 +120,12 @@ impl Remote {
             }
         }
 
-        let cmd_out = match self.template.add_sudo_details(cmd, &request.sudo_details) {
-            Ok(x) => x,
-            Err(y) => { return Err(self.response.is_failed(request, &format!("failure constructing sudo command: {}", y))); }
+        let cmd_out = match use_sudo {
+            UseSudo::Yes => match self.template.add_sudo_details(request, &cmd) {
+                Ok(x) => x,
+                Err(y) => { return Err(self.response.is_failed(request, &format!("failure constructing sudo command: {}", y))); }
+            },
+            UseSudo::No => cmd.clone() 
         };
 
         let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out);
@@ -109,7 +142,7 @@ impl Remote {
             }
         }
 
-        return result
+        return result;
     }
 
     pub fn get_os_type(&self) -> HostOSType {
@@ -120,45 +153,77 @@ impl Remote {
         return os_type.unwrap();
     }
 
-    // writes a string (for example, from a template) to a remote file location
-    pub fn write_data(&self, request: &Arc<TaskRequest>, data: &String, path: &String) -> Result<(), Arc<TaskResponse>> {
-
-        // FIXME
-        // BOOKMARK
-        // THIS WILL NEED TO UNDERSTAND HOW TO CHOOSE A TEMPFILE LOCATION AND MOVE THE FILE USING SUDO
-        // IF request.sudo_details.user is not None
-
-        return self.connection.lock().unwrap().write_data(&self.response, request, &data.clone(), &path.clone());
+    fn get_transfer_location(&self, request: &Arc<TaskRequest>, path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
+        let os_type = self.get_os_type();
+        let check_cmd1 = match crate::tasks::cmd_library::get_group_owned_command(os_type, &path) {
+            Ok(x) => x,
+            Err(y) => { return Err(self.response.is_failed(request, &format!("failed getting group ownership command: {}", y))); }
+        };
+        let check_result1 = self.run(request, &check_cmd1, CheckRc::Unchecked);
+        if check_result1.is_err() {
+            return Err(check_result1.unwrap_err());
+        }
+        let (mut rc, mut _out) = cmd_info(&check_result1.unwrap());
+    
+        if rc != 0 {
+            let check_cmd2 = match crate::tasks::cmd_library::get_user_owned_command(os_type, &path) {
+                Ok(x) => x,
+                Err(y) => { return Err(self.response.is_failed(request, &format!("failed getting user ownership command: {}", y))); }
+            };
+            let check_result2 = self.run(request, &check_cmd2, CheckRc::Unchecked);
+            if check_result2.is_err() {
+                return Err(check_result2.unwrap_err());
+            }
+            (rc, _out) = cmd_info(&check_result2.unwrap());
+        }
+        if rc == 0 {
+            return Ok((None, None));
+        }
+        let whoami = match self.get_whoami() {
+            Ok(x) => x, Err(y) =>  { return Err(self.response.is_failed(request, &format!("failed checking current user: {}", y))); }
+        };
+        let (p1,f1) = self.make_temp_path(&whoami, request)?;
+        return Ok((Some(p1.clone()), Some(f1.clone())))
     }
 
-    pub fn copy_file(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String) -> Result<(), Arc<TaskResponse>> {
+    fn get_effective_filename(&self, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, path: &String) -> String {
+        return match temp_dir.is_some() {
+            true => {
+                let t = temp_path.as_ref().unwrap();
+                t.clone().into_os_string().into_string().unwrap()
+            },
+            false =>  path.clone()
+        };
+    }
 
-        // FIXME
-        // BOOKMARK
-        // THIS WILL NEED TO UNDERSTAND HOW TO CHOOSE A TEMPFILE LOCATION AND MOVE THE FILE USING SUDO
-        // IF request.sudo_details.user is not None
-
-        let owner_result = self.get_ownership(request, dest)?;
-        let (mut old_owner, mut _old_group) = (String::from("root"), String::from("root"));
-        let mut flip_owner: bool = false;
-
-        if owner_result.is_some() {
-            // the file exists
-            (old_owner, _old_group) = owner_result.unwrap();
-            let whoami = match self.get_whoami() {
-                Ok(x) => x,
-                Err(y) => { return Err(self.response.is_failed(request, &y.clone())) }
-            };
-            if ! old_owner.eq(&whoami) {
-                flip_owner = true;
-                self.set_owner(request, &dest, &whoami, Recurse::No)?;
-            }
+    fn conditionally_move_back(&self, request: &Arc<TaskRequest>, temp_path: Option<PathBuf>, temp_dir: Option<PathBuf>, desired_path: &String) -> Result<(), Arc<TaskResponse>> {
+        if temp_dir.is_some() {
+            let move_to_correct_location = format!("mv '{}' '{}'", temp_path.as_ref().unwrap().display(), desired_path);
+            let delete_tmp_location = format!("rm '{}'", temp_path.as_ref().unwrap().display());
+            self.run(request, &move_to_correct_location, CheckRc::Checked)?;
         }
-        self.connection.lock().unwrap().copy_file(&self.response, &request, src, &dest.clone())?;
-        if flip_owner {
-            self.set_owner(request, &dest, &old_owner, Recurse::No)?;
-        }
-        return Ok(());
+        Ok(())
+    }
+
+    // writes a string (for example, from a template) to a remote file location
+    pub fn write_data<G>(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
+        where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
+        let (temp_dir, temp_path) = self.get_transfer_location(request, path)?;
+        let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), path); /* will be either temp_path or path */
+        let xfer_result = self.connection.lock().unwrap().write_data(&self.response, request, data, &real_path)?;
+        before_complete(&real_path.clone())?;
+        self.conditionally_move_back(request, temp_dir.clone(), temp_path.clone(), path)?;
+        return Ok(xfer_result);
+    }
+
+    pub fn copy_file<G>(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
+    where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
+        let (temp_dir, temp_path) = self.get_transfer_location(request, dest)?;
+        let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), dest); /* will be either temp_path or path */
+        let xfer_result = self.connection.lock().unwrap().copy_file(&self.response, &request, src, &real_path)?;        
+        before_complete(&real_path.clone())?;
+        self.conditionally_move_back(request, temp_dir.clone(), temp_path.clone(), dest)?;
+        return Ok(xfer_result);
     }
 
     pub fn get_mode(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {

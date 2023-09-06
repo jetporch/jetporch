@@ -79,7 +79,7 @@ impl IsAction for TemplateAction {
                 if remote_mode.is_none() {
                     return Ok(handle.response.needs_creation(request));
                 }
-                let data = self.do_template(handle, request, false)?;
+                let data = self.do_template(handle, request, false, None)?;
                 let local_512 = sha512(&data);
                 let remote_512 = handle.remote.get_sha512(request, &self.dest)?;
                 if ! remote_512.eq(&local_512) { 
@@ -92,16 +92,17 @@ impl IsAction for TemplateAction {
             },
 
             TaskRequestType::Create => {
-                self.do_template(handle, request, true)?;               
-                handle.remote.process_all_common_file_attributes(request, &self.dest, &self.attributes, Recurse::No)?;
+                self.do_template(handle, request, true, None)?;               
                 return Ok(handle.response.is_created(request));
             }
 
             TaskRequestType::Modify => {
                 if request.changes.contains(&Field::Content) {
-                    self.do_template(handle, request, true)?;
+                    self.do_template(handle, request, true, Some(request.changes.clone()))?;
                 }
-                handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes, Recurse::No)?;
+                else {
+                    handle.remote.process_common_file_attributes(request, &self.dest, &self.attributes, &request.changes, Recurse::No)?;
+                }
                 return Ok(handle.response.is_modified(request, request.changes.clone()));
             }
     
@@ -114,11 +115,21 @@ impl IsAction for TemplateAction {
 
 impl TemplateAction {
 
-    pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool) -> Result<String, Arc<TaskResponse>> {
+    pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool, changes: Option<Vec<Field>>) -> Result<String, Arc<TaskResponse>> {
         let template_contents = handle.local.read_file(&request, &self.src)?;
         let data = handle.template.string_for_template_module_use_only(&request, &String::from("src"), &template_contents)?;
         if write {
-            handle.remote.write_data(&request, &data, &self.dest)?;
+            handle.remote.write_data(&request, &data, &self.dest, |f| { /* after save */
+                if changes.is_none() { /* if for create */
+                    match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
+                        Ok(x) => Ok(()), Err(y) => Err(y)
+                    }
+                } else { /* if for modify */
+                    match handle.remote.process_common_file_attributes(request, &f, &self.attributes, &changes.as_ref().unwrap(), Recurse::No) {
+                        Ok(x) => Ok(()), Err(y) => Err(y)
+                    }
+                }
+            })?;
         }
         return Ok(data);
     }

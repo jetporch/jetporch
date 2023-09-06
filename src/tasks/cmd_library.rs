@@ -160,5 +160,15 @@ pub fn set_mode_command(_os_type: HostOSType, untrusted_path: &String, untrusted
     }
 }
 
+pub fn get_group_owned_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String> {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("test -G '{}'", path)); 
+}
+
+pub fn get_user_owned_command(_os_type: HostOSType, untrusted_path: &String) -> Result<String,String> {
+    let path = screen_path(untrusted_path)?;
+    return Ok(format!("test -O '{}'", path)); 
+}
+
 
 

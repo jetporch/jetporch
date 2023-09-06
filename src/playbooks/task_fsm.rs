@@ -98,7 +98,7 @@ fn run_task_on_host(
         true => play.sudo.clone(),
         false => run_state.context.read().unwrap().sudo.clone() 
     };
-    let sudo_template = match play.sudo_template {
+    let sudo_template = match &play.sudo_template {
         None => String::from("sudo -u '{{jet_sudo_user}}' {{jet_command}}"),
         Some(x) => x.clone()
     };
@@ -125,7 +125,7 @@ fn run_task_on_host(
             return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
         }
         if logic.sudo.is_some() {
-            sudo = Some(logic.sudo.unwrap());
+            sudo = Some(logic.sudo.as_ref().unwrap().clone());
         }
     }
 
@@ -139,7 +139,7 @@ fn run_task_on_host(
     // unpredictability in the program
 
     // FIXME: break up into smaller functions
-    let query = TaskRequest::query(sudo_details);
+    let query = TaskRequest::query(&sudo_details);
     let qrc = action.dispatch(&handle, &query);
 
     let (_request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
@@ -149,7 +149,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsCreation => match modify_mode {
                 true => {
-                    let req = TaskRequest::create(sudo_details);
+                    let req = TaskRequest::create(&sudo_details);
                     let crc = action.dispatch(&handle, &req);
                     match crc {
                         Ok(ref crc_ok) => match crc_ok.status {
@@ -167,7 +167,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsRemoval => match modify_mode {
                 true => {
-                    let req = TaskRequest::remove(sudo_details);
+                    let req = TaskRequest::remove(&sudo_details);
                     let rrc = action.dispatch(&handle, &req);
                     match rrc {
                         Ok(ref rrc_ok) => match rrc_ok.status {
@@ -184,7 +184,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsModification => match modify_mode {
                 true => {
-                    let req = TaskRequest::modify(sudo_details, qrc_ok.changes.clone());
+                    let req = TaskRequest::modify(&sudo_details, qrc_ok.changes.clone());
                     let mrc = action.dispatch(&handle, &req);
                     match mrc {
                         Ok(ref mrc_ok) => match mrc_ok.status {
@@ -201,7 +201,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsExecution => match modify_mode {
                 true => {
-                    let req = TaskRequest::execute(sudo_details);
+                    let req = TaskRequest::execute(&sudo_details);
                     let erc = action.dispatch(&handle, &req);
                     match erc {
                         Ok(ref erc_ok) => match erc_ok.status {
@@ -218,7 +218,7 @@ fn run_task_on_host(
             },
             TaskStatus::NeedsPassive => match modify_mode {
                 true => {
-                    let req = TaskRequest::passive(sudo_details);
+                    let req = TaskRequest::passive(&sudo_details);
                     let prc = action.dispatch(&handle, &req);
                     match prc {
                         Ok(ref prc_ok) => match prc_ok.status {

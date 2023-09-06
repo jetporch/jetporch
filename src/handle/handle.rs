@@ -83,34 +83,8 @@ impl TaskHandle {
         };
     }
 
-    /*
-    pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
-        return Arc::clone(&self.run_state.context);
-    }
-    */
-
-    /*
-    pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
-        return Arc::clone(&self.run_state.visitor);
-    }
-    */
-
-    /*
-    pub fn get_localhost(&self) -> Arc<RwLock<Host>> {
-        let inventory = self.run_state.inventory.read().unwrap();
-        return inventory.get_host(&String::from("localhost"));
-    }
-    */
-
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
-
-    /*
-    pub fn debug_lines(&self, _request: &Arc<TaskRequest>, messages: &Vec<String>) {
-        self.run_state.visitor.read().unwrap().debug_lines(&Arc::clone(&self.run_state.context), &self.host, messages);
-    }
-    */
-
 
 }

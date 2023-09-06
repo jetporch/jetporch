@@ -63,7 +63,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn query(sudo_details: SudoDetails) -> Arc<Self> {
+    pub fn query(sudo_details: &SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Query, 
@@ -73,7 +73,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn create(sudo_details: SudoDetails) -> Arc<Self> {
+    pub fn create(sudo_details: &SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Create, 
@@ -83,7 +83,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn remove(sudo_details: SudoDetails) -> Arc<Self> {
+    pub fn remove(sudo_details: &SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Remove, 
@@ -93,7 +93,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn modify(sudo_details: SudoDetails, changes: Vec<Field>) -> Arc<Self> {
+    pub fn modify(sudo_details: &SudoDetails, changes: Vec<Field>) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Modify, 
@@ -103,7 +103,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn execute(sudo_details: SudoDetails) -> Arc<Self> {
+    pub fn execute(sudo_details: &SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Execute, 
@@ -113,7 +113,7 @@ impl TaskRequest {
         )
     }
 
-    pub fn passive(sudo_details: SudoDetails) -> Arc<Self> {
+    pub fn passive(sudo_details: &SudoDetails) -> Arc<Self> {
         return Arc::new(
             Self { 
                 request_type: TaskRequestType::Passive, 
@@ -121,6 +121,14 @@ impl TaskRequest {
                 sudo_details: Some(sudo_details.clone())
             }
         )
+    }
+
+    pub fn is_sudoing(&self) -> bool {
+        let sudo_details = &self.sudo_details;
+        if sudo_details.is_none() || sudo_details.as_ref().unwrap().user.is_none() {
+            return false
+        }
+        return true;
     }
 
 }

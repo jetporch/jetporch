@@ -80,7 +80,6 @@ fn liftoff() -> Result<(),String> {
     };
 
     if cli_parser.threads > 1 {
-        println!("creating thread pool: n={}", cli_parser.threads);
         rayon::ThreadPoolBuilder::new().num_threads(cli_parser.threads).build_global().expect("build global");
     };
 
