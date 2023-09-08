@@ -20,8 +20,8 @@ use std::sync::RwLock;
 use crate::inventory::inventory::Inventory;
 
 fn string_slice(values: &Vec<String>) -> String {
-    if values.len() > 200 {
-        let tmp = values[0..199].to_vec();
+    if values.len() > 500 {
+        let tmp = values[0..499].to_vec();
         return format!("{}, ...", tmp.join(", "));
     }
     return values.join(", ");
@@ -44,11 +44,10 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
     let host = binding.read().unwrap();
     
     println!("Host: {}", host_name);
-    println!("");
+    println!(" ");
 
     let mut parents               : Vec<String> = host.get_group_names();
     let mut ancestors             : Vec<String> = host.get_ancestor_group_names();
-    //let host_variables        = host.get_variables_yaml()?;
     let blended_variables     = host.get_blended_variables_yaml()?;
     
     parents.sort();
@@ -66,8 +65,6 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
     two_column_table(&String::from("Host Report:"), &String::from(""), &host_elements);
     println!("");
 
-    //captioned_display(&String::from("Blended Variables"), &host_variables);
-    //println!("");
     captioned_display(&String::from("Variables"), &blended_variables);
     println!("");
 
@@ -104,7 +101,6 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     descendant_hosts.sort();
     child_hosts.sort();
 
-    //let group_variables        = group.get_variables_yaml()?;
     let blended_variables      = group.get_blended_variables_yaml()?;
     let descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
     let child_hosts_count      = String::from(format!("{}", child_hosts.len()));
@@ -138,13 +134,9 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     two_column_table(&String::from("Group Report:"), &String::from(""), &group_elements);
     println!("");
 
-    //println!("{}", descendant_hosts_string);
-    //println!("{}", child_hosts_string);
     
     two_column_table(&String::from("Host Report:"), &String::from(""), &host_elements);
     println!("");
-    //captioned_display(&String::from("Configured Variables"), &group_variables);
-    //println!("");
     captioned_display(&String::from("Variables"), &blended_variables);
     println!("");
 
