@@ -30,6 +30,7 @@ use std::sync::Arc;
 use crate::modules::commands::shell::ShellTask;
 
 // control
+use crate::modules::control::assert::AssertTask;
 use crate::modules::control::echo::EchoTask;
 use crate::modules::control::facts::FactsTask;
 
@@ -52,6 +53,7 @@ use crate::modules::services::sd_service::SystemdServiceTask;
 pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
     Apt(AptTask),
+    Assert(AssertTask),
     Copy(CopyTask),
     Dnf(DnfTask),
     Directory(DirectoryTask),
@@ -68,6 +70,7 @@ impl Task {
     pub fn get_module(&self) -> String {
         return match self {
             Task::Apt(x)        => x.get_module(),
+            Task::Assert(x)     => x.get_module(),
             Task::Copy(x)       => x.get_module(),
             Task::Dnf(x)        => x.get_module(),
             Task::Directory(x)  => x.get_module(),
@@ -83,6 +86,7 @@ impl Task {
     pub fn get_name(&self) -> Option<String> {
         return match self {
             Task::Apt(x)        => x.get_name(),
+            Task::Assert(x)     => x.get_name(),
             Task::Copy(x)       => x.get_name(), 
             Task::Dnf(x)        => x.get_name(),
             Task::Directory(x)  => x.get_name(),
@@ -99,6 +103,7 @@ impl Task {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Apt(x)        => x.evaluate(handle, request),
+            Task::Assert(x)     => x.evaluate(handle, request),
             Task::Copy(x)       => x.evaluate(handle, request), 
             Task::Dnf(x)        => x.evaluate(handle, request),
             Task::Directory(x)  => x.evaluate(handle, request), 

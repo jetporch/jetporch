@@ -59,8 +59,13 @@ impl Templar {
                     return Ok(false);
                 }
             },
-            Err(_x) => { 
-                return Err(format!("failed to parse cond: {}", expr)) 
+            Err(y) => { 
+                if y.find("Couldn't read parameter").is_some() {
+                    return Err(format!("failed to parse conditional: {}: one or more parameters may be undefined", expr))
+                }
+                else {
+                    return Err(format!("failed to parse conditional: {}: {}", expr, y))
+                }
             }
         };
     }

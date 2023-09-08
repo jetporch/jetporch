@@ -16,5 +16,6 @@
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
+pub mod assert;
 pub mod echo;
 pub mod facts;
