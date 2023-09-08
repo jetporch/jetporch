@@ -83,6 +83,7 @@ impl TaskHandle {
         };
     }
 
+    #[inline(always)]
     pub fn debug(&self, _request: &Arc<TaskRequest>, message: &String) {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }

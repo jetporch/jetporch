@@ -23,20 +23,24 @@ impl Inventory {
             backup_localhost: Arc::new(RwLock::new(Host::new(&String::from("localhost"))))
         }
     }
-    
+
+    #[inline(always)]
     pub fn has_group(&self, group_name: &String) -> bool {
         return self.groups.contains_key(&group_name.clone());
     }
 
+    #[inline(always)]
     pub fn get_group(&self, group_name: &String) -> Arc<RwLock<Group>> {
         let arc = self.groups.get(group_name).unwrap();
         return Arc::clone(&arc); 
     }
 
+    #[inline(always)]
     pub fn has_host(&self, host_name: &String) -> bool {
         return self.hosts.contains_key(host_name);
     }
 
+    #[inline(always)]
     pub fn get_host(&self, host_name: &String) -> Arc<RwLock<Host>> {
 
         // an explicit fetch of a host is sometimes performed by the connection plugin
@@ -58,21 +62,25 @@ impl Inventory {
     // PACKAGE API (for use by loading.rs only)
     // ==============================================================================================================
 
+    #[inline(always)]
     pub fn store_subgroup(&mut self, group_name: &String, subgroup_name: &String) {
         if self.has_group(group_name) { self.create_group(group_name); }
         if !self.has_group(subgroup_name) { self.create_group(subgroup_name); }
         self.associate_subgroup(group_name, subgroup_name);
     }
 
+    #[inline(always)]
     pub fn store_group_variables(&mut self, group_name: &String, mapping: serde_yaml::Mapping) {
         let group = self.get_group(group_name);
         group.write().expect("group write").set_variables(mapping);
     }
 
+    #[inline(always)]
     pub fn store_group(&mut self, group: &String) {
         self.create_group(&group.clone()); 
     }
 
+    #[inline(always)]
     pub fn associate_host(&mut self, group_name: &String, host_name: &String, host: Arc<RwLock<Host>>) {
         if !self.has_host(&host_name) { panic!("host does not exist"); }
         if !self.has_group(&group_name) { self.create_group(group_name); }
@@ -82,6 +90,7 @@ impl Inventory {
         self.associate_host_to_group(&group_name.clone(), &host_name.clone());
     }
 
+    #[inline(always)]
     pub fn associate_host_to_group(&self, group_name: &String, host_name: &String) {
         let host = self.get_host(host_name);
         let group = self.get_group(group_name);
@@ -89,16 +98,19 @@ impl Inventory {
         group.write().expect("group write").add_host(host_name, Arc::clone(&host));
     }
 
+    #[inline(always)]
     pub fn store_host_variables(&mut self, host_name: &String, mapping: serde_yaml::Mapping) {
         let host = self.get_host(host_name);
         host.write().unwrap().set_variables(mapping);
     }
 
+    #[inline(always)]
     pub fn create_host(&mut self, host_name: &String) {
         assert!(!self.has_host(host_name));
         self.hosts.insert(host_name.clone(), Arc::new(RwLock::new(Host::new(&host_name.clone()))));
     }
 
+    #[inline(always)]
     pub fn store_host(&mut self, group_name: &String, host_name: &String) {
         if !(self.has_host(&host_name)) {
             self.create_host(&host_name);
@@ -111,6 +123,7 @@ impl Inventory {
     // PRIVATE INTERNALS
     // ==============================================================================================================
 
+    #[inline(always)]
     fn create_group(&mut self, group_name: &String) {
         if self.has_group(group_name) {
             return;
@@ -121,6 +134,7 @@ impl Inventory {
         }
     }
 
+    #[inline(always)]
     fn associate_subgroup(&mut self, group_name: &String, subgroup_name: &String) {
         if !self.has_group(&group_name.clone()) { self.create_group(&group_name.clone()); }
         if !self.has_group(&subgroup_name.clone()) { self.create_group(&subgroup_name.clone()); }

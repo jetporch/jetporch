@@ -58,6 +58,7 @@ impl Template {
         }
     }
 
+    #[inline(always)]
     fn is_syntax(&self) -> bool {
         return self.syntax_only;
     }
@@ -87,6 +88,7 @@ impl Template {
         return false;
     }
 
+    #[inline(always)]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
@@ -117,10 +119,12 @@ impl Template {
         return Ok(result2);
     }
     
+    #[inline(always)]
     pub fn string_for_template_module_use_only(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         return self.template_unsafe_internal(request, field, template, BlendTarget::TemplateModule);
     }
 
+    #[inline(always)]
     pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         return self.template_unsafe_internal(request, field, template, BlendTarget::NotTemplateModule);
     }
@@ -158,6 +162,13 @@ impl Template {
         return Ok(prelim.clone());
     }
 
+    pub fn string_option_trim(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let prelim = self.string_option(request, field, template)?;
+        if prelim.is_some() {
+            return Ok(Some(prelim.unwrap().trim().to_string()));
+        }
+        return Ok(None);
+    }
 
     pub fn no_template_string_option_trim(&self, input: &Option<String>) -> Option<String> {
         if input.is_some() {
@@ -250,6 +261,7 @@ impl Template {
         return self.internal_boolean_option(request, field, template, true);
     }
 
+    #[inline(always)]
     pub fn boolean_option_default_false(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
         return self.internal_boolean_option(request, field, template, false);
     }
@@ -288,10 +300,12 @@ impl Template {
         }
     }
 
+    #[inline(always)]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         return self.find_sub_path(&String::from("templates"), request, field, str_path);
     }
 
+    #[inline(always)]
     pub fn find_file_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
         return self.find_sub_path(&String::from("files"), request, field, str_path);
     }
@@ -324,6 +338,7 @@ impl Template {
         }
     }
 
+    #[inline(always)]
     pub fn has_spaces(&self, input: &String) -> bool {
         let found = input.find(" ");
         return found.is_some();

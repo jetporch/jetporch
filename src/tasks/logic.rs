@@ -93,7 +93,7 @@ impl PostLogicInput {
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
-            notify: handle.template.string_option_no_spaces(request, &String::from("notify"), &input2.notify)?,
+            notify: handle.template.string_option_trim(request, &String::from("notify"), &input2.notify)?,
 
             // unsafe here means the options cannot be sent to the shell, which they are not.
             //changed_when:  handle.template.string_option_unsafe(request, &String::from("changed_when"), &input2.changed_when)?,
