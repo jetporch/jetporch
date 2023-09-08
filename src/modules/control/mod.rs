@@ -18,4 +18,5 @@
 
 pub mod assert;
 pub mod echo;
+pub mod fail;
 pub mod facts;
