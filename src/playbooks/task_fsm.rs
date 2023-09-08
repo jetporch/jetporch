@@ -99,7 +99,7 @@ fn run_task_on_host(
         false => run_state.context.read().unwrap().sudo.clone() 
     };
     let sudo_template = match &play.sudo_template {
-        None => String::from("sudo -u '{{jet_sudo_user}}' {{jet_command}}"),
+        None => String::from("/usr/bin/sudo -u '{{jet_sudo_user}}' {{jet_command}}"),
         Some(x) => x.clone()
     };
     

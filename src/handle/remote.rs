@@ -153,46 +153,23 @@ impl Remote {
     }
 
     fn get_transfer_location(&self, request: &Arc<TaskRequest>, path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
-        let os_type = self.get_os_type();
-        let check_cmd1 = match crate::tasks::cmd_library::get_group_owned_command(os_type, &path) {
-            Ok(x) => x,
-            Err(y) => { return Err(self.response.is_failed(request, &format!("failed getting group ownership command: {}", y))); }
-        };
-        let check_result1 = self.run(request, &check_cmd1, CheckRc::Unchecked);
-        if check_result1.is_err() {
-            return Err(check_result1.unwrap_err());
-        }
-        let (mut rc, mut _out) = cmd_info(&check_result1.unwrap());
-    
-        if rc != 0 {
-            let check_cmd2 = match crate::tasks::cmd_library::get_user_owned_command(os_type, &path) {
-                Ok(x) => x,
-                Err(y) => { return Err(self.response.is_failed(request, &format!("failed getting user ownership command: {}", y))); }
-            };
-            let check_result2 = self.run(request, &check_cmd2, CheckRc::Unchecked);
-            if check_result2.is_err() {
-                return Err(check_result2.unwrap_err());
-            }
-            (rc, _out) = cmd_info(&check_result2.unwrap());
-        }
-        if rc == 0 {
-            return Ok((None, None));
-        }
         let whoami = match self.get_whoami() {
-            Ok(x) => x, Err(y) =>  { return Err(self.response.is_failed(request, &format!("failed checking current user: {}", y))); }
+            Ok(x) => x,
+            Err(y) => { return Err(self.response.is_failed(request, &format!("cannot determine current user: {}", y))) }
         };
         let (p1,f1) = self.make_temp_path(&whoami, request)?;
         return Ok((Some(p1.clone()), Some(f1.clone())))
     }
 
     fn get_effective_filename(&self, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, path: &String) -> String {
-        return match temp_dir.is_some() {
+        let result = match temp_dir.is_some() {
             true => {
                 let t = temp_path.as_ref().unwrap();
                 t.clone().into_os_string().into_string().unwrap()
             },
             false =>  path.clone()
         };
+        return result;
     }
 
     fn conditionally_move_back(&self, request: &Arc<TaskRequest>, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, desired_path: &String) -> Result<(), Arc<TaskResponse>> {

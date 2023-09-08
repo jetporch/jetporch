@@ -117,14 +117,8 @@ impl CopyAction {
 
     pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, changes: Option<Vec<Field>>) -> Result<(), Arc<TaskResponse>> {
         handle.remote.copy_file(request, &self.src, &self.dest, |f| { /* after save */
-            if changes.is_none() { /* if for create */
-                match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
-                    Ok(x) => Ok(()), Err(y) => Err(y)
-                }
-            } else { /* if for modify */
-                match handle.remote.process_common_file_attributes(request, &f, &self.attributes, &changes.as_ref().unwrap(), Recurse::No) {
-                    Ok(x) => Ok(()), Err(y) => Err(y)
-                }
+            match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
+                Ok(x) => Ok(()), Err(y) => Err(y)
             }
         })?;
         return Ok(());

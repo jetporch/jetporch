@@ -120,14 +120,8 @@ impl TemplateAction {
         let data = handle.template.string_for_template_module_use_only(&request, &String::from("src"), &template_contents)?;
         if write {
             handle.remote.write_data(&request, &data, &self.dest, |f| { /* after save */
-                if changes.is_none() { /* if for create */
-                    match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
-                        Ok(x) => Ok(()), Err(y) => Err(y)
-                    }
-                } else { /* if for modify */
-                    match handle.remote.process_common_file_attributes(request, &f, &self.attributes, &changes.as_ref().unwrap(), Recurse::No) {
-                        Ok(x) => Ok(()), Err(y) => Err(y)
-                    }
+                match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
+                    Ok(x) => Ok(()), Err(y) => Err(y)
                 }
             })?;
         }

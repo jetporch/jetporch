@@ -26,7 +26,8 @@ pub struct Group {
     pub subgroups : HashMap<String, Arc<RwLock<Self>>>,
     pub parents : HashMap<String, Arc<RwLock<Self>>>,
     pub hosts : HashMap<String, Arc<RwLock<Host>>>,
-    pub variables : serde_yaml::Mapping
+    pub variables : serde_yaml::Mapping,
+    dyn_variables : serde_yaml::Value,
 }
 
 impl Group {
@@ -37,8 +38,8 @@ impl Group {
             subgroups : HashMap::new(),
             parents : HashMap::new(),
             hosts : HashMap::new(),
-            variables : serde_yaml::Mapping::new()
-
+            variables : serde_yaml::Mapping::new(),
+            dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
         }
     }
 
@@ -75,7 +76,7 @@ impl Group {
                 }
             }
         }
-        return results;
+        return results
     }
 
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
@@ -102,7 +103,7 @@ impl Group {
                 Arc::clone(&v)
             );
         }
-        return results;
+        return results
     }
 
     pub fn get_descendant_group_names(&self) -> Vec<String> {
@@ -117,7 +118,7 @@ impl Group {
                 Arc::clone(&v)
             );
         }
-        return results;
+        return results
     }
 
     pub fn get_parent_group_names(&self) -> Vec<String> {
@@ -132,7 +133,7 @@ impl Group {
                 Arc::clone(&v)
             );
         }
-        return results;
+        return results
     }
 
     pub fn get_subgroup_names(&self) -> Vec<String> {
@@ -147,7 +148,7 @@ impl Group {
                 Arc::clone(&v)
             );
         }
-        return results;
+        return results
     }
 
     pub fn get_direct_host_names(&self) -> Vec<String> {
@@ -163,7 +164,7 @@ impl Group {
             let hosts = v.read().unwrap().get_direct_hosts();
             for (k2,v2) in hosts.iter() { results.insert(k2.clone(), Arc::clone(&v2));  }
         }   
-        return results;
+        return results
     }
 
     pub fn get_descendant_host_names(&self) -> Vec<String> {
@@ -178,6 +179,11 @@ impl Group {
         self.variables = variables.clone();
     }
 
+    pub fn update_variables(&mut self, mapping: serde_yaml::Mapping) {
+        let map = mapping.clone();
+        blend_variables(&mut self.dyn_variables, serde_yaml::Value::Mapping(map));
+    }
+
     pub fn get_blended_variables(&self) -> serde_yaml::Mapping {
         let mut blended : serde_yaml::Value = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let ancestors = self.get_ancestor_groups(20);
@@ -185,6 +191,7 @@ impl Group {
             let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().expect("group read").get_variables());
             blend_variables(&mut blended, theirs);
         }
+        blend_variables(&mut blended, self.dyn_variables.clone());
         let mine = serde_yaml::Value::from(self.get_variables());
         blend_variables(&mut blended, mine);
         return match blended {

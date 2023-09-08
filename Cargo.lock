@@ -398,6 +398,7 @@ dependencies = [
  "rs_sha512",
  "serde",
  "serde_derive",
+ "serde_json",
  "serde_yaml",
  "ssh2",
  "termimad",

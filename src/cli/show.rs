@@ -19,6 +19,14 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use crate::inventory::inventory::Inventory;
 
+fn string_slice(values: &Vec<String>) -> String {
+    if values.len() > 200 {
+        let tmp = values[0..199].to_vec();
+        return format!("{}, ...", tmp.join(", "));
+    }
+    return values.join(", ");
+}
+
 // ==============================================================================================================
 // PUBLIC API
 // ==============================================================================================================
@@ -38,13 +46,16 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
     println!("Host: {}", host_name);
     println!("");
 
-    let parents               : Vec<String> = host.get_group_names();
-    let ancestors             : Vec<String> = host.get_ancestor_group_names();
-    let host_variables        = host.get_variables_yaml()?;
+    let mut parents               : Vec<String> = host.get_group_names();
+    let mut ancestors             : Vec<String> = host.get_ancestor_group_names();
+    //let host_variables        = host.get_variables_yaml()?;
     let blended_variables     = host.get_blended_variables_yaml()?;
     
-    let ancestor_string = ancestors.join(", ");
-    let parents_string  = parents.join(", ");
+    parents.sort();
+    ancestors.sort();
+
+    let ancestor_string = string_slice(&ancestors);
+    let parents_string  = string_slice(&parents);
   
     let host_elements : Vec<(String,String)> = vec![
         (String::from("Ancestor Groups"), ancestor_string),
@@ -55,9 +66,9 @@ pub fn show_inventory_host(inventory: &Arc<RwLock<Inventory>>, host_name: &Strin
     two_column_table(&String::from("Host Report:"), &String::from(""), &host_elements);
     println!("");
 
-    captioned_display(&String::from("Configured Variables"), &host_variables);
-    println!("");
-    captioned_display(&String::from("Blended Variables"), &blended_variables);
+    //captioned_display(&String::from("Blended Variables"), &host_variables);
+    //println!("");
+    captioned_display(&String::from("Variables"), &blended_variables);
     println!("");
 
     return Ok(());
@@ -79,29 +90,33 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     println!("Group: {}", group_name);
     println!("");
 
-    let descendants          : Vec<String>  = group.get_descendant_group_names();
-    let children             : Vec<String>  = group.get_subgroup_names();
-    let ancestors            : Vec<String>  = group.get_ancestor_group_names();
-    let parents              : Vec<String>  = group.get_parent_group_names();
-    let descendant_hosts     : Vec<String>  = group.get_descendant_host_names();
-    let child_hosts          : Vec<String>  = group.get_direct_host_names();
+    let mut descendants          : Vec<String>  = group.get_descendant_group_names();
+    let mut children             : Vec<String>  = group.get_subgroup_names();
+    let mut ancestors            : Vec<String>  = group.get_ancestor_group_names();
+    let mut parents              : Vec<String>  = group.get_parent_group_names();
+    let mut descendant_hosts     : Vec<String>  = group.get_descendant_host_names();
+    let mut child_hosts          : Vec<String>  = group.get_direct_host_names();
 
-    let group_variables        = group.get_variables_yaml()?;
+    descendants.sort();
+    children.sort();
+    ancestors.sort();
+    parents.sort();
+    descendant_hosts.sort();
+    child_hosts.sort();
+
+    //let group_variables        = group.get_variables_yaml()?;
     let blended_variables      = group.get_blended_variables_yaml()?;
-    let _descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
-    let _child_hosts_count      = String::from(format!("{}", child_hosts.len()));
+    let descendant_hosts_count = String::from(format!("{}", descendant_hosts.len()));
+    let child_hosts_count      = String::from(format!("{}", child_hosts.len()));
     
     // TODO: add a method that "..."'s these strings if too long - just use for hosts
 
-    let descendants_string = descendants.join(", ");
-    let children_string = children.join(", ");
-    let ancestors_string = ancestors.join(", ");
-    let parents_string = parents.join(", ");
-    let _descendant_hosts_string = descendant_hosts.join(", ");
-    let _child_hosts_string = child_hosts.join(", ");
-
-
-
+    let descendants_string = string_slice(&descendants);
+    let children_string = string_slice(&children);
+    let ancestors_string = string_slice(&ancestors);
+    let parents_string = string_slice(&parents);
+    let descendant_hosts_string = string_slice(&descendant_hosts);
+    let child_hosts_string = string_slice(&child_hosts);
 
     let group_elements : Vec<(String,String)> = vec![
         (String::from("All Descendants"), descendants_string),
@@ -115,11 +130,10 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
 
     // FIXME: also sort
 
-    //let host_elements : Vec<(String, String)> = vec![
-    //    (String::from(format!("All Ancestors ({})",descendant_hosts_count)), descendant_hosts_string),
-    //    (String::from(format!("Children ({})", child_hosts_count)), child_hosts_string),
-    //];
-
+    let host_elements : Vec<(String, String)> = vec![
+        (format!("All Ancestors ({})",descendant_hosts_count), descendant_hosts_string),
+        (format!("Children ({})", child_hosts_count), child_hosts_string),
+    ];
 
     two_column_table(&String::from("Group Report:"), &String::from(""), &group_elements);
     println!("");
@@ -127,11 +141,11 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
     //println!("{}", descendant_hosts_string);
     //println!("{}", child_hosts_string);
     
-    // two_column_table(String::from("Host Report:"), String::from(""), host_elements);
-    //println!("");
-    captioned_display(&String::from("Configured Variables"), &group_variables);
+    two_column_table(&String::from("Host Report:"), &String::from(""), &host_elements);
     println!("");
-    captioned_display(&String::from("Blended Variables"), &blended_variables);
+    //captioned_display(&String::from("Configured Variables"), &group_variables);
+    //println!("");
+    captioned_display(&String::from("Variables"), &blended_variables);
     println!("");
 
     return Ok(());

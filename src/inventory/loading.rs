@@ -22,6 +22,11 @@ use crate::util::yaml::show_yaml_error_in_context;
 use crate::inventory::inventory::Inventory;
 use std::sync::Arc;
 use std::sync::RwLock;
+use serde_json;
+use std::collections::HashMap;
+use std::process::Command;
+use crate::connection::local::convert_out;
+use crate::util::io::directory_as_string;
 
 // ==============================================================================================================
 // YAML SPEC
@@ -32,10 +37,24 @@ use std::sync::RwLock;
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct YamlGroup {
-    hosts : Option<Vec<String>>,
+    hosts     : Option<Vec<String>>,
     subgroups : Option<Vec<String>>,
-    //ssh_user : Option<String>,
-    //ssh_port: Option<String>,
+}
+
+#[derive(Debug,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum DynamicInventoryJson {
+    Entry(HashMap<String, DynamicInventoryJsonEntry>)
+}
+
+/* groups named _meta are not real groups */
+#[derive(Debug,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DynamicInventoryJsonEntry {
+    hostvars : Option<HashMap<String, serde_json::Value>>, /* if supplied, hosts is not supplied */
+    vars     : Option<HashMap<String, serde_json::Value>>,
+    children : Option<Vec<String>>,
+    hosts    : Option<Vec<String>>
 }
 
 // ==============================================================================================================
@@ -52,21 +71,25 @@ pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Arc<R
     for inventory_path_buf in inventory_paths.read().unwrap().iter() {
         let inventory_path = inventory_path_buf.as_path();
         if inventory_path.is_dir() {
-            
             let groups_pathbuf      = inventory_path_buf.join("groups");
             let groups_path         = groups_pathbuf.as_path();
 
             if groups_path.exists() && groups_path.is_dir() {
                 load_on_disk_inventory_tree(inventory, true, &inventory_path)?;
             } else {
-                if is_executable(&inventory_path) {
-                    load_dynamic_inventory(inventory, &inventory_path)?;
-                } else {
-                    return Err(
-                        format!("non-directory path to --inventory ({}) is not executable", 
-                            inventory_path.display()))
-                }    
+                return Err(format!("missing groups/ in --inventory path parameter ({})", inventory_path.display()))
             }
+        } else {
+            println!("XDEBUG: I'm a FILE!");
+            if is_executable(&inventory_path) {
+                println!("XDEBUG: LOADING!!!");
+                load_dynamic_inventory(inventory, &inventory_path)?;
+                let dirname = directory_as_string(&inventory_path);
+                let dir = Path::new(&dirname);
+                load_on_disk_inventory_tree(inventory, false, &dir)?;
+            } else {
+                return Err(format!("non-directory path to --inventory ({}) is not executable", inventory_path.display()))
+            }    
         }
     }
     return Ok(())
@@ -181,11 +204,96 @@ fn load_vars_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path, is_group
 }
 
 // TODO: implement
-fn load_dynamic_inventory(inventory: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(), String> {
-     println!("load_dynamic_inventory: NOT IMPLEMENTED");
-    // FIXME: implement the script execution/parsing parts on top
-    load_on_disk_inventory_tree(inventory, false, &path)?;
-    //return Err(format!("NOT IMPLEMENTED3: {}", path.display()));
-    Err("load  dynamic inventory is not implemented".to_string())
+fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(), String> {
+
+    let mut inventory = inv.write().unwrap();
+
+    println!("loading dynamic_inventory: NOT IMPLEMENTED");
+
+    let mut command = Command::new(format!("{}", path.display()));
+    let output = match command.output() {
+        Ok(x) => {
+            match x.status.code() {
+                Some(rc) => convert_out(&x.stdout,&x.stderr),
+                None => { return Err(format!("unable to get status code from process: {}", path.display())) }
+            }
+        },
+        Err(_x) => { return Err(format!("inventory script failed: {}", path.display())); }
+    };
+
+    let file_parse_result: Result<HashMap<String, DynamicInventoryJsonEntry>, serde_json::Error> = serde_json::from_str(&output);
+    if file_parse_result.is_err() {
+       return Err(format!("error parsing dynamic inventory source: {:?}: {:?}", path.display(), &file_parse_result.unwrap_err()));
+    } 
+    let json_result = file_parse_result.unwrap();
+
+    // inventory.store_subgroup(&group_name.clone(), &subgroupname.clone()); 
+    // for hostname in hosts { inventory.store_host(&group_name.clone(), &hostname.clone()); }
+    // inv_obj.store_group(&String::from("all"));
+
+
+    for (possible_group_name, entry) in json_result.iter() {
+        let group_name = match possible_group_name.eq("_meta") {
+            true => String::from("all"),
+            false => possible_group_name.clone(),
+        };
+        if group_name.starts_with("_") {
+            continue;
+        }
+        
+        inventory.store_group(&group_name);
+        let group = inventory.get_group(&group_name);
+
+        if entry.hostvars.is_some() {
+            let hostvars = entry.hostvars.as_ref().unwrap();
+            for (host_name, values) in hostvars.iter() {
+                println!("host {} is a member of {}", host_name, group_name);
+                inventory.store_host(&group_name, &host_name);
+                let host = inventory.get_host(&host_name);
+                let vars = convert_json_vars(&values);
+                let mut hst = host.write().unwrap();
+                hst.update_variables(vars);
+            }
+        }
+        if entry.hosts.is_some() {
+            let hosts = entry.hosts.as_ref().unwrap();
+            for host_name in hosts.iter() {
+                println!("host {} is a member of {}", &host_name, group_name);
+                inventory.store_host(&group_name, &host_name);
+
+            }
+        }
+        if entry.children.as_ref().is_some() {
+            let subgroups = entry.children.as_ref().unwrap();
+            println!("found an entry: {}", group_name );
+            for subgroup_name in subgroups.iter() {
+                println!("a subgroup {} descends from {}", subgroup_name, group_name);
+                inventory.store_subgroup(&group_name, &subgroup_name);
+            }
+        }
+        if entry.vars.as_ref().is_some() {
+            let vars = entry.vars.as_ref().unwrap();
+            println!("found some vars: {}", group_name);
+            for (key, values) in vars.iter() {
+                println!("found some group values: {}, {:?}", group_name, values);
+                let vars = convert_json_vars(&values);
+                let mut grp = group.write().unwrap();
+                grp.update_variables(vars);
+            }
+        }
+    }
+
+    Ok(())
 }
+
+fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
+    let json = input.to_string();
+    println!("LOADED JSON: {}", json);
+    let file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_str(&json);
+    match file_parse_result {
+       Ok(parsed) => return parsed.clone(),
+       Err(y) => panic!("unable to load JSON back to YAML, this shouldn't happen: {}", y)
+    } 
+}
+
 

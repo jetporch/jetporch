@@ -36,6 +36,7 @@ pub struct Host {
     checksum_cache         : HashMap<String,String>,
     checksum_cache_task_id : usize,
     facts                  : serde_yaml::Value,
+    dyn_variables          : serde_yaml::Value,
     notified_handlers      : HashMap<usize, HashSet<String>>
 }
 
@@ -50,6 +51,7 @@ impl Host {
             checksum_cache: HashMap::new(),
             checksum_cache_task_id: 0,
             facts: serde_yaml::Value::from(serde_yaml::Mapping::new()),
+            dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
             notified_handlers: HashMap::new()
         }
     }
@@ -145,6 +147,11 @@ impl Host {
         self.variables = variables.clone();
     }
 
+    pub fn update_variables(&mut self, mapping: serde_yaml::Mapping) {
+        let map = mapping.clone();
+        blend_variables(&mut self.dyn_variables, serde_yaml::Value::Mapping(map));
+    }
+
     pub fn get_blended_variables(&self) -> serde_yaml::Mapping {
         let mut blended : serde_yaml::Value = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let ancestors = self.get_ancestor_groups(20);
@@ -152,6 +159,7 @@ impl Host {
             let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().unwrap().get_variables());
             blend_variables(&mut blended, theirs);
         }
+        blend_variables(&mut blended, self.dyn_variables.clone());
         let mine = serde_yaml::Value::from(self.get_variables());
         blend_variables(&mut blended, mine);
         blend_variables(&mut blended, self.facts.clone());

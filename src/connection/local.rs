@@ -156,7 +156,7 @@ impl Connection for LocalConnection {
 
 }
 
-fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
+pub fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
     let mut base = match std::str::from_utf8(output) {
         Ok(val) => val.to_string(),
         Err(_) => String::from("invalid UTF-8 characters in response"),
@@ -168,7 +168,6 @@ fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
     base.push_str("\n");
     base.push_str(&rest);
     return base.trim().to_string();
-
 }
 
 // connection runs uname -a on connect to check the OS type.
