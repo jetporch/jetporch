@@ -29,7 +29,6 @@ impl SyntaxVisitor {
     pub fn new() -> Self { Self {} }
 }
 impl PlaybookVisitor for SyntaxVisitor {
-    fn is_syntax_only(&self)    -> bool { return true; }
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
@@ -38,23 +37,7 @@ impl LiveVisitor {
     pub fn new() -> Self { Self {} }
 }
 impl PlaybookVisitor for LiveVisitor {
-    fn is_syntax_only(&self)    -> bool { return false; }
     fn is_check_mode(&self)     -> bool { return false; }
-}
-
-pub fn playbook_syntax_scan(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    let run_state = Arc::new(RunState {
-        inventory: Arc::clone(inventory),
-        playbook_paths: Arc::clone(&parser.playbook_paths),
-        role_paths: Arc::clone(&parser.role_paths),
-        context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
-        visitor: Arc::new(RwLock::new(SyntaxVisitor::new())),
-        connection_factory: Arc::new(RwLock::new(NoFactory::new())),
-    });
-    return match playbook_traversal(&run_state) {
-        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
-        Err(s) => { println!("{}", s); 1 }
-    };
 }
 
 pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {

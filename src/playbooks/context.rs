@@ -166,12 +166,14 @@ impl PlaybookContext {
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
 
+    /*
     pub fn syntax_fail_host(&mut self, host: &Arc<RwLock<Host>>) {
         self.failed_tasks = self.failed_tasks + 1;
         let host2 = host.read().unwrap();
         let hostname = host2.name.clone();
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
+    */
 
     // =================================================================================
     // SIGNPOSTS

@@ -71,10 +71,8 @@ pub trait PlaybookVisitor : Send + Sync {
         let ctx = context.read().unwrap();
         let play_name = ctx.get_play_name();
         if ! failed {
-            if ! self.is_syntax_only() {
-                 self.banner();
-                 println!("> play complete: {}", play_name);
-            }
+            self.banner();
+            println!("> play complete: {}", play_name);
         } else {
             self.banner();
             println!("{color_red}> play failed: {}{color_reset}", play_name);
@@ -84,34 +82,12 @@ pub trait PlaybookVisitor : Send + Sync {
 
     fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> () {
 
-        if self.is_syntax_only() {
-            let ctx = context.read().unwrap();
-
-            let (summary1, summary2) : (String,String) = match ctx.get_hosts_failed_count() {
-                0 => (format!("Ok"), 
-                      format!("No configuration or variable evaluation was attempted.")),
-                _ => (format!("Failed"), 
-                      format!("{} errors", ctx.failed_tasks))
-            };
-
-            let elements: Vec<(String,String)> = vec![
-                (String::from("Roles"), format!("{}", ctx.get_role_count())),
-                (String::from("Tasks"), format!("{}", ctx.get_task_count())),
-                (summary1.clone(), summary2.clone()),
-            ];
-            println!("");
-            two_column_table(&String::from("Syntax Check"), &String::from("..."), &elements);
-        } else {
-            println!("----------------------------------------------------------");
-            println!("");
-            show_playbook_summary(context);
-        }
+        println!("----------------------------------------------------------");
+        println!("");
+        show_playbook_summary(context);
     }
 
     fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, is_handler: HandlerMode) {
-        if self.is_syntax_only() { 
-            return;
-        }
         let context = context.read().unwrap();
         let task = context.task.as_ref().unwrap();
         let role = &context.role;
@@ -131,9 +107,6 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
-        if self.is_syntax_only() { 
-            return;
-        }
         self.banner();
         println!("> batch {}/{}, {} hosts", batch_num+1, batch_count, batch_size);
     }
@@ -142,9 +115,6 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
-        if self.is_syntax_only() { 
-            return;
-        }
         let host2 = host.read().unwrap();
         println!("… {} => running", host2.name);
     }
@@ -190,11 +160,6 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
-        if self.is_syntax_only() { 
-            let context = context.read().unwrap();
-            let task = context.task.as_ref().unwrap();
-            println!("> task: {}", task);
-        }
         let host2 = host.read().unwrap();
         if task_response.msg.is_some() {
             let msg = &task_response.msg;
@@ -208,11 +173,7 @@ pub trait PlaybookVisitor : Send + Sync {
                     println!("    rc: {}{color_reset}", cmd_result.rc);
                 }
             } else {
-                if self.is_syntax_only() {
-                    println!("{color_red}! error: {}{color_reset}", msg.as_ref().unwrap());
-                } else {
-                    println!("{color_red}! error: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
-                }
+                println!("{color_red}! error: {}: {}{color_reset}", host2.name, msg.as_ref().unwrap());
             }
         } else {
             println!("{color_red}! host failed: {}, {color_reset}", host2.name);
@@ -258,8 +219,6 @@ pub trait PlaybookVisitor : Send + Sync {
             println!("    rc: {}{color_reset}", cmd_result.rc);
         }
     }
-
-    fn is_syntax_only(&self) -> bool;
 
     fn is_check_mode(&self) -> bool;
 

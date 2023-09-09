@@ -94,7 +94,8 @@ impl Response {
     }
 
     pub fn is_matched(&self, request: &Arc<TaskRequest>, ) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequestType::Query, "is_matched response can only be returned for a query request");
+        assert!(request.request_type == TaskRequestType::Query || request.request_type == TaskRequestType::Validate,  
+            "is_matched response can only be returned for a query request, was {:?}", request.request_type);
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsMatched, 
             changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)
@@ -128,7 +129,7 @@ impl Response {
     }
 
     pub fn is_passive(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
-        assert!(request.request_type == TaskRequestType::Passive, "is_passive response can only be returned for a passive request");
+        assert!(request.request_type == TaskRequestType::Passive || request.request_type == TaskRequestType::Execute, "is_passive response can only be returned for a passive or execute request");
         return Arc::new(TaskResponse { 
             status: TaskStatus::IsPassive, 
             changes: Vec::new(), msg: None, command_result: Arc::new(None), with: Arc::new(None), and: Arc::new(None)

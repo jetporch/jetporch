@@ -140,7 +140,9 @@ fn build_results_map(rc: i32, out: &String) -> serde_yaml::Mapping {
     let mut result = serde_yaml::Mapping::new();
     let num : serde_yaml::Value = serde_yaml::from_str(&format!("{}", rc)).unwrap();
     result.insert(serde_yaml::Value::String(String::from("rc")), num);
-    result.insert(serde_yaml::Value::String(String::from("rc")), serde_yaml::Value::String(out.clone()));
+    //result.insert(serde_yaml::Value::String(String::from("rc")),  serde_yaml::Value::String(format!("{}", rc)));
+
+    result.insert(serde_yaml::Value::String(String::from("out")), serde_yaml::Value::String(out.clone()));
     return result;
 }
 

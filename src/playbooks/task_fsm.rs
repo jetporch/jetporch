@@ -52,14 +52,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
                     Err(x) => {
                         match fsm_mode { 
                             FsmMode::FullRun => { run_state.context.write().unwrap().fail_host(&host); }
-                            FsmMode::SyntaxOnly => { run_state.context.write().unwrap().syntax_fail_host(&host); }
                         }
                         run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
                     },
                 }
             },
             Err(x) => {
-                // connection failures cannot happen in syntax-only check modes so we don't need anything here
                 run_state.visitor.read().unwrap().debug_host(&host, &x);
                 run_state.context.write().unwrap().fail_host(&host);
                 run_state.visitor.read().unwrap().on_host_connect_failed(&run_state.context, &host);
@@ -103,15 +101,6 @@ fn run_task_on_host(
         Some(x) => x.clone()
     };
     
-    if fsm_mode == FsmMode::SyntaxOnly {
-        if are_handlers == HandlerMode::Handlers  {
-            if pre_logic.is_none() || pre_logic.as_ref().as_ref().unwrap().subscribe.is_none() {
-                return Err(handle.response.is_failed(&Arc::clone(&validate), &String::from("with/subscribe missing in handler task definition")));
-            }
-        }
-        return Ok(handle.response.is_matched(&Arc::clone(&validate)));
-    }
-
     if pre_logic.is_some() {
         let logic = pre_logic.as_ref().as_ref().unwrap();
         let my_host = host.read().unwrap();

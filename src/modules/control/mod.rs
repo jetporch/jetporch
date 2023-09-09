@@ -20,3 +20,4 @@ pub mod assert;
 pub mod echo;
 pub mod fail;
 pub mod facts;
+pub mod set;

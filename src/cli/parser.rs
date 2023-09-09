@@ -93,7 +93,6 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
         "check-local" => Ok(CLI_MODE_CHECK_LOCAL),
         "ssh"         => Ok(CLI_MODE_SSH),
         "check-ssh"   => Ok(CLI_MODE_CHECK_SSH),
-        "syntax"      => Ok(CLI_MODE_SYNTAX),
         "show"        => Ok(CLI_MODE_SHOW),
         _ => Err(format!("invalid mode: {}", s))
     }
@@ -148,8 +147,6 @@ fn show_help(git_version: &String) {
                       | *Category* | *Mode* | *Description*\n\
                       | --- | --- | ---\n\
                       | utility: |\n\
-                      | | syntax| scans --playbook files for errors\n\
-                      | |\n\
                       | | show | displays inventory, specify --groups or --hosts\n\
                       | |\n\
                       | --- | --- | ---\n\

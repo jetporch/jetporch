@@ -34,6 +34,7 @@ use crate::modules::control::assert::AssertTask;
 use crate::modules::control::echo::EchoTask;
 use crate::modules::control::fail::FailTask;
 use crate::modules::control::facts::FactsTask;
+use crate::modules::control::set::SetTask;
 
 // files
 use crate::modules::files::copy::CopyTask;
@@ -63,6 +64,7 @@ pub enum Task {
     Facts(FactsTask),
     File(FileTask),
     Sd_Service(SystemdServiceTask),
+    Set(SetTask),
     Shell(ShellTask),
     Template(TemplateTask),
 }
@@ -81,6 +83,7 @@ impl Task {
             Task::Fail(x)       => x.get_module(), 
             Task::File(x)       => x.get_module(), 
             Task::Sd_Service(x) => x.get_module(),
+            Task::Set(x)        => x.get_module(), 
             Task::Shell(x)      => x.get_module(), 
             Task::Template(x)   => x.get_module(), 
         };
@@ -98,6 +101,7 @@ impl Task {
             Task::Fail(x)       => x.get_name(), 
             Task::File(x)       => x.get_name(), 
             Task::Sd_Service(x) => x.get_name(),
+            Task::Set(x)        => x.get_name(),
             Task::Shell(x)      => x.get_name(), 
             Task::Template(x)   => x.get_name(), 
         };
@@ -116,6 +120,7 @@ impl Task {
             Task::Facts(x)      => x.evaluate(handle, request),
             Task::File(x)       => x.evaluate(handle, request), 
             Task::Sd_Service(x) => x.evaluate(handle, request),
+            Task::Set(x)        => x.evaluate(handle, request),
             Task::Shell(x)      => x.evaluate(handle, request), 
             Task::Template(x)   => x.evaluate(handle, request), 
         };

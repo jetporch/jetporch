@@ -93,6 +93,8 @@ impl FactsAction {
     fn do_mac_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         // sets jet_os_type=MacOS
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("MacOS"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("OSX"));
+
         return Ok(());
     }
 
@@ -110,6 +112,7 @@ impl FactsAction {
         // jet_os_release_platform_id="platform:el9"
         // jet_os_release_id_like="rhel centos fedora"
         // not all keys are available on all platforms 
+        // more facts will be added from other sources later, some may be conditional based on distro
         let cmd = String::from("cat /etc/os-release");
         let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
         let (_rc, out) = cmd_info(&result);
@@ -122,6 +125,13 @@ impl FactsAction {
                 k1.make_ascii_lowercase();
                 let v1 = value.unwrap().trim().to_string().replace("\"","");
                 self.insert_string(mapping, &format!("jet_os_release_{}", k1.to_string()), &v1.clone());
+                if k1.eq("id_like") {
+                    if v1.find("rhel").is_some() {
+                        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("EL"));
+                    } else if v1.find("debian").is_some() {
+                        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Debian"))
+                    }
+                }
             }
         }
         return Ok(());

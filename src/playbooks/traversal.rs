@@ -34,7 +34,6 @@ use std::env;
 #[derive(PartialEq,Copy,Debug,Clone)]
 pub enum FsmMode {
     FullRun,
-    SyntaxOnly
 }
 
 #[derive(PartialEq,Copy,Debug,Clone)]
@@ -196,11 +195,7 @@ fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handler
     run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
     run_state.context.write().unwrap().increment_task_count();
 
-    if !run_state.visitor.read().unwrap().is_syntax_only() {
-        fsm_run_task(run_state, play, task, are_handlers, FsmMode::FullRun)?;
-    } else {
-        let _ = fsm_run_task(run_state, play, task, are_handlers, FsmMode::SyntaxOnly);
-    }
+    fsm_run_task(run_state, play, task, are_handlers, FsmMode::FullRun)?;
 
     return Ok(());
 }

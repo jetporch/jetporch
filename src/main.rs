@@ -29,7 +29,7 @@ use crate::inventory::inventory::Inventory;
 use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
-use crate::cli::playbooks::{playbook_syntax_scan,playbook_ssh,playbook_local}; // FIXME: check modes coming
+use crate::cli::playbooks::{playbook_ssh,playbook_local}; // FIXME: check modes coming
 use std::sync::{Arc,RwLock};
 use std::process;
 use rayon;
@@ -91,7 +91,6 @@ fn liftoff() -> Result<(),String> {
                 1
             }
         }
-        cli::parser::CLI_MODE_SYNTAX => playbook_syntax_scan(&inventory, &cli_parser),
         cli::parser::CLI_MODE_SSH    => playbook_ssh(&inventory, &cli_parser),
         cli::parser::CLI_MODE_LOCAL  => playbook_local(&inventory, &cli_parser),
         _ => { println!("invalid CLI mode"); 1 }
