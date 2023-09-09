@@ -125,15 +125,23 @@ impl Template {
     }
 
     #[inline(always)]
-    pub fn string_unsafe(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+    pub fn string_unsafe_for_shell(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         return self.template_unsafe_internal(request, field, template, BlendTarget::NotTemplateModule);
+    }
+
+    #[inline(always)]
+    pub fn string_option_unsafe_for_shell(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        return match template.is_none() {
+            true => Ok(None),
+            false => Ok(Some(self.template_unsafe_internal(request, field, &template.as_ref().unwrap(), BlendTarget::NotTemplateModule)?))
+        }
     }
 
     pub fn string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
         if self.is_syntax_skip_eval(&template) {
             return Ok(String::from(""));
         }
-        let result = self.string_unsafe(request, field, template);
+        let result = self.string_unsafe_for_shell(request, field, template);
         return match result {
             Ok(x) => match screen_general_input_strict(&x) {
                 Ok(y) => Ok(y),
@@ -295,6 +303,13 @@ impl Template {
             return Ok(true);
         }
         let result = self.get_context().read().unwrap().test_cond(expr, &self.host);
+        return match result {
+            Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
+        }
+    }
+
+    pub fn test_cond_with_extra_data(&self, request: &Arc<TaskRequest>, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
+        let result = self.get_context().read().unwrap().test_cond_with_extra_data(expr, &self.host, vars_input);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
         }

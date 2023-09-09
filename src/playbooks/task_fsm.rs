@@ -206,6 +206,7 @@ fn run_task_on_host(
                     match erc {
                         Ok(ref erc_ok) => match erc_ok.status {
                             TaskStatus::IsExecuted => (req, erc),
+                            TaskStatus::IsPassive => (req, erc),
                             _ => { panic!("module internal fsm state invalid (on execute): {:?}", erc); }
                         }
                         Err(ref erc_err)  => match erc_err.status {

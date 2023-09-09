@@ -47,7 +47,7 @@ impl IsTask for EchoTask {
             EvaluatedTask {
                 action: Arc::new(EchoAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg:  handle.template.string_unsafe(request, &String::from("msg"), &self.msg)?,
+                    msg:  handle.template.string_unsafe_for_shell(request, &String::from("msg"), &self.msg)?,
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, &self.and)?),

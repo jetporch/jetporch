@@ -226,6 +226,14 @@ impl PlaybookContext {
     // VARIABLES
 
     pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> serde_yaml::Mapping  {
+        let blended = self.get_complete_blended_variables_as_value(host, blend_target);
+        return match blended {
+            serde_yaml::Value::Mapping(x) => x,
+            _ => panic!("unexpected, get_blended_variables produced a non-mapping (3)")
+        };
+    }
+
+    pub fn get_complete_blended_variables_as_value(&self, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> serde_yaml::Value  {
         
         let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
         let src1 = self.defaults_storage.read().unwrap();
@@ -248,7 +256,7 @@ impl PlaybookContext {
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src3ar.clone()));
 
         match blend_target {
-            BlendTarget::NotTemplateModule => {},
+            BlendTarget::NotTemplateModule => { },
             BlendTarget::TemplateModule => {
                 // for security reasons env vars from security tools like 'op run' are only exposed to the template module
                 // to prevent accidental leakage into logs and history
@@ -257,10 +265,7 @@ impl PlaybookContext {
                 blend_variables(&mut blended, serde_yaml::Value::Mapping(src4a.clone()));
             }
         };
-        return match blended {
-            serde_yaml::Value::Mapping(x) => x,
-            _ => panic!("unexpected, get_blended_variables produced a non-mapping (3)")
-        };
+        return blended;
     }
 
     pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> Result<String,String> {
@@ -271,6 +276,15 @@ impl PlaybookContext {
     pub fn test_cond(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {
         let vars = self.get_complete_blended_variables(host, BlendTarget::NotTemplateModule);
         return self.templar.read().unwrap().test_cond(expr, vars);
+    }
+
+    pub fn test_cond_with_extra_data(&self, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,String> {
+        let mut vars = self.get_complete_blended_variables_as_value(host, BlendTarget::NotTemplateModule);
+        blend_variables(&mut vars, serde_yaml::Value::Mapping(vars_input));
+        return match vars {
+            serde_yaml::Value::Mapping(x) => self.templar.read().unwrap().test_cond(expr, x),
+            _ => { panic!("impossible input to test_cond"); }
+        };
     }
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {

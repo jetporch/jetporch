@@ -73,6 +73,7 @@ impl Remote {
         };
     }
 
+    #[inline(always)]
     pub fn get_whoami(&self) -> Result<String,String> {
         return self.connection.lock().unwrap().whoami();
     }
@@ -95,14 +96,17 @@ impl Remote {
         return Ok((pb.clone(), pb2.clone()));
     }
 
+    #[inline(always)]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes);
     }
 
+    #[inline(always)]
     pub fn run_no_sudo(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No);
     }
 
+    #[inline(always)]
     pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes);
     }
@@ -315,8 +319,8 @@ impl Remote {
         return self.run(request,&cmd,CheckRc::Checked);
     }
 
+    #[inline(always)]
     pub fn get_sha512(&self, request: &Arc<TaskRequest>, path: &String) -> Result<String,Arc<TaskResponse>> {
-        // FIXME: move function code here and eliminate
         return self.internal_sha512(request, path);
     }
    

@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#[inline(always)]
 pub fn markdown_print(markdown: &String) {
     termimad::print_text(markdown);
 }
 
+#[inline(always)]
 pub fn banner(msg: &String) {
     let markdown = String::from(format!("|:-|\n\
                                         |{}|\n\

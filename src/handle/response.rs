@@ -39,10 +39,12 @@ impl Response {
         }
     }
 
+    #[inline(always)]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
 
+    #[inline(always)]
     pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
     }
@@ -58,6 +60,7 @@ impl Response {
         });
     }
 
+    #[inline(always)]
     pub fn not_supported(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         return self.is_failed(request, &String::from("not supported"));
     }
