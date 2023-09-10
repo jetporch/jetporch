@@ -155,6 +155,9 @@ pub trait PlaybookVisitor : Send + Sync {
             TaskStatus::IsSkipped  =>  {
                 println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name);
             }
+            TaskStatus::Failed => {
+                println!("{color_yellow}✓ {} => failed (ignored){color_reset}", &host2.name);
+            }
             _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
         }
     }

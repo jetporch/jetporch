@@ -26,7 +26,7 @@ use serde::Deserialize;
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PreLogicInput {
-    pub cond: Option<String>,
+    pub condition: Option<String>,
     pub subscribe: Option<String>,
     pub sudo: Option<String>
 
@@ -34,7 +34,7 @@ pub struct PreLogicInput {
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
-    pub cond: bool,
+    pub condition: bool,
     pub subscribe: Option<String>,
     pub sudo: Option<String>
 }
@@ -42,13 +42,14 @@ pub struct PreLogicEvaluated {
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PostLogicInput {
-    pub notify: Option<String>
-    // FIXME: TODO: add delay/retry/ignore_errors
+    pub notify: Option<String>,
+    pub ignore_errors: Option<String>
 }
 
 #[derive(Debug)]
 pub struct PostLogicEvaluated {
-    pub notify: Option<String>
+    pub notify: Option<String>,
+    pub ignore_errors: bool
 }
 
 impl PreLogicInput {
@@ -59,8 +60,8 @@ impl PreLogicInput {
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PreLogicEvaluated {
-            cond: match &input2.cond {
-                Some(cond2) => handle.template.test_cond(request, cond2)?,
+            condition: match &input2.condition {
+                Some(cond2) => handle.template.test_condition(request, cond2)?,
                 None        => true
             },
             sudo: handle.template.string_option_no_spaces(request, &String::from("sudo"), &input2.sudo)?,
@@ -81,7 +82,7 @@ impl PostLogicInput {
             notify: handle.template.string_option_trim(request, &String::from("notify"), &input2.notify)?,
             // unsafe here means the options cannot be sent to the shell, which they are not.
             //delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
-            //ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
             //retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
         }));
     }

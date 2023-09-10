@@ -110,7 +110,7 @@ fn run_task_on_host(
             } else {
             }
         }
-        if ! logic.cond {
+        if ! logic.condition {
             return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
         }
         if logic.sudo.is_some() {
@@ -131,7 +131,7 @@ fn run_task_on_host(
     let query = TaskRequest::query(&sudo_details);
     let qrc = action.dispatch(&handle, &query);
 
-    let (_request, result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
+    let (_request, prelim_result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
             TaskStatus::IsMatched => {
                 (Arc::clone(&query), Ok(handle.response.is_matched(&Arc::clone(&query))))
@@ -232,11 +232,29 @@ fn run_task_on_host(
         }
     };
 
+    let result = match prelim_result {
+        Ok(x) => Ok(x), 
+        Err(y) =>  {
+            if post_logic.is_some() {
+                let logic = post_logic.as_ref().as_ref().unwrap();
+                match logic.ignore_errors {
+                    true => Ok(y),
+                    false => Err(y)
+                }
+            }
+            else {
+                Err(y)
+            }
+        }
+    };
 
     if result.is_ok() {
+
         if post_logic.is_some() {
+
             let logic = post_logic.as_ref().as_ref().unwrap();
-            if are_handlers == HandlerMode::NormalTasks && result.is_ok() {
+
+            if are_handlers == HandlerMode::NormalTasks && result.is_ok() && logic.notify.is_some() {
                 let notify = logic.notify.as_ref().unwrap().clone();
 
                 let status = &result.as_ref().unwrap().status;
@@ -248,7 +266,9 @@ fn run_task_on_host(
                     _ => { }
                 }
             }
+
         }
+
     }
 
     // FIXME: apply post-logic ("and") to result here (in function)

@@ -103,7 +103,7 @@ impl IsAction for ShellAction {
                     true => match rc { 0 => false, _ => true },
                     false => {
                         let condition = self.failed_when.as_ref().unwrap();
-                        handle.template.test_cond_with_extra_data(request, condition, &handle.host, map_data.clone())?
+                        handle.template.test_condition_with_extra_data(request, condition, &handle.host, map_data.clone())?
                     }
                 };
 
@@ -111,7 +111,7 @@ impl IsAction for ShellAction {
                     true => true,
                     false => {
                         let condition = self.changed_when.as_ref().unwrap();
-                        handle.template.test_cond_with_extra_data(request, condition, &handle.host, map_data.clone())?
+                        handle.template.test_condition_with_extra_data(request, condition, &handle.host, map_data.clone())?
                     }
                 };
 

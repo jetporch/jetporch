@@ -48,7 +48,7 @@ impl Templar {
         }
     }
 
-    pub fn test_cond(&self, expr: &String, data: serde_yaml::Mapping) -> Result<bool, String> {
+    pub fn test_condition(&self, expr: &String, data: serde_yaml::Mapping) -> Result<bool, String> {
         let template = format!("{{{{#if {expr} }}}}true{{{{ else }}}}false{{{{/if}}}}");
         let result = self.render(&template, data);
         match result {

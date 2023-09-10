@@ -60,11 +60,11 @@ impl IsTask for AssertTask {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
                     msg: handle.template.string_option_unsafe(request, &String::from("msg"), &self.msg)?,
                     r#true: match self.r#true.is_some() {
-                            true => handle.template.test_cond(request, &self.r#true.as_ref().unwrap())?,
+                            true => handle.template.test_condition(request, &self.r#true.as_ref().unwrap())?,
                             false => true
                     },
                     r#false: match self.r#false.is_some() {
-                            true => handle.template.test_cond(request, &self.r#false.as_ref().unwrap())?,
+                            true => handle.template.test_condition(request, &self.r#false.as_ref().unwrap())?,
                             false => false
                     },
                     all_true: match self.all_true.is_some() {
@@ -90,7 +90,7 @@ impl IsTask for AssertTask {
 fn eval_list(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, list: &Vec<String>) -> Result<Vec<bool>,Arc<TaskResponse>> {
     let mut results : Vec<bool> = Vec::new();
     for item in list.iter() {
-        results.push(handle.template.test_cond(request, item)?);
+        results.push(handle.template.test_condition(request, item)?);
     }
     return Ok(results);
 }
