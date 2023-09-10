@@ -1,5 +1,5 @@
 ---
-name: Create a documentation report
+name: Create Documentation Report
 about: Report errors in documentation
 title: ''
 labels: Bug Report
