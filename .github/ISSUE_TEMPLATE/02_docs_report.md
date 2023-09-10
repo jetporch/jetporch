@@ -1,6 +1,6 @@
 ---
-name: Docs report
-about: Create a docs report
+name: Create a documentation report
+about: Report errors in documentation
 title: ''
 labels: Bug Report
 assignees: ''
