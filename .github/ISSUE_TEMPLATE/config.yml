@@ -9,10 +9,12 @@ contact_links:
     about: Discord Chat
   - name: Make A Feature Request
     url: https://www.jetporch.com/community/discord-chat
-    about: Discuss Discord Chat
-  - name: Development Topics
+    about: Discord Chat
+  - name: Discuss Development or Feature Ideas
     url: https://www.jetporch.com/community/discord-chat
     about: Discord Chat
   - name: Contributor Guide
     url: https://www.jetporch.com/community/contributing
-    about: Required Reading For All Pull Requests
+    about: Required reading
+
+
