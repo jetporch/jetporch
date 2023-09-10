@@ -1,10 +1,18 @@
 blank_issues_enabled: false
 contact_links:
 
-  - name: ❓ Questions, Feature Requests, Dev Discussion
+  - name: Help
     url: https://www.jetporch.com/community/discord-chat
     about: Discord Chat
-
+  - name: Questions
+    url: https://www.jetporch.com/community/discord-chat
+    about: Discord Chat
+  - name: Feature Requests
+    url: https://www.jetporch.com/community/discord-chat
+    about: Discord Chat
+  - name: Development Topics
+    url: https://www.jetporch.com/community/discord-chat
+    about: Discord Chat
   - name: Process for Contributing
     url: https://www.jetporch.com/community/contributing
-    about: Required reading
+    about: Required Reading For All Pull Requests
