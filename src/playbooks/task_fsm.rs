@@ -18,14 +18,18 @@ use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::handle::handle::TaskHandle;
 use crate::playbooks::traversal::RunState;
-use crate::tasks::request::{TaskRequest,SudoDetails};
+//use crate::tasks::request::{TaskRequest,SudoDetails};
 use crate::inventory::hosts::Host;
-use crate::tasks::response::{TaskStatus,TaskResponse};
+//use crate::tasks::response::{TaskStatus,TaskResponse};
 use crate::playbooks::traversal::{FsmMode,HandlerMode};
 use crate::playbooks::language::Play;
+use crate::tasks::request::SudoDetails;
+use crate::tasks::*;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
+use std::{thread, time};
+
 
 pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
@@ -69,8 +73,6 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
     return Ok(());
 }
 
-
-// the "on this host" method body from fsm_run_task
 fn run_task_on_host(
     run_state: &Arc<RunState>,
     connection: &Arc<Mutex<dyn Connection>>,
@@ -80,17 +82,58 @@ fn run_task_on_host(
     are_handlers: HandlerMode, 
     fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    // FIXME: break into smaller functions...
-
-    let play_count = run_state.context.read().unwrap().play_count;
-    let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
     let evaluated = task.evaluate(&handle, &validate)?;
 
-    let action = evaluated.action;
-    let pre_logic = evaluated.with;
-    let post_logic = evaluated.and;
+    let mut retries = match evaluated.and.as_ref().is_some() {
+        false => 0, true => evaluated.and.as_ref().as_ref().unwrap().retry
+    };
+    
+    let delay = match evaluated.and.as_ref().is_some() {
+        false => 1, true => evaluated.and.as_ref().as_ref().unwrap().delay
+    };
+    
+    loop {
+        match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, fsm_mode, &handle, &validate, &evaluated) {
+            Err(e) => match retries {
+                0 => { return Err(e); },
+                _ => { 
+                    retries = retries - 1;
+                    run_state.visitor.read().unwrap().on_host_task_retry(&run_state.context, host, retries, delay);
+                    if delay > 0 {
+                        let duration = time::Duration::from_secs(delay);
+                        thread::sleep(duration);
+                    }
+                }
+            },
+            Ok(x) => { return Ok(x) }
+        }
+    }
+}
+
+
+// the "on this host" method body from fsm_run_task
+fn run_task_on_host_inner(
+    run_state: &Arc<RunState>,
+    connection: &Arc<Mutex<dyn Connection>>,
+    host: &Arc<RwLock<Host>>,
+    play: &Play, 
+    task: &Task,
+    are_handlers: HandlerMode, 
+    fsm_mode: FsmMode,
+    handle: &Arc<TaskHandle>,
+    validate: &Arc<TaskRequest>,
+    evaluated: &EvaluatedTask) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+
+    // FIXME: break into smaller functions...
+
+    let play_count = run_state.context.read().unwrap().play_count;
+    let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
+
+    let action = &evaluated.action;
+    let pre_logic = &evaluated.with;
+    let post_logic = &evaluated.and;
 
     let mut sudo : Option<String> = match play.sudo.is_some() {
         true => play.sudo.clone(),

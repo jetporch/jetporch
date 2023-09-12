@@ -43,13 +43,17 @@ pub struct PreLogicEvaluated {
 #[serde(deny_unknown_fields)]
 pub struct PostLogicInput {
     pub notify: Option<String>,
-    pub ignore_errors: Option<String>
+    pub ignore_errors: Option<String>,
+    pub retry: Option<String>,
+    pub delay: Option<String>
 }
 
 #[derive(Debug)]
 pub struct PostLogicEvaluated {
     pub notify: Option<String>,
-    pub ignore_errors: bool
+    pub ignore_errors: bool,
+    pub retry: u64,
+    pub delay: u64
 }
 
 impl PreLogicInput {
@@ -81,9 +85,9 @@ impl PostLogicInput {
         return Ok(Some(PostLogicEvaluated {
             notify: handle.template.string_option_trim(request, &String::from("notify"), &input2.notify)?,
             // unsafe here means the options cannot be sent to the shell, which they are not.
-            //delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay)?,
+            delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay, 1)?,
             ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
-            //retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry)?,
+            retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry, 0)?,
         }));
     }
 }

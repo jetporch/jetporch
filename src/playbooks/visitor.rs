@@ -162,6 +162,11 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
+    fn on_host_task_retry(&self, _context: &Arc<RwLock<PlaybookContext>>,host: &Arc<RwLock<Host>>, retries: u64, delay: u64) {
+        let host2 = host.read().unwrap();
+        println!("{color_blue}! {} => retrying ({} retries left) in {} seconds{color_reset}",host2.name,retries,delay);
+    }
+
     fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         if task_response.msg.is_some() {

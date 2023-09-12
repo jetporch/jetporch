@@ -186,22 +186,25 @@ impl Template {
     }
 
     #[allow(dead_code)]
-    pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<i64,Arc<TaskResponse>> {
+    pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<u64,Arc<TaskResponse>> {
         let st = self.string(request, field, template)?;
-        let num = st.parse::<i64>();
+        let num = st.parse::<u64>();
         return match num {
-            Ok(num) => Ok(num), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Ok(num) => Ok(num), 
+            Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
-    #[allow(dead_code)]
-    pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<i64>,Arc<TaskResponse>> {
-        if template.is_none() { return Ok(None); }
+    pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
+        if template.is_none() {
+            return Ok(default); 
+        }
         let st = self.string(request, field, &template.as_ref().unwrap())?;
-        let num = st.parse::<i64>();
+        let num = st.parse::<u64>();
         // FIXME: these can use map_err
         return match num {
-            Ok(num) => Ok(Some(num)), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+            Ok(num) => Ok(num), 
+            Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
         }
     }
 
@@ -225,6 +228,9 @@ impl Template {
     }
   
     fn internal_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
+        if template.is_none() {
+            return Ok(default);
+        }
         let st = self.string(request, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
