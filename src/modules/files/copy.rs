@@ -115,10 +115,10 @@ impl IsAction for CopyAction {
 
 impl CopyAction {
 
-    pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, changes: Option<Vec<Field>>) -> Result<(), Arc<TaskResponse>> {
+    pub fn do_copy(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, _changes: Option<Vec<Field>>) -> Result<(), Arc<TaskResponse>> {
         handle.remote.copy_file(request, &self.src, &self.dest, |f| { /* after save */
             match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {
-                Ok(x) => Ok(()), Err(y) => Err(y)
+                Ok(_x) => Ok(()), Err(y) => Err(y)
             }
         })?;
         return Ok(());

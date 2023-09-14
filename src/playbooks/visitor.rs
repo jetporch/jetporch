@@ -17,7 +17,7 @@
 
 use crate::playbooks::context::PlaybookContext;
 use std::sync::Arc;
-use crate::util::terminal::two_column_table;
+
 use crate::tasks::*;
 use std::sync::RwLock;
 use crate::inventory::hosts::Host;

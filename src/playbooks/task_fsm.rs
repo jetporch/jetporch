@@ -31,7 +31,7 @@ use rayon::prelude::*;
 use std::{thread, time};
 
 
-pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
+pub fn _task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
@@ -113,15 +113,15 @@ fn run_task_on_host(
 }
 
 
-// the "on this host" method body from fsm_run_task
+// the "on this host" method body from _task
 fn run_task_on_host_inner(
     run_state: &Arc<RunState>,
-    connection: &Arc<Mutex<dyn Connection>>,
+    _connection: &Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>,
     play: &Play, 
-    task: &Task,
+    _task: &Task,
     are_handlers: HandlerMode, 
-    fsm_mode: FsmMode,
+    _fsm_mode: FsmMode,
     handle: &Arc<TaskHandle>,
     validate: &Arc<TaskRequest>,
     evaluated: &EvaluatedTask) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {

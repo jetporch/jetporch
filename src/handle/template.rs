@@ -255,7 +255,7 @@ impl Template {
         }
     }
 
-    pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
+    pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, expr: &String, _host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
         let result = self.get_context().read().unwrap().test_condition_with_extra_data(expr, &self.host, vars_input);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))

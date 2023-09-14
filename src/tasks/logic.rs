@@ -19,6 +19,8 @@ use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
 use serde::Deserialize;
+use std::collections::HashMap;
+use crate::handle::template::BlendTarget;
 
 // this is storage behind all 'and' and 'with' statements in the program, which
 // are mostly implemented in task_fsm
@@ -28,15 +30,24 @@ use serde::Deserialize;
 pub struct PreLogicInput {
     pub condition: Option<String>,
     pub subscribe: Option<String>,
-    pub sudo: Option<String>
+    pub sudo: Option<String>,
+    pub items: Option<ItemsInput>
+}
 
+#[derive(Deserialize,Debug)]
+#[serde(untagged)]
+pub enum ItemsInput {
+    ItemsString(String),
+    ItemsList(Vec<String>),
+    ItemsDict(HashMap<String,serde_yaml::Value>)
 }
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
     pub condition: bool,
     pub subscribe: Option<String>,
-    pub sudo: Option<String>
+    pub sudo: Option<String>,
+    pub items: Option<Vec<HashMap<String,serde_yaml::Value>>>
 }
 
 #[derive(Deserialize,Debug)]
@@ -53,8 +64,9 @@ pub struct PostLogicEvaluated {
     pub notify: Option<String>,
     pub ignore_errors: bool,
     pub retry: u64,
-    pub delay: u64
+    pub delay: u64,
 }
+
 
 impl PreLogicInput {
 
@@ -70,6 +82,7 @@ impl PreLogicInput {
             },
             sudo: handle.template.string_option_no_spaces(request, &String::from("sudo"), &input2.sudo)?,
             subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
+            items: template_items(handle, request, &input2.items)?
         }));
     }
 
@@ -89,5 +102,46 @@ impl PostLogicInput {
             ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
             retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry, 0)?,
         }));
+    }
+}
+
+fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, items_input: &Option<ItemsInput>) 
+    -> Result<Option<Vec<HashMap<String,serde_yaml::Value>>>, Arc<TaskResponse>> {
+
+    return match items_input {
+        None => Ok(None),
+        Some(ItemsInput::ItemsString(x)) => {
+            let blended = handle.run_state.context.read().unwrap().get_complete_blended_variables(&handle.host, BlendTarget::NotTemplateModule);
+            match blended.contains_key(&x) {
+                true => {
+                    let value : serde_yaml::Value = blended.get(&x).unwrap().clone();
+                    Ok(convert_value_to_items_list(&value))
+                }, 
+                false => {
+                    return Err(handle.response.is_failed(request, &format!("variable not found for items: {}", x)))
+                }
+            }
+        }
+        Some(ItemsInput::ItemsList(x)) => {
+            return Err(handle.response.is_failed(request, &String::from("not supported for with_items yet")))
+        }
+        Some(ItemsInput::ItemsDict(x)) => {
+            return Err(handle.response.is_failed(request, &String::from("not supported for with_items yet")))
+        }
+    }
+
+}
+
+fn convert_value_to_items_list(value: &serde_yaml::Value) -> Option<Vec<HashMap<String,serde_yaml::Value>>> {
+    match value {
+        serde_yaml::Value::Sequence(x) => {
+            panic!("in progress, got a list");
+        }
+        serde_yaml::Value::Mapping(x) => {
+            panic!("in progress, got a mapping");
+        }
+        _ => {
+            panic!("in progress got something we don't want");
+        }
     }
 }

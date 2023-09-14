@@ -37,7 +37,7 @@ pub enum CheckRc {
 }
 
 pub struct TaskHandle {
-    run_state: Arc<RunState>, 
+    pub run_state: Arc<RunState>, 
     _connection: Arc<Mutex<dyn Connection>>,
     pub host: Arc<RwLock<Host>>,
     pub local: Arc<Local>,

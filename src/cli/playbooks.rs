@@ -15,7 +15,7 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::cli::parser::CliParser;
-use crate::connection::no::NoFactory;
+
 use crate::connection::ssh::SshFactory;
 use crate::connection::local::LocalFactory;
 use crate::playbooks::traversal::{playbook_traversal,RunState};

@@ -214,7 +214,7 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
     let output = match command.output() {
         Ok(x) => {
             match x.status.code() {
-                Some(rc) => convert_out(&x.stdout,&x.stderr),
+                Some(_rc) => convert_out(&x.stdout,&x.stderr),
                 None => { return Err(format!("unable to get status code from process: {}", path.display())) }
             }
         },
@@ -274,7 +274,7 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
         if entry.vars.as_ref().is_some() {
             let vars = entry.vars.as_ref().unwrap();
             println!("found some vars: {}", group_name);
-            for (key, values) in vars.iter() {
+            for (_key, values) in vars.iter() {
                 println!("found some group values: {}, {:?}", group_name, values);
                 let vars = convert_json_vars(&values);
                 let mut grp = group.write().unwrap();

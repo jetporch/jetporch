@@ -16,11 +16,11 @@
 
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
-use crate::connection::command::cmd_info;
+
 //#[allow(unused_imports)]
 use serde::{Deserialize};
-use std::sync::{Arc,RwLock};
-use crate::inventory::hosts::Host;
+use std::sync::{Arc};
+
 
 const MODULE: &'static str = "Set";
 

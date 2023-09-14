@@ -156,7 +156,7 @@ impl Remote {
         return os_type.unwrap();
     }
 
-    fn get_transfer_location(&self, request: &Arc<TaskRequest>, path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
+    fn get_transfer_location(&self, request: &Arc<TaskRequest>, _path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
         let whoami = match self.get_whoami() {
             Ok(x) => x,
             Err(y) => { return Err(self.response.is_failed(request, &format!("cannot determine current user: {}", y))) }
