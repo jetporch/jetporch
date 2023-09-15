@@ -43,14 +43,14 @@ impl IsTask for SetTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(SetAction {
                     vars: self.vars.clone() /* templating will happen below */
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
             }
         );
     }

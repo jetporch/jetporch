@@ -18,14 +18,12 @@ use crate::registry::list::Task;
 use crate::connection::connection::Connection;
 use crate::handle::handle::TaskHandle;
 use crate::playbooks::traversal::RunState;
-//use crate::tasks::request::{TaskRequest,SudoDetails};
 use crate::inventory::hosts::Host;
-//use crate::tasks::response::{TaskStatus,TaskResponse};
 use crate::playbooks::traversal::{FsmMode,HandlerMode};
 use crate::playbooks::language::Play;
 use crate::tasks::request::SudoDetails;
 use crate::tasks::*;
-use crate::tasks::logic::empty_items_vector;
+use crate::tasks::logic::{empty_items_vector,template_items};
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
@@ -85,24 +83,23 @@ fn run_task_on_host(
 
     // FIXME: task.items must be evaluated with a method other than .evaluate
     // in all action modules for the below to work...
-    
-    let items = match evaluated.with.as_ref().is_some() {
-        false => &binding,
-        true => &evaluated.with.as_ref().as_ref().unwrap().items
-    };
 
+    let items_input = match task.with.is_some() {
+        true => task.with.as_ref().items,
+        false => None
+    };
+    
+    let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
+    let validate = TaskRequest::validate();
+    let items = template_items(handle, validate, items_input);
     let mut mapping = serde_yaml::Mapping::new();
     let mut last : Option<Result<Arc<TaskResponse>,Arc<TaskResponse>>> = None;
 
     for item in items.iter() {
-
-        println!("INSERTING AN ITEM");
             
         mapping.insert(serde_yaml::Value::String(String::from("item")), item.clone());
         host.write().unwrap().update_facts2(mapping);
 
-        let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
-        let validate = TaskRequest::validate();
         let evaluated = task.evaluate(&handle, &validate)?;
 
         let mut retries = match evaluated.and.as_ref().is_some() {
@@ -113,10 +110,6 @@ fn run_task_on_host(
             false => 1, true => evaluated.and.as_ref().as_ref().unwrap().delay
         };
     
-        let binding = empty_items_vector();
-
-
-
         loop {
             match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, fsm_mode, &handle, &validate, &evaluated) {
                 Err(e) => match retries {

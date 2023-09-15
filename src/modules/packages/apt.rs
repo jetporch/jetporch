@@ -54,17 +54,17 @@ impl IsTask for AptTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(AptAction {
-                    package:    handle.template.string_no_spaces(request, &String::from("package"), &self.package)?,
-                    version:    handle.template.string_option_no_spaces(&request, &String::from("version"), &self.version)?,
-                    update:     handle.template.boolean_option_default_false(&request, &String::from("update"), &self.update)?,
-                    remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?
+                    package:    handle.template.string_no_spaces(request, tm, &String::from("package"), &self.package)?,
+                    version:    handle.template.string_option_no_spaces(&request, tm, &String::from("version"), &self.version)?,
+                    update:     handle.template.boolean_option_default_false(&request, tm, &String::from("update"), &self.update)?,
+                    remove:     handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?)
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?)
             }
         );
     }

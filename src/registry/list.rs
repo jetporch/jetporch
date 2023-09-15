@@ -107,22 +107,22 @@ impl Task {
         };
     }
 
-    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
-            Task::Apt(x)        => x.evaluate(handle, request),
-            Task::Assert(x)     => x.evaluate(handle, request),
-            Task::Copy(x)       => x.evaluate(handle, request), 
-            Task::Dnf(x)        => x.evaluate(handle, request),
-            Task::Directory(x)  => x.evaluate(handle, request), 
-            Task::Echo(x)       => x.evaluate(handle, request),
-            Task::Fail(x)       => x.evaluate(handle, request),  
-            Task::Facts(x)      => x.evaluate(handle, request),
-            Task::File(x)       => x.evaluate(handle, request), 
-            Task::Sd_Service(x) => x.evaluate(handle, request),
-            Task::Set(x)        => x.evaluate(handle, request),
-            Task::Shell(x)      => x.evaluate(handle, request), 
-            Task::Template(x)   => x.evaluate(handle, request), 
+            Task::Apt(x)        => x.evaluate(handle, request, tm),
+            Task::Assert(x)     => x.evaluate(handle, request, tm),
+            Task::Copy(x)       => x.evaluate(handle, request, tm), 
+            Task::Dnf(x)        => x.evaluate(handle, request, tm),
+            Task::Directory(x)  => x.evaluate(handle, request, tm), 
+            Task::Echo(x)       => x.evaluate(handle, request, tm),
+            Task::Fail(x)       => x.evaluate(handle, request, tm),  
+            Task::Facts(x)      => x.evaluate(handle, request, tm),
+            Task::File(x)       => x.evaluate(handle, request, tm), 
+            Task::Sd_Service(x) => x.evaluate(handle, request, tm),
+            Task::Set(x)        => x.evaluate(handle, request, tm),
+            Task::Shell(x)      => x.evaluate(handle, request, tm), 
+            Task::Template(x)   => x.evaluate(handle, request, tm), 
         };
     }
 

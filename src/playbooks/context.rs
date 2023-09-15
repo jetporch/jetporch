@@ -23,7 +23,7 @@ use std::sync::{Arc,RwLock};
 use crate::connection::cache::ConnectionCache;
 use crate::registry::list::Task;
 use crate::util::yaml::blend_variables;
-use crate::playbooks::templar::Templar;
+use crate::playbooks::templar::{Templar,TemplateMode};
 use crate::cli::parser::CliParser;
 use crate::handle::template::BlendTarget;
 use std::ops::Deref;
@@ -117,7 +117,7 @@ impl PlaybookContext {
             env_storage:              RwLock::new(serde_yaml::Mapping::new()),
             ssh_user:                 parser.default_user.clone(),
             ssh_port:                 parser.default_port,
-            sudo:                     parser.sudo.clone()
+            sudo:                     parser.sudo.clone(),
         };
         s.load_environment();
         return s;
@@ -270,9 +270,9 @@ impl PlaybookContext {
         return blended;
     }
 
-    pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> Result<String,String> {
+    pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>, blend_target: BlendTarget, template_mode: TemplateMode) -> Result<String,String> {
         let vars = self.get_complete_blended_variables(host, blend_target);
-        return self.templar.read().unwrap().render(template, vars);
+        return self.templar.read().unwrap().render(template, vars, template_mode);
     }
 
     pub fn test_condition(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {

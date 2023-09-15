@@ -26,6 +26,18 @@ static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     return hb;
 });
 
+static HANDLEBARS_UNSTRICT: Lazy<Handlebars> = Lazy::new(|| {
+    let mut hb = Handlebars::new();
+    hb.register_escape_fn(handlebars::no_escape);
+    hb.set_strict_mode(true);
+    return hb;
+});
+
+pub TemplateMode {
+    Strict,
+    NotStrict
+}
+
 pub struct Templar {
 }
 
@@ -36,8 +48,11 @@ impl Templar {
         };
     }
 
-    pub fn render(&self, template: &String, data: serde_yaml::Mapping) -> Result<String, String> {
-        let result : Result<String, RenderError> = HANDLEBARS.render_template(template, &data);
+    pub fn render(&self, template: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<String, String> {
+        let result : Result<String, RenderError> = match template_mode {
+            TemplateMode::Strict => HANDLEBARS.render_template(template, &data),
+            TemplateMode::NotStrict => HANDLEBARS_UNSTRICT.render_template(template, &data)
+        }
         return match result {
             Ok(x) => {
                 Ok(x)

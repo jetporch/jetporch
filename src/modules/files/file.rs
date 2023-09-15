@@ -46,16 +46,16 @@ impl IsTask for FileTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(FileAction {
-                    remove:     handle.template.boolean_option_default_false(&request, &String::from("remove"), &self.remove)?,
-                    path:       handle.template.path(&request, &String::from("path"), &self.path)?,
-                    attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
+                    remove:     handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?,
+                    path:       handle.template.path(&request, tm, &String::from("path"), &self.path)?,
+                    attributes: FileAttributesInput::template(&handle, &request, tm, &self.attributes)?
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
             }
         );
     }

@@ -52,7 +52,7 @@ impl IsTask for ShellTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(ShellAction {
@@ -62,17 +62,17 @@ impl IsTask for ShellTask {
                             // do a bit of extra filtering unless users turn it off.
                             true
                         } else {
-                            handle.template.boolean_option_default_false(&request, &String::from("unsafe"), &self.unsafe_)?
+                            handle.template.boolean_option_default_false(&request, tm, &String::from("unsafe"), &self.unsafe_)?
                         }
                     },
-                    cmd:  handle.template.string_unsafe_for_shell(&request, &String::from("cmd"), &self.cmd)?,
-                    save: handle.template.string_option_no_spaces(&request, &String::from("save"), &self.save)?,
-                    failed_when: handle.template.string_option_unsafe_for_shell(&request, &String::from("failed_when"), &self.failed_when)?,
-                    changed_when: handle.template.string_option_unsafe_for_shell(&request, &String::from("changed_when"), &self.changed_when)?,
+                    cmd:  handle.template.string_unsafe_for_shell(&request, tm, &String::from("cmd"), &self.cmd)?,
+                    save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
+                    failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
+                    changed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("changed_when"), &self.changed_when)?,
 
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
             }
         );
     }

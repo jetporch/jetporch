@@ -54,17 +54,17 @@ impl IsTask for SystemdServiceTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(SystemdServiceAction {
-                    service:    handle.template.string_no_spaces(request, &String::from("service"), &self.service)?,
-                    enabled:    handle.template.boolean_option_default_none(&request, &String::from("enabled"), &self.enabled)?,
-                    started:    handle.template.boolean_option_default_none(&request, &String::from("started"), &self.started)?,
-                    restart:    handle.template.boolean_option_default_false(&request, &String::from("restart"), &self.restart)?
+                    service:    handle.template.string_no_spaces(request, tm, &String::from("service"), &self.service)?,
+                    enabled:    handle.template.boolean_option_default_none(&request, tm, &String::from("enabled"), &self.enabled)?,
+                    started:    handle.template.boolean_option_default_none(&request, tm, &String::from("started"), &self.started)?,
+                    restart:    handle.template.boolean_option_default_false(&request, tm, &String::from("restart"), &self.restart)?
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?)
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?)
             }
         );
     }

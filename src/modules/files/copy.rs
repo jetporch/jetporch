@@ -47,17 +47,17 @@ impl IsTask for CopyTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         let src = handle.template.string(&request, &String::from("src"), &self.src)?;
         return Ok(
             EvaluatedTask {
                 action: Arc::new(CopyAction {
-                    src:        handle.template.find_file_path(request, &String::from("src"), &src)?,
-                    dest:       handle.template.path(&request, &String::from("dest"), &self.dest)?,
-                    attributes: FileAttributesInput::template(&handle, &request, &self.attributes)?
+                    src:        handle.template.find_file_path(request, tm, &String::from("src"), &src)?,
+                    dest:       handle.template.path(&request, tm, &String::from("dest"), &self.dest)?,
+                    attributes: FileAttributesInput::template(&handle, &request, tm, &self.attributes)?
                 }),
-                with: Arc::new(PreLogicInput::template(&handle, &request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
             }
         );
     }

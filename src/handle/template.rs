@@ -76,10 +76,10 @@ impl Template {
         };
     }
 
-    fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, _field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
+    fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, tm: TemplateMode, _field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
-        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, blend_target);
+        let result = self.run_state.context.read().unwrap().render_template(template, tm, &self.host, blend_target);
         if result.is_ok() {
             let result_ok = result.as_ref().unwrap();
             if result_ok.eq("") {
@@ -91,25 +91,25 @@ impl Template {
     }
     
     #[inline(always)]
-    pub fn string_for_template_module_use_only(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        return self.template_unsafe_internal(request, field, template, BlendTarget::TemplateModule);
+    pub fn string_for_template_module_use_only(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        return self.template_unsafe_internal(request, tm, field, template, BlendTarget::TemplateModule);
     }
 
     #[inline(always)]
-    pub fn string_unsafe_for_shell(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        return self.template_unsafe_internal(request, field, template, BlendTarget::NotTemplateModule);
+    pub fn string_unsafe_for_shell(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        return self.template_unsafe_internal(request, tm, field, template, BlendTarget::NotTemplateModule);
     }
 
     #[inline(always)]
-    pub fn string_option_unsafe_for_shell(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+    pub fn string_option_unsafe_for_shell(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         return match template.is_none() {
             true => Ok(None),
-            false => Ok(Some(self.template_unsafe_internal(request, field, &template.as_ref().unwrap(), BlendTarget::NotTemplateModule)?))
+            false => Ok(Some(self.template_unsafe_internal(request, tm, field, &template.as_ref().unwrap(), BlendTarget::NotTemplateModule)?))
         }
     }
 
-    pub fn string(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        let result = self.string_unsafe_for_shell(request, field, template);
+    pub fn string(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.string_unsafe_for_shell(request, tm, field, template);
         return match result {
             Ok(x) => match screen_general_input_strict(&x) {
                 Ok(y) => Ok(y),
@@ -119,16 +119,16 @@ impl Template {
         };
     }
 
-    pub fn string_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        let value = self.string(request, field, template)?;
+    pub fn string_no_spaces(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let value = self.string(request, tm, field, template)?;
         if self.has_spaces(&value) {
             return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
         }
         return Ok(value.clone());
     }
 
-    pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        let prelim = self.string_option(request, field, template)?;
+    pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let prelim = self.string_option(request, tm, field, template)?;
         if prelim.is_some() {
             let value = prelim.as_ref().unwrap();
             if self.has_spaces(&value) {
@@ -138,8 +138,8 @@ impl Template {
         return Ok(prelim.clone());
     }
 
-    pub fn string_option_trim(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        let prelim = self.string_option(request, field, template)?;
+    pub fn string_option_trim(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let prelim = self.string_option(request, tm, field, template)?;
         if prelim.is_some() {
             return Ok(Some(prelim.unwrap().trim().to_string()));
         }
@@ -154,25 +154,25 @@ impl Template {
         return None;
     }
 
-    pub fn path(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
-        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, BlendTarget::NotTemplateModule);
+    pub fn path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, BlendTarget::NotTemplateModule, tm);
         let result2 = self.unwrap_string_result(request, &result)?;
         return match screen_path(&result2) {
             Ok(x) => Ok(x), Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field {}", y, field))) }
         }
     }
 
-    pub fn string_option_unsafe(&self, request: &Arc<TaskRequest>,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+    pub fn string_option_unsafe(&self, request: &Arc<TaskRequest>, tm: TemplateMode,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         if template.is_none() { return Ok(None); }
-        let result = self.string(request, field, &template.as_ref().unwrap());
+        let result = self.string(request, tm, field, &template.as_ref().unwrap());
         return match result { 
             Ok(x) => Ok(Some(x)), 
             Err(y) => { Err(self.response.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
         };
     }
 
-    pub fn string_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        let result = self.string_option_unsafe(request, field, template);
+    pub fn string_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        let result = self.string_option_unsafe(request, tm, field, template);
         return match result {
             Ok(x1) => match x1 {
                 Some(x) => match screen_general_input_strict(&x) {
@@ -186,8 +186,8 @@ impl Template {
     }
 
     #[allow(dead_code)]
-    pub fn integer(&self, request: &Arc<TaskRequest>, field: &String, template: &String)-> Result<u64,Arc<TaskResponse>> {
-        let st = self.string(request, field, template)?;
+    pub fn integer(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String)-> Result<u64,Arc<TaskResponse>> {
+        let st = self.string(request, tm, field, template)?;
         let num = st.parse::<u64>();
         return match num {
             Ok(num) => Ok(num), 
@@ -195,11 +195,11 @@ impl Template {
         }
     }
 
-    pub fn integer_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
+    pub fn integer_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
         if template.is_none() {
             return Ok(default); 
         }
-        let st = self.string(request, field, &template.as_ref().unwrap())?;
+        let st = self.string(request, tm, field, &template.as_ref().unwrap())?;
         let num = st.parse::<u64>();
         // FIXME: these can use map_err
         return match num {
@@ -209,8 +209,8 @@ impl Template {
     }
 
     #[allow(dead_code)]
-    pub fn boolean(&self, request: &Arc<TaskRequest>, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
-        let st = self.string(request,field, template)?;
+    pub fn boolean(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        let st = self.string(request, tm, field, template)?;
         let x = st.parse::<bool>();
         return match x {
             Ok(x) => Ok(x), Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not a boolean: {}", field, st)))
@@ -218,20 +218,20 @@ impl Template {
     }
 
     #[allow(dead_code)]
-    pub fn boolean_option_default_true(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
-        return self.internal_boolean_option(request, field, template, true);
+    pub fn boolean_option_default_true(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        return self.internal_boolean_option(request, tm, field, template, true);
     }
 
     #[inline(always)]
-    pub fn boolean_option_default_false(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
-        return self.internal_boolean_option(request, field, template, false);
+    pub fn boolean_option_default_false(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        return self.internal_boolean_option(request, tm, field, template, false);
     }
   
-    fn internal_boolean_option(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
+    fn internal_boolean_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
         if template.is_none() {
             return Ok(default);
         }
-        let st = self.string(request, field, &template.as_ref().unwrap())?;
+        let st = self.string(request, tm, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
             Ok(x) => Ok(x),
@@ -239,8 +239,8 @@ impl Template {
         }
     }
 
-    pub fn boolean_option_default_none(&self, request: &Arc<TaskRequest>, field: &String, template: &Option<String>)-> Result<Option<bool>,Arc<TaskResponse>>{
-        let st = self.string(request, field, &template.as_ref().unwrap())?;
+    pub fn boolean_option_default_none(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<Option<bool>,Arc<TaskResponse>>{
+        let st = self.string(request, tm, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
             Ok(x) => Ok(Some(x)), 
@@ -248,15 +248,15 @@ impl Template {
         }
     }
 
-    pub fn test_condition(&self, request: &Arc<TaskRequest>, expr: &String) -> Result<bool, Arc<TaskResponse>> {
-        let result = self.get_context().read().unwrap().test_condition(expr, &self.host);
+    pub fn test_condition(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String) -> Result<bool, Arc<TaskResponse>> {
+        let result = self.get_context().read().unwrap().test_condition(expr, &self.host, tm);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
         }
     }
 
-    pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, expr: &String, _host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
-        let result = self.get_context().read().unwrap().test_condition_with_extra_data(expr, &self.host, vars_input);
+    pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String, _host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
+        let result = self.get_context().read().unwrap().test_condition_with_extra_data(expr, &self.host, vars_input, tm);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
         }

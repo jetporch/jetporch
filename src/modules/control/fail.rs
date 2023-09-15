@@ -42,15 +42,15 @@ impl IsTask for FailTask {
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
-    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<EvaluatedTask, Arc<TaskResponse>> {
+    fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(FailAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg:  handle.template.string_option_unsafe(request, &String::from("msg"), &self.msg)?,
+                    msg:  handle.template.string_option_unsafe(request, tm, &String::from("msg"), &self.msg)?,
                 }),
-                with: Arc::new(PreLogicInput::template(handle, request, &self.with)?),
-                and: Arc::new(PostLogicInput::template(handle, request, &self.and)?),
+                with: Arc::new(PreLogicInput::template(handle, request, tm, &self.with)?),
+                and: Arc::new(PostLogicInput::template(handle, request, tm, &self.and)?),
             }
         );
     }

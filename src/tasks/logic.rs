@@ -69,19 +69,19 @@ pub struct PostLogicEvaluated {
 
 impl PreLogicInput {
 
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PreLogicEvaluated>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, tm: TemplateMode, input: &Option<Self>) -> Result<Option<PreLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PreLogicEvaluated {
             condition: match &input2.condition {
-                Some(cond2) => handle.template.test_condition(request, cond2)?,
+                Some(cond2) => handle.template.test_condition(request, tm, cond2)?,
                 None        => true
             },
-            sudo: handle.template.string_option_no_spaces(request, &String::from("sudo"), &input2.sudo)?,
+            sudo: handle.template.string_option_no_spaces(request, tm, &String::from("sudo"), &input2.sudo)?,
             subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
-            items: template_items(handle, request, &input2.items)?
+            items: template_items(handle, request, tm, &input2.items)?
         }));
     }
 
@@ -89,22 +89,22 @@ impl PreLogicInput {
 
 impl PostLogicInput {
 
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, tm: TemplateMode, input: &Option<Self>) -> Result<Option<PostLogicEvaluated>,Arc<TaskResponse>> {
         if input.is_none() {
             return Ok(None);
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PostLogicEvaluated {
-            notify: handle.template.string_option_trim(request, &String::from("notify"), &input2.notify)?,
+            notify: handle.template.string_option_trim(request, tm, &String::from("notify"), &input2.notify)?,
             // unsafe here means the options cannot be sent to the shell, which they are not.
-            delay:         handle.template.integer_option(request, &String::from("delay"), &input2.delay, 1)?,
-            ignore_errors: handle.template.boolean_option_default_false(request, &String::from("ignore_errors"), &input2.ignore_errors)?,
-            retry:         handle.template.integer_option(request, &String::from("retry"), &input2.retry, 0)?,
+            delay:         handle.template.integer_option(request, tm, &String::from("delay"), &input2.delay, 1)?,
+            ignore_errors: handle.template.boolean_option_default_false(request, tm, &String::from("ignore_errors"), &input2.ignore_errors)?,
+            retry:         handle.template.integer_option(request, tm, &String::from("retry"), &input2.retry, 0)?,
         }));
     }
 }
 
-fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, items_input: &Option<ItemsInput>) 
+pub fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, tm: TemplateMode, items_input: &Option<ItemsInput>) 
     -> Result<Vec<serde_yaml::Value>, Arc<TaskResponse>> {
 
     return match items_input {
@@ -121,7 +121,7 @@ fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, items_input: 
                 true => {
                     let value : serde_yaml::Value = blended.get(&x).unwrap().clone();
                     match value {
-                        serde_yaml::Value::Sequence(vs) => template_serde_sequence(handle, request, vs),
+                        serde_yaml::Value::Sequence(vs) => template_serde_sequence(handle, request, tm, vs),
                         _ => {
                             return Err(handle.response.is_failed(request, &format!("with/items variable did not resolve to a list")));
                         }
@@ -135,7 +135,7 @@ fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, items_input: 
         Some(ItemsInput::ItemsList(x)) => {
             let mut output : Vec<serde_yaml::Value> = Vec::new();
             for item in x.iter() {
-                output.push(serde_yaml::Value::String(handle.template.string(request, &String::from("items"), item)?));
+                output.push(serde_yaml::Value::String(handle.template.string(request, tm, &String::from("items"), item)?));
             }
             Ok(output)
         }
@@ -149,6 +149,7 @@ pub fn empty_items_vector() -> Vec<serde_yaml::Value> {
 pub fn template_serde_sequence(
     handle: &TaskHandle, 
     request: &Arc<TaskRequest>, 
+    tm: TemplateMode,
     vs: serde_yaml::Sequence) 
     -> Result<Vec<serde_yaml::Value>,Arc<TaskResponse>> {
 
@@ -158,7 +159,7 @@ pub fn template_serde_sequence(
 
         match seq_item {   
             serde_yaml::Value::String(x) => {
-                output.push(serde_yaml::Value::String(handle.template.string(request, &String::from("items"), x)?))
+                output.push(serde_yaml::Value::String(handle.template.string(request, tm, &String::from("items"), x)?))
             },
             x => { output.push(x.clone()) }
         }
