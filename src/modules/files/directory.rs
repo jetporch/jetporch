@@ -49,7 +49,7 @@ impl IsTask for DirectoryTask {
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        let recurse = match handle.template.boolean_option_default_false(&request, &String::from("recurse"), &self.recurse)? {
+        let recurse = match handle.template.boolean_option_default_false(&request, tm, &String::from("recurse"), &self.recurse)? {
             true => Recurse::Yes,
             false => Recurse::No
         };

@@ -21,6 +21,7 @@ use crate::tasks::response::TaskResponse;
 use serde::Deserialize;
 use std::collections::HashMap;
 use crate::handle::template::BlendTarget;
+use crate::playbooks::templar::TemplateMode;
 
 // this is storage behind all 'and' and 'with' statements in the program, which
 // are mostly implemented in task_fsm
@@ -34,7 +35,7 @@ pub struct PreLogicInput {
     pub items: Option<ItemsInput>
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize,Debug,Clone)]
 #[serde(untagged)]
 pub enum ItemsInput {
     ItemsString(String),
@@ -46,7 +47,7 @@ pub struct PreLogicEvaluated {
     pub condition: bool,
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
-    pub items: Vec<serde_yaml::Value>
+    pub items: Option<ItemsInput>
 }
 
 #[derive(Deserialize,Debug)]
@@ -81,7 +82,7 @@ impl PreLogicInput {
             },
             sudo: handle.template.string_option_no_spaces(request, tm, &String::from("sudo"), &input2.sudo)?,
             subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
-            items: template_items(handle, request, tm, &input2.items)?
+            items: input2.items.clone()
         }));
     }
 
@@ -104,7 +105,8 @@ impl PostLogicInput {
     }
 }
 
-pub fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, tm: TemplateMode, items_input: &Option<ItemsInput>) 
+/* this is called from the task_fsm, not above */
+pub fn template_items(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode, items_input: &Option<ItemsInput>) 
     -> Result<Vec<serde_yaml::Value>, Arc<TaskResponse>> {
 
     return match items_input {

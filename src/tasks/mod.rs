@@ -31,3 +31,4 @@ pub use crate::tasks::response::{TaskResponse,TaskStatus};
 pub use crate::tasks::request::{TaskRequestType,TaskRequest};
 pub use crate::tasks::files::{FileAttributesInput,FileAttributesEvaluated};
 pub use crate::tasks::fields::Field;
+pub use crate::playbooks::templar::TemplateMode;

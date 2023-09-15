@@ -17,6 +17,7 @@
 use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
+use crate::tasks::TemplateMode;
 use std::sync::Arc;
 use serde::Deserialize;
 
@@ -70,7 +71,11 @@ impl FileAttributesInput {
     */
 
     // template **all** the fields in FileAttributesInput fields, checking values and returning errors as needed
-    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, input: &Option<Self>) -> Result<Option<FileAttributesEvaluated>,Arc<TaskResponse>> {
+    pub fn template(handle: &TaskHandle, request: &Arc<TaskRequest>, tm: TemplateMode, input: &Option<Self>) -> Result<Option<FileAttributesEvaluated>,Arc<TaskResponse>> {
+
+        if tm == TemplateMode::Off {
+            return Ok(None);
+        }
 
         if input.is_none() {
             return Ok(None);
@@ -87,7 +92,7 @@ impl FileAttributesInput {
 
         if input2.mode.is_some()  { 
             let mode_input = input2.mode.as_ref().unwrap();
-            let templated_mode_string = handle.template.string(request, &String::from("mode"), &mode_input)?;
+            let templated_mode_string = handle.template.string(request, tm, &String::from("mode"), &mode_input)?;
             if ! templated_mode_string.starts_with("0o") {
                 return Err(handle.response.is_failed(request, &String::from(
                     format!("(a) field (mode) must have an octal-prefixed value of form 0o755, was {}", templated_mode_string)
@@ -115,8 +120,8 @@ impl FileAttributesInput {
         }
 
         return Ok(Some(FileAttributesEvaluated {
-            owner:         handle.template.string_option_no_spaces(request, &String::from("owner"), &input2.owner)?,
-            group:         handle.template.string_option_no_spaces(request, &String::from("group"), &input2.group)?,
+            owner:         handle.template.string_option_no_spaces(request, tm, &String::from("owner"), &input2.owner)?,
+            group:         handle.template.string_option_no_spaces(request, tm, &String::from("group"), &input2.group)?,
             mode:          final_mode_value,
         }));
     }

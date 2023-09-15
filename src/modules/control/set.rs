@@ -77,7 +77,7 @@ impl IsAction for SetAction {
                         if v.is_string() {
                             let ks = v.as_str().unwrap().to_string();
                             let vs = v.as_str().unwrap().to_string();
-                            let templated = handle.template.string_unsafe_for_shell(request, &ks.clone(), &vs)?;
+                            let templated = handle.template.string_unsafe_for_shell(request, TemplateMode::Strict, &ks.clone(), &vs)?;
                             mapping.insert(k.clone(), serde_yaml::Value::String(templated));
                         } else {
                             mapping.insert(k.clone(), v.clone());

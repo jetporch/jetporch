@@ -23,7 +23,7 @@ use crate::playbooks::traversal::RunState;
 use crate::playbooks::context::PlaybookContext;
 use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
-use crate::playbooks::templar::Templar;
+use crate::playbooks::templar::{Templar,TemplateMode};
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum BlendTarget {
@@ -79,7 +79,7 @@ impl Template {
     fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, tm: TemplateMode, _field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
         // note to module authors:
         // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
-        let result = self.run_state.context.read().unwrap().render_template(template, tm, &self.host, blend_target);
+        let result = self.run_state.context.read().unwrap().render_template(template, &self.host, blend_target, tm);
         if result.is_ok() {
             let result_ok = result.as_ref().unwrap();
             if result_ok.eq("") {
@@ -187,6 +187,9 @@ impl Template {
 
     #[allow(dead_code)]
     pub fn integer(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String)-> Result<u64,Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(0);
+        }
         let st = self.string(request, tm, field, template)?;
         let num = st.parse::<u64>();
         return match num {
@@ -196,6 +199,9 @@ impl Template {
     }
 
     pub fn integer_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(0);
+        }
         if template.is_none() {
             return Ok(default); 
         }
@@ -210,6 +216,9 @@ impl Template {
 
     #[allow(dead_code)]
     pub fn boolean(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(true);
+        }
         let st = self.string(request, tm, field, template)?;
         let x = st.parse::<bool>();
         return match x {
@@ -228,6 +237,9 @@ impl Template {
     }
   
     fn internal_boolean_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
+        if tm == TemplateMode::Off {
+            return Ok(false);
+        }
         if template.is_none() {
             return Ok(default);
         }
@@ -240,6 +252,12 @@ impl Template {
     }
 
     pub fn boolean_option_default_none(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<Option<bool>,Arc<TaskResponse>>{
+        if tm == TemplateMode::Off {
+            return Ok(None);
+        }
+        if template.is_none() {
+            return Ok(None);
+        }
         let st = self.string(request, tm, field, &template.as_ref().unwrap())?;
         let x = st.parse::<bool>();
         return match x {
@@ -249,6 +267,9 @@ impl Template {
     }
 
     pub fn test_condition(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String) -> Result<bool, Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(false);
+        }
         let result = self.get_context().read().unwrap().test_condition(expr, &self.host, tm);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
@@ -256,6 +277,9 @@ impl Template {
     }
 
     pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String, _host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(false);
+        }
         let result = self.get_context().read().unwrap().test_condition_with_extra_data(expr, &self.host, vars_input, tm);
         return match result {
             Ok(x) => Ok(x), Err(y) => Err(self.response.is_failed(request, &y))
@@ -263,16 +287,19 @@ impl Template {
     }
 
     #[inline(always)]
-    pub fn find_template_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
-        return self.find_sub_path(&String::from("templates"), request, field, str_path);
+    pub fn find_template_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        return self.find_sub_path(&String::from("templates"), request, tm, field, str_path);
     }
 
     #[inline(always)]
-    pub fn find_file_path(&self, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
-        return self.find_sub_path(&String::from("files"), request, field, str_path);
+    pub fn find_file_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        return self.find_sub_path(&String::from("files"), request, tm, field, str_path);
     }
 
-    fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+    fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        if tm == TemplateMode::Off {
+            return Ok(PathBuf::new());
+        }
         let prelim = match screen_path(&str_path) {
             Ok(x) => x, 
             Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field: {}", y, field))) }
@@ -292,7 +319,7 @@ impl Template {
             if path2.is_file() {
                 return Ok(path2);
             } else {
-                return Err(self.response.is_failed(request, &format!("field field ({}): no such file: {}", field, str_path)));
+                return Err(self.response.is_failed(request, &format!("field ({}): no such file: {}", field, str_path)));
             }
         }
     }
@@ -313,7 +340,7 @@ impl Template {
         let mut data = serde_yaml::Mapping::new();            
         data.insert(serde_yaml::Value::String(String::from("jet_sudo_user")), serde_yaml::Value::String(user.clone()));
         data.insert(serde_yaml::Value::String(String::from("jet_command")), serde_yaml::Value::String(cmd.clone()));
-        let result = self.detached_templar.render(&sudo_template, data)?;
+        let result = self.detached_templar.render(&sudo_template, data, TemplateMode::Strict)?;
         return Ok(result)
     }
 

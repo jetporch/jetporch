@@ -275,16 +275,16 @@ impl PlaybookContext {
         return self.templar.read().unwrap().render(template, vars, template_mode);
     }
 
-    pub fn test_condition(&self, expr: &String, host: &Arc<RwLock<Host>>) -> Result<bool,String> {
+    pub fn test_condition(&self, expr: &String, host: &Arc<RwLock<Host>>, tm: TemplateMode) -> Result<bool,String> {
         let vars = self.get_complete_blended_variables(host, BlendTarget::NotTemplateModule);
-        return self.templar.read().unwrap().test_condition(expr, vars);
+        return self.templar.read().unwrap().test_condition(expr, vars, tm);
     }
 
-    pub fn test_condition_with_extra_data(&self, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,String> {
+    pub fn test_condition_with_extra_data(&self, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping, tm: TemplateMode) -> Result<bool,String> {
         let mut vars = self.get_complete_blended_variables_as_value(host, BlendTarget::NotTemplateModule);
         blend_variables(&mut vars, serde_yaml::Value::Mapping(vars_input));
         return match vars {
-            serde_yaml::Value::Mapping(x) => self.templar.read().unwrap().test_condition(expr, x),
+            serde_yaml::Value::Mapping(x) => self.templar.read().unwrap().test_condition(expr, x, tm),
             _ => { panic!("impossible input to test_condition"); }
         };
     }

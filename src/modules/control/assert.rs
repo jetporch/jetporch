@@ -87,10 +87,10 @@ impl IsTask for AssertTask {
     }
 }
 
-fn eval_list(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, list: &Vec<String>) -> Result<Vec<bool>,Arc<TaskResponse>> {
+fn eval_list(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode, list: &Vec<String>) -> Result<Vec<bool>,Arc<TaskResponse>> {
     let mut results : Vec<bool> = Vec::new();
     for item in list.iter() {
-        results.push(handle.template.test_condition(request, item)?);
+        results.push(handle.template.test_condition(request, tm, item)?);
     }
     return Ok(results);
 }

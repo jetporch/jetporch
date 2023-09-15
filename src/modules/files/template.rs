@@ -117,7 +117,7 @@ impl TemplateAction {
 
     pub fn do_template(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, write: bool, _changes: Option<Vec<Field>>) -> Result<String, Arc<TaskResponse>> {
         let template_contents = handle.local.read_file(&request, &self.src)?;
-        let data = handle.template.string_for_template_module_use_only(&request, &String::from("src"), &template_contents)?;
+        let data = handle.template.string_for_template_module_use_only(&request, TemplateMode::Strict, &String::from("src"), &template_contents)?;
         if write {
             handle.remote.write_data(&request, &data, &self.dest, |f| { /* after save */
                 match handle.remote.process_all_common_file_attributes(request, &f, &self.attributes, Recurse::No) {

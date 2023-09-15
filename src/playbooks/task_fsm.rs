@@ -81,26 +81,27 @@ fn run_task_on_host(
     are_handlers: HandlerMode, 
     fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    // FIXME: task.items must be evaluated with a method other than .evaluate
-    // in all action modules for the below to work...
-
-    let items_input = match task.with.is_some() {
-        true => task.with.as_ref().items,
-        false => None
-    };
-    
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
-    let items = template_items(handle, validate, items_input);
+    let evaluated = task.evaluate(&handle, &validate, TemplateMode::Off)?;
+
+    let items_input = match evaluated.with.is_some() {
+        true => &evaluated.with.as_ref().as_ref().unwrap().items,
+        false => &None
+    };
+
+
     let mut mapping = serde_yaml::Mapping::new();
     let mut last : Option<Result<Arc<TaskResponse>,Arc<TaskResponse>>> = None;
 
-    for item in items.iter() {
+    let evaluated_items = template_items(&handle, &validate, TemplateMode::Strict, &items_input)?;
+
+    for item in evaluated_items.iter() {
             
         mapping.insert(serde_yaml::Value::String(String::from("item")), item.clone());
-        host.write().unwrap().update_facts2(mapping);
+        host.write().unwrap().update_facts2(mapping.clone());
 
-        let evaluated = task.evaluate(&handle, &validate)?;
+        let evaluated = task.evaluate(&handle, &validate, TemplateMode::Strict)?;
 
         let mut retries = match evaluated.and.as_ref().is_some() {
             false => 0, true => evaluated.and.as_ref().as_ref().unwrap().retry
@@ -115,6 +116,7 @@ fn run_task_on_host(
                 Err(e) => match retries {
                     0 => { return Err(e); },
                     _ => { 
+                        //println!("***** RETRIES: {}", retries);
                         retries = retries - 1;
                         run_state.visitor.read().unwrap().on_host_task_retry(&run_state.context, host, retries, delay);
                         if delay > 0 {
@@ -123,7 +125,7 @@ fn run_task_on_host(
                         }
                     }
                 },
-                Ok(x) => { last = Some(Ok(x)) }
+                Ok(x) => { last = Some(Ok(x)); break }
             }
         }
     

@@ -33,9 +33,11 @@ static HANDLEBARS_UNSTRICT: Lazy<Handlebars> = Lazy::new(|| {
     return hb;
 });
 
-pub TemplateMode {
+#[derive(PartialEq,Copy,Clone,Debug)]
+pub enum TemplateMode {
     Strict,
-    NotStrict
+    NotStrict,
+    Off
 }
 
 pub struct Templar {
@@ -51,8 +53,10 @@ impl Templar {
     pub fn render(&self, template: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<String, String> {
         let result : Result<String, RenderError> = match template_mode {
             TemplateMode::Strict => HANDLEBARS.render_template(template, &data),
-            TemplateMode::NotStrict => HANDLEBARS_UNSTRICT.render_template(template, &data)
-        }
+            TemplateMode::NotStrict => HANDLEBARS_UNSTRICT.render_template(template, &data),
+            /* this is only used to get back the raw 'items' collection inside the task FSM */
+            TemplateMode::Off => Ok(String::from("empty"))
+        };
         return match result {
             Ok(x) => {
                 Ok(x)
@@ -63,9 +67,13 @@ impl Templar {
         }
     }
 
-    pub fn test_condition(&self, expr: &String, data: serde_yaml::Mapping) -> Result<bool, String> {
+    pub fn test_condition(&self, expr: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<bool, String> {
+        if (template_mode == TemplateMode::Off) {
+            /* this is only used to get back the raw 'items' collection inside the task FSM */
+            return Ok(true);
+        }
         let template = format!("{{{{#if {expr} }}}}true{{{{ else }}}}false{{{{/if}}}}");
-        let result = self.render(&template, data);
+        let result = self.render(&template, data, TemplateMode::Strict);
         match result {
             Ok(x) => { 
                 if x.as_str().eq("true") {

@@ -48,7 +48,7 @@ impl IsTask for CopyTask {
     fn get_name(&self) -> Option<String> { self.name.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
-        let src = handle.template.string(&request, &String::from("src"), &self.src)?;
+        let src = handle.template.string(&request, tm, &String::from("src"), &self.src)?;
         return Ok(
             EvaluatedTask {
                 action: Arc::new(CopyAction {
