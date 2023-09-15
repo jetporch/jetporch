@@ -180,6 +180,10 @@ impl Host {
         blend_variables(&mut self.facts, serde_yaml::Value::Mapping(map));
     }
 
+    pub fn update_facts2(&mut self, mapping: serde_yaml::Mapping) {
+        blend_variables(&mut self.facts, serde_yaml::Value::Mapping(mapping));
+    }
+
     pub fn get_variables_yaml(&self) -> Result<String, String> {
         let result = serde_yaml::to_string(&self.get_variables());
         return match result {

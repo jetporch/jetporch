@@ -191,6 +191,9 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
 
 fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
 
+    let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
+    if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
+
     run_state.context.write().unwrap().set_task(&task);
     run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
     run_state.context.write().unwrap().increment_task_count();

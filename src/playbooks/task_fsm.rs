@@ -25,16 +25,17 @@ use crate::playbooks::traversal::{FsmMode,HandlerMode};
 use crate::playbooks::language::Play;
 use crate::tasks::request::SudoDetails;
 use crate::tasks::*;
+use crate::tasks::logic::empty_items_vector;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
 use std::{thread, time};
 
 
-pub fn _task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
+pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
-    if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
+    //if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
     let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
     for (_,v) in hosts { host_objects.push(Arc::clone(&v)); }
 
@@ -82,34 +83,66 @@ fn run_task_on_host(
     are_handlers: HandlerMode, 
     fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
-    let validate = TaskRequest::validate();
-    let evaluated = task.evaluate(&handle, &validate)?;
+    // FIXME: task.items must be evaluated with a method other than .evaluate
+    // in all action modules for the below to work...
+    
+    let items = match evaluated.with.as_ref().is_some() {
+        false => &binding,
+        true => &evaluated.with.as_ref().as_ref().unwrap().items
+    };
 
-    let mut retries = match evaluated.and.as_ref().is_some() {
-        false => 0, true => evaluated.and.as_ref().as_ref().unwrap().retry
-    };
+    let mut mapping = serde_yaml::Mapping::new();
+    let mut last : Option<Result<Arc<TaskResponse>,Arc<TaskResponse>>> = None;
+
+    for item in items.iter() {
+
+        println!("INSERTING AN ITEM");
+            
+        mapping.insert(serde_yaml::Value::String(String::from("item")), item.clone());
+        host.write().unwrap().update_facts2(mapping);
+
+        let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
+        let validate = TaskRequest::validate();
+        let evaluated = task.evaluate(&handle, &validate)?;
+
+        let mut retries = match evaluated.and.as_ref().is_some() {
+            false => 0, true => evaluated.and.as_ref().as_ref().unwrap().retry
+        };
     
-    let delay = match evaluated.and.as_ref().is_some() {
-        false => 1, true => evaluated.and.as_ref().as_ref().unwrap().delay
-    };
+        let delay = match evaluated.and.as_ref().is_some() {
+            false => 1, true => evaluated.and.as_ref().as_ref().unwrap().delay
+        };
     
-    loop {
-        match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, fsm_mode, &handle, &validate, &evaluated) {
-            Err(e) => match retries {
-                0 => { return Err(e); },
-                _ => { 
-                    retries = retries - 1;
-                    run_state.visitor.read().unwrap().on_host_task_retry(&run_state.context, host, retries, delay);
-                    if delay > 0 {
-                        let duration = time::Duration::from_secs(delay);
-                        thread::sleep(duration);
+        let binding = empty_items_vector();
+
+
+
+        loop {
+            match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, fsm_mode, &handle, &validate, &evaluated) {
+                Err(e) => match retries {
+                    0 => { return Err(e); },
+                    _ => { 
+                        retries = retries - 1;
+                        run_state.visitor.read().unwrap().on_host_task_retry(&run_state.context, host, retries, delay);
+                        if delay > 0 {
+                            let duration = time::Duration::from_secs(delay);
+                            thread::sleep(duration);
+                        }
                     }
-                }
-            },
-            Ok(x) => { return Ok(x) }
+                },
+                Ok(x) => { last = Some(Ok(x)) }
+            }
         }
+    
     }
+
+    if last.is_some() {
+        return last.unwrap();
+    }
+    else {
+        return Err(handle.response.is_failed(&validate, &String::from("with/items contained no entries")));    
+    }
+
 }
 
 

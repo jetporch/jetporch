@@ -39,7 +39,6 @@ pub struct PreLogicInput {
 pub enum ItemsInput {
     ItemsString(String),
     ItemsList(Vec<String>),
-    ItemsDict(HashMap<String,serde_yaml::Value>)
 }
 
 #[derive(Debug)]
@@ -47,7 +46,7 @@ pub struct PreLogicEvaluated {
     pub condition: bool,
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
-    pub items: Option<Vec<HashMap<String,serde_yaml::Value>>>
+    pub items: Vec<serde_yaml::Value>
 }
 
 #[derive(Deserialize,Debug)]
@@ -106,42 +105,63 @@ impl PostLogicInput {
 }
 
 fn template_items(handle: &TaskHandle, request: &Arc<TaskRequest>, items_input: &Option<ItemsInput>) 
-    -> Result<Option<Vec<HashMap<String,serde_yaml::Value>>>, Arc<TaskResponse>> {
+    -> Result<Vec<serde_yaml::Value>, Arc<TaskResponse>> {
 
     return match items_input {
-        None => Ok(None),
+
+        None => Ok(empty_items_vector()),
+        
+        // with/items: varname
         Some(ItemsInput::ItemsString(x)) => {
-            let blended = handle.run_state.context.read().unwrap().get_complete_blended_variables(&handle.host, BlendTarget::NotTemplateModule);
+            let blended = handle.run_state.context.read().unwrap().get_complete_blended_variables(
+                &handle.host, 
+                BlendTarget::NotTemplateModule
+            );
             match blended.contains_key(&x) {
                 true => {
                     let value : serde_yaml::Value = blended.get(&x).unwrap().clone();
-                    Ok(convert_value_to_items_list(&value))
+                    match value {
+                        serde_yaml::Value::Sequence(vs) => template_serde_sequence(handle, request, vs),
+                        _ => {
+                            return Err(handle.response.is_failed(request, &format!("with/items variable did not resolve to a list")));
+                        }
+                    }
                 }, 
                 false => {
                     return Err(handle.response.is_failed(request, &format!("variable not found for items: {}", x)))
                 }
             }
-        }
+        },
         Some(ItemsInput::ItemsList(x)) => {
-            return Err(handle.response.is_failed(request, &String::from("not supported for with_items yet")))
-        }
-        Some(ItemsInput::ItemsDict(x)) => {
-            return Err(handle.response.is_failed(request, &String::from("not supported for with_items yet")))
+            let mut output : Vec<serde_yaml::Value> = Vec::new();
+            for item in x.iter() {
+                output.push(serde_yaml::Value::String(handle.template.string(request, &String::from("items"), item)?));
+            }
+            Ok(output)
         }
     }
-
 }
 
-fn convert_value_to_items_list(value: &serde_yaml::Value) -> Option<Vec<HashMap<String,serde_yaml::Value>>> {
-    match value {
-        serde_yaml::Value::Sequence(x) => {
-            panic!("in progress, got a list");
-        }
-        serde_yaml::Value::Mapping(x) => {
-            panic!("in progress, got a mapping");
-        }
-        _ => {
-            panic!("in progress got something we don't want");
+pub fn empty_items_vector() -> Vec<serde_yaml::Value> {
+    return vec![serde_yaml::Value::Bool(true)];
+}
+
+pub fn template_serde_sequence(
+    handle: &TaskHandle, 
+    request: &Arc<TaskRequest>, 
+    vs: serde_yaml::Sequence) 
+    -> Result<Vec<serde_yaml::Value>,Arc<TaskResponse>> {
+
+    let mut output : Vec<serde_yaml::Value> = Vec::new();
+
+    for seq_item in vs.iter() {
+
+        match seq_item {   
+            serde_yaml::Value::String(x) => {
+                output.push(serde_yaml::Value::String(handle.template.string(request, &String::from("items"), x)?))
+            },
+            x => { output.push(x.clone()) }
         }
     }
+    return Ok(output);
 }
