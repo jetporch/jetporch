@@ -54,13 +54,15 @@ pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub limit_groups: Vec<String>,
+    pub limit_hosts: Vec<String>,
     pub inventory_set: bool,
     pub playbook_set: bool,
     pub mode: u32,
     pub needs_help: bool,
     pub needs_version: bool,
-    pub hosts: Vec<String>,
-    pub groups: Vec<String>,
+    pub show_hosts: Vec<String>,
+    pub show_groups: Vec<String>,
     pub batch_size: Option<usize>,
     pub default_user: String,
     pub sudo: Option<String>,
@@ -89,11 +91,11 @@ fn is_cli_mode_valid(value: &String) -> bool {
 
 fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     return match s.as_str() {
-        "local"       => Ok(CLI_MODE_LOCAL),
-        "check-local" => Ok(CLI_MODE_CHECK_LOCAL),
-        "ssh"         => Ok(CLI_MODE_SSH),
-        "check-ssh"   => Ok(CLI_MODE_CHECK_SSH),
-        "show"        => Ok(CLI_MODE_SHOW),
+        "local"          => Ok(CLI_MODE_LOCAL),
+        "check-local"    => Ok(CLI_MODE_CHECK_LOCAL),
+        "ssh"            => Ok(CLI_MODE_SSH),
+        "check-ssh"      => Ok(CLI_MODE_CHECK_SSH),
+        "show-inventory" => Ok(CLI_MODE_SHOW),
         _ => Err(format!("invalid mode: {}", s))
     }
 }
@@ -105,8 +107,10 @@ const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
 const ARGUMENT_PLAYBOOK_SHORT: &'static str  = "-p";
 const ARGUMENT_ROLES: &'static str  = "--roles";
 const ARGUMENT_ROLES_SHORT: &'static str  = "-r";
-const ARGUMENT_GROUPS: &'static str = "--groups";
-const ARGUMENT_HOSTS: &'static str = "--hosts";
+const ARGUMENT_SHOW_GROUPS: &'static str = "--show-groups";
+const ARGUMENT_SHOW_HOSTS: &'static str = "--show-hosts";
+const ARGUMENT_LIMIT_GROUPS: &'static str = "--limit-groups";
+const ARGUMENT_LIMIT_HOSTS: &'static str = "--limit-hosts";
 const ARGUMENT_HELP: &'static str = "--help";
 const ARGUMENT_PORT: &'static str = "--port";
 const ARGUMENT_USER: &'static str = "--user";
@@ -147,7 +151,7 @@ fn show_help(git_version: &String) {
                       | *Category* | *Mode* | *Description*\n\
                       | --- | --- | ---\n\
                       | utility: |\n\
-                      | | show | displays inventory, specify --groups or --hosts\n\
+                      | | show-inventory | displays inventory, specify --show-groups group1:group2 or --show-hosts host1:host2\n\
                       | |\n\
                       | --- | --- | ---\n\
                       | local machine management: |\n\
@@ -183,13 +187,11 @@ fn show_help(git_version: &String) {
                        | |\n\
                        | | -t, --threads N| how many parallel threads to use. Alternatively set $JET_THREADS\n\
                        | |\n\
-                       | | --batch N| (PENDING FEATURE)\n\
+                       | | --batch N| fully configure this many hosts before moving to the next batch\n\
                        | |\n\
-                       | --- | ---\n\
-                       | scope narrowing:\n\
-                       | | --groups group1:group2| limits scope for playbook runs, or used with 'show'\n\
+                       | | --limit-groups group1:group2 | further limits scope for playbook runs\n\
                        | |\n\
-                       | | --hosts host1| limits scope for playbook runs, or used with 'show'\n\
+                       | | --limit-hosts host1 | further limits scope for playbook runs\n\
                        | |\n\
                        | --- | ---\n\
                        | misc:\n\
@@ -216,8 +218,8 @@ impl CliParser  {
             needs_help: false,
             needs_version: false,
             mode: CLI_MODE_UNSET,
-            hosts: Vec::new(),
-            groups: Vec::new(),
+            show_hosts: Vec::new(),
+            show_groups: Vec::new(),
             batch_size: None,
             default_user: match env::var("JET_SSH_USER") {
                 Ok(x) => {
@@ -251,7 +253,9 @@ impl CliParser  {
             playbook_set: false,
             verbosity: 0,
             git_version: git_version(),
-            build_time: format!("{:?}", built_time())
+            build_time: format!("{:?}", built_time()),
+            limit_groups: Vec::new(),
+            limit_hosts: Vec::new()
         };
         return p;
     }
@@ -327,8 +331,10 @@ impl CliParser  {
                             ARGUMENT_SUDO              => self.store_sudo_value(&args[arg_count]),
                             ARGUMENT_USER              => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_USER_SHORT        => self.store_default_user_value(&args[arg_count]),
-                            ARGUMENT_GROUPS            => self.store_groups_value(&args[arg_count]),
-                            ARGUMENT_HOSTS             => self.store_hosts_value(&args[arg_count]),
+                            ARGUMENT_SHOW_GROUPS       => self.store_show_groups_value(&args[arg_count]),
+                            ARGUMENT_SHOW_HOSTS        => self.store_show_hosts_value(&args[arg_count]),
+                            ARGUMENT_LIMIT_GROUPS       => self.store_limit_groups_value(&args[arg_count]),
+                            ARGUMENT_LIMIT_HOSTS        => self.store_limit_hosts_value(&args[arg_count]),
                             ARGUMENT_BATCH_SIZE        => self.store_batch_size_value(&args[arg_count]),
                             ARGUMENT_THREADS           => self.store_threads_value(&args[arg_count]),
                             ARGUMENT_THREADS_SHORT     => self.store_threads_value(&args[arg_count]),
@@ -441,18 +447,34 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_groups_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_show_groups_value(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
-            Ok(values)  =>  { self.groups = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_GROUPS, err_msg)),
+            Ok(values)  =>  { self.show_groups = values; },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_GROUPS, err_msg)),
         }
         return Ok(());
     }
 
-    fn store_hosts_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_show_hosts_value(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
-            Ok(values)  =>  { self.hosts = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_HOSTS, err_msg)),
+            Ok(values)  =>  { self.show_hosts = values; },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_HOSTS, err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn store_limit_groups_value(&mut self, value: &String) -> Result<(), String> {
+        match split_string(value) {
+            Ok(values)  =>  { self.limit_groups = values; },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_GROUPS, err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn store_limit_hosts_value(&mut self, value: &String) -> Result<(), String> {
+        match split_string(value) {
+            Ok(values)  =>  { self.limit_hosts = values; },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_HOSTS, err_msg)),
         }
         return Ok(());
     }

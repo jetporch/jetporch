@@ -46,6 +46,8 @@ pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub limit_hosts: Vec<String>,
+    pub limit_groups: Vec<String>,
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
@@ -115,7 +117,9 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     run_state.visitor.read().unwrap().on_play_start(&run_state.context);
 
     validate_groups(run_state, play)?;
+    
     let hosts = get_play_hosts(run_state, play);
+
     validate_hosts(run_state, play, &hosts)?;
     load_vars_into_context(run_state, play)?;
     //load_external_modules(run_state, play)?;
@@ -292,15 +296,49 @@ fn get_host_batches(_run_state: &Arc<RunState>, _play: &Play, _batch_size: usize
 }
 
 fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>>> {
+    
     let groups = &play.groups;
     let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
+    
+    let has_group_limits = match run_state.limit_groups.len() {
+        0 => false,
+        _ => true
+    };
+    let has_host_limits = match run_state.limit_hosts.len() {
+        0 => false,
+        _ => true
+    };
+
     for group in groups.iter() {
+
         let group_object = run_state.inventory.read().unwrap().get_group(&group.clone());
         let hosts = group_object.read().unwrap().get_descendant_hosts();
         for (k,v) in hosts.iter() {
-            results.insert(k.clone(), Arc::clone(&v));
+            
+
+            if has_host_limits && ! run_state.limit_hosts.contains(k) {
+                continue;
+            }
+            
+            if has_group_limits {
+                let mut ok = false;
+                for group_name in run_state.limit_groups.iter() {
+                    if v.read().unwrap().has_group(group_name) {
+                        ok = true; 
+                        break;
+                    }
+                }
+                if ok {
+                    results.insert(k.clone(), Arc::clone(&v));
+                }
+            } 
+            else {
+                results.insert(k.clone(), Arc::clone(&v));
+            }
+
         }
     }
+
     return results.iter().map(|(_k,v)| Arc::clone(&v)).collect();
 }
 

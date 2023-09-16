@@ -105,13 +105,13 @@ pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Re
     // jetp show -i inventory
     // jetp show -i inventory --groups g1:g2
     // jetp show -i inventory --hosts h1:h2
-    if parser.groups.is_empty() && parser.hosts.is_empty() {
+    if parser.show_groups.is_empty() && parser.show_hosts.is_empty() {
         return show_inventory_group(inventory, &String::from("all"));
     }
-    for group_name in parser.groups.iter() {
+    for group_name in parser.show_groups.iter() {
         return show_inventory_group(inventory, &group_name.clone());
     }
-    for host_name in parser.hosts.iter() {
+    for host_name in parser.show_hosts.iter() {
         return show_inventory_host(inventory, &host_name.clone());
     }
     return Ok(());

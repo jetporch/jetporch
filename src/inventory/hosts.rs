@@ -115,6 +115,15 @@ impl Host {
         return results;
     }
 
+    pub fn has_group(&self, group_name: &String) -> bool {
+        for (k,v) in self.groups.iter() {
+            if k == group_name {
+                return true;
+            }
+        }
+        return false;
+    }
+
     #[inline(always)]
     pub fn get_group_names(&self) -> Vec<String> {
         return self.get_groups().iter().map(|(k,_v)| k.clone()).collect();
