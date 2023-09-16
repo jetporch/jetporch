@@ -24,11 +24,11 @@ use crate::playbooks::visitor::PlaybookVisitor;
 use crate::inventory::inventory::Inventory;
 use std::sync::{Arc,RwLock};
 
-struct SyntaxVisitor {}
-impl SyntaxVisitor {
+struct CheckVisitor {}
+impl CheckVisitor {
     pub fn new() -> Self { Self {} }
 }
-impl PlaybookVisitor for SyntaxVisitor {
+impl PlaybookVisitor for CheckVisitor {
     fn is_check_mode(&self)     -> bool { return true; }
 }
 
@@ -40,24 +40,33 @@ impl PlaybookVisitor for LiveVisitor {
     fn is_check_mode(&self)     -> bool { return false; }
 }
 
+enum CheckMode {
+    Yes,
+    No
+}
+
+enum SshMode {
+    Yes,
+    No
+}
+
 pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    let run_state = Arc::new(RunState {
-        inventory: Arc::clone(inventory),
-        playbook_paths: Arc::clone(&parser.playbook_paths),
-        role_paths: Arc::clone(&parser.role_paths),
-        limit_hosts: parser.limit_hosts.clone(),
-        limit_groups: parser.limit_groups.clone(),
-        context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
-        visitor: Arc::new(RwLock::new(LiveVisitor::new())),
-        connection_factory: Arc::new(RwLock::new(SshFactory::new(inventory))),
-    });
-    return match playbook_traversal(&run_state) {
-        Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
-        Err(s) => { println!("{}", s); 1 }
-    };
+    return playbook(inventory, parser, CheckMode::No, SshMode::Yes);
+}
+
+pub fn playbook_check_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
+    return playbook(inventory, parser, CheckMode::Yes, SshMode::Yes);
 }
 
 pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
+    return playbook(inventory, parser, CheckMode::No, SshMode::No);
+}
+
+pub fn playbook_check_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
+    return playbook(inventory, parser, CheckMode::Yes, SshMode::No);
+}
+
+fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: CheckMode, ssh: SshMode) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
@@ -65,8 +74,14 @@ pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) ->
         limit_hosts: parser.limit_hosts.clone(),
         limit_groups: parser.limit_groups.clone(),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
-        visitor: Arc::new(RwLock::new(LiveVisitor::new())),
-        connection_factory: Arc::new(RwLock::new(LocalFactory::new(inventory))),
+        visitor: match check_mode {
+            CheckMode::Yes => Arc::new(RwLock::new(CheckVisitor::new())),
+            CheckMode::No => Arc::new(RwLock::new(LiveVisitor::new())),
+        },
+        connection_factory: match ssh {
+            SshMode::Yes => Arc::new(RwLock::new(SshFactory::new(inventory))),
+            SshMode::No => Arc::new(RwLock::new(LocalFactory::new(inventory))),
+        }
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),
@@ -74,4 +89,3 @@ pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) ->
     };
 }
 
-// FIXME: add check modes for SSH and local

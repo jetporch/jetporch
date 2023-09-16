@@ -32,11 +32,6 @@ use std::path::Path;
 use std::env;
 
 #[derive(PartialEq,Copy,Debug,Clone)]
-pub enum FsmMode {
-    FullRun,
-}
-
-#[derive(PartialEq,Copy,Debug,Clone)]
 pub enum HandlerMode {
     NormalTasks,
     Handlers
@@ -202,7 +197,7 @@ fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handler
     run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
     run_state.context.write().unwrap().increment_task_count();
 
-    fsm_run_task(run_state, play, task, are_handlers, FsmMode::FullRun)?;
+    fsm_run_task(run_state, play, task, are_handlers)?;
 
     return Ok(());
 }

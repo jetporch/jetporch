@@ -158,7 +158,48 @@ pub trait PlaybookVisitor : Send + Sync {
             TaskStatus::Failed => {
                 println!("{color_yellow}✓ {} => failed (ignored){color_reset}", &host2.name);
             }
-            _ => { panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); }
+            _ => {
+                panic!("on host {}, invalid final task return status, FSM should have rejected: {:?}", host2.name, task_response); 
+            }
+        }
+    }
+
+    fn on_host_task_check_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+        let host2 = host.read().unwrap();
+        let mut context = context.write().unwrap();
+        context.increment_attempted_for_host(&host2.name);
+        match &task_response.status {
+            TaskStatus::NeedsCreation  =>  {
+                println!("{color_blue}✓ {} => would create{color_reset}",  &host2.name);
+                context.increment_created_for_host(&host2.name);
+            },
+            TaskStatus::NeedsRemoval  =>  {
+                println!("{color_blue}✓ {} => would remove{color_reset}",  &host2.name);
+                context.increment_removed_for_host(&host2.name);
+            },
+            TaskStatus::NeedsModification =>  {
+                println!("{color_blue}✓ {} => would modify{color_reset}", &host2.name);
+                context.increment_modified_for_host(&host2.name);
+            },
+            TaskStatus::NeedsExecution =>  {
+                println!("{color_blue}✓ {} => would run{color_reset}", &host2.name);
+                context.increment_executed_for_host(&host2.name);
+            },
+            TaskStatus::IsPassive  =>  {
+                context.increment_passive_for_host(&host2.name);
+            }
+            TaskStatus::IsMatched  =>  {
+                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name);
+            }
+            TaskStatus::IsSkipped  =>  {
+                println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name);
+            }
+            TaskStatus::Failed => {
+                println!("{color_yellow}✓ {} => failed (ignored){color_reset}", &host2.name);
+            }
+            _ => {
+                panic!("on host {}, invalid check-mode final task return status, FSM should have rejected: {:?}", host2.name, task_response); 
+            }
         }
     }
 

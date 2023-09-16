@@ -19,7 +19,7 @@ use crate::connection::connection::Connection;
 use crate::handle::handle::TaskHandle;
 use crate::playbooks::traversal::RunState;
 use crate::inventory::hosts::Host;
-use crate::playbooks::traversal::{FsmMode,HandlerMode};
+use crate::playbooks::traversal::HandlerMode;
 use crate::playbooks::language::Play;
 use crate::tasks::request::SudoDetails;
 use crate::tasks::*;
@@ -30,8 +30,9 @@ use rayon::prelude::*;
 use std::{thread, time};
 
 
-pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, fsm_mode: FsmMode) -> Result<(), String> {
+pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
 
+    let check =  run_state.visitor.read().unwrap().is_check_mode();
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     //if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
     let mut host_objects : Vec<Arc<RwLock<Host>>> = Vec::new();
@@ -46,16 +47,17 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,play,task,are_handlers,fsm_mode);
+                let task_response = run_task_on_host(&run_state,&connection,&host,play,task,are_handlers);
 
                 match task_response {
                     Ok(x) => {
-                        run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host);
+                        match check {
+                            false => run_state.visitor.read().unwrap().on_host_task_ok(&run_state.context, &x, &host),
+                            true => run_state.visitor.read().unwrap().on_host_task_check_ok(&run_state.context, &x, &host)
+                        }
                     }
                     Err(x) => {
-                        match fsm_mode { 
-                            FsmMode::FullRun => { run_state.context.write().unwrap().fail_host(&host); }
-                        }
+                        run_state.context.write().unwrap().fail_host(&host);
                         run_state.visitor.read().unwrap().on_host_task_failed(&run_state.context, &x, &host);
                     },
                 }
@@ -78,8 +80,7 @@ fn run_task_on_host(
     host: &Arc<RwLock<Host>>,
     play: &Play, 
     task: &Task,
-    are_handlers: HandlerMode, 
-    fsm_mode: FsmMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    are_handlers: HandlerMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
     let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
@@ -112,7 +113,7 @@ fn run_task_on_host(
         };
     
         loop {
-            match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, fsm_mode, &handle, &validate, &evaluated) {
+            match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, &handle, &validate, &evaluated) {
                 Err(e) => match retries {
                     0 => { return Err(e); },
                     _ => { 
@@ -140,7 +141,6 @@ fn run_task_on_host(
 
 }
 
-
 // the "on this host" method body from _task
 fn run_task_on_host_inner(
     run_state: &Arc<RunState>,
@@ -149,7 +149,6 @@ fn run_task_on_host_inner(
     play: &Play, 
     _task: &Task,
     are_handlers: HandlerMode, 
-    _fsm_mode: FsmMode,
     handle: &Arc<TaskHandle>,
     validate: &Arc<TaskRequest>,
     evaluated: &EvaluatedTask) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
@@ -201,6 +200,16 @@ fn run_task_on_host_inner(
     // FIXME: break up into smaller functions
     let query = TaskRequest::query(&sudo_details);
     let qrc = action.dispatch(&handle, &query);
+
+    if run_state.visitor.read().unwrap().is_check_mode() {
+        match qrc {
+            Ok(ref qrc_ok) => match qrc_ok.status {
+                TaskStatus::NeedsPassive => { /* allow modules like !facts or set to execute */ },
+                _ => { return qrc; }
+            },
+            _ => {}
+        }
+    }
 
     let (_request, prelim_result) : (Arc<TaskRequest>, Result<Arc<TaskResponse>,Arc<TaskResponse>>) = match qrc {
         Ok(ref qrc_ok) => match qrc_ok.status {
@@ -277,22 +286,19 @@ fn run_task_on_host_inner(
                 },
                 false => (Arc::clone(&query), Ok(handle.response.is_executed(&Arc::clone(&query))))
             },
-            TaskStatus::NeedsPassive => match modify_mode {
-                true => {
-                    let req = TaskRequest::passive(&sudo_details);
-                    let prc = action.dispatch(&handle, &req);
-                    match prc {
-                        Ok(ref prc_ok) => match prc_ok.status {
-                            TaskStatus::IsPassive => (req, prc),
-                            _ => { panic!("module internal fsm state invalid (on passive): {:?}", prc); }
-                        }
-                        Err(ref prc_err)  => match prc_err.status {
-                            TaskStatus::Failed  => (req, prc),
-                            _ => { panic!("module internal fsm state invalid (on passive): {:?}", prc); }
-                        }
+            TaskStatus::NeedsPassive => {
+                let req = TaskRequest::passive(&sudo_details);
+                let prc = action.dispatch(&handle, &req);
+                match prc {
+                    Ok(ref prc_ok) => match prc_ok.status {
+                        TaskStatus::IsPassive => (req, prc),
+                        _ => { panic!("module internal fsm state invalid (on passive): {:?}", prc); }
                     }
-                },
-                false => (Arc::clone(&query), Ok(handle.response.is_executed(&Arc::clone(&query))))
+                    Err(ref prc_err)  => match prc_err.status {
+                        TaskStatus::Failed  => (req, prc),
+                        _ => { panic!("module internal fsm state invalid (on passive): {:?}", prc); }
+                    }
+                }
             },
             TaskStatus::Failed => { panic!("module returned failure inside an Ok(): {:?}", qrc); },
             _ => { panic!("module internal fsm state unknown (on query): {:?}", qrc); }
