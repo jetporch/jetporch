@@ -80,10 +80,14 @@ fn get_actual_connection(run_state: &Arc<RunState>, host: &Arc<RwLock<Host>>, ta
     return match task.get_with() {
         Some(task_with) => match task_with.delegate_to {
             Some(pre_delegate) => {
+                let hn = host.read().unwrap().name.clone();
+                let mut mapping = serde_yaml::Mapping::new();
+                mapping.insert(serde_yaml::Value::String(String::from("delegate_host")), serde_yaml::Value::String(hn.clone()));
+                host.write().unwrap().update_facts2(mapping);
+                
                 let delegate = run_state.context.read().unwrap().render_template(&pre_delegate, host, BlendTarget::NotTemplateModule, TemplateMode::Strict)?;
 
-                let hn = host.read().unwrap().name.clone();
-                if delegate.eq(&hn) {
+                if delegate.eq(&hn.clone()) {
                     return Ok((None, input_connection))
                 }
                 else if delegate.eq(&String::from("localhost")) {

@@ -67,6 +67,13 @@ impl Templar {
         }
     }
 
+    pub fn render_value(&self, template: &String, data: serde_yaml::Value, template_mode: TemplateMode) -> Result<String, String> {
+        match data {
+            serde_yaml::Value::Mapping(x) => { return self.render(template, x, template_mode); }
+            _ => { panic!("this method requires a mapping"); }
+        }
+    }
+
     pub fn test_condition(&self, expr: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<bool, String> {
         if (template_mode == TemplateMode::Off) {
             /* this is only used to get back the raw 'items' collection inside the task FSM */
