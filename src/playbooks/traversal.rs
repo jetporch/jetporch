@@ -321,7 +321,6 @@ fn get_host_batches(run_state: &Arc<RunState>, play: &Play, hosts: Vec<Arc<RwLoc
     let batch_count = match host_count {
         0 => 1,
         _ => {
-
             let mut count = host_count / batch_size;
             let remainder = host_count % batch_size;
             if remainder > 0 { count = count + 1 }
@@ -329,9 +328,9 @@ fn get_host_batches(run_state: &Arc<RunState>, play: &Play, hosts: Vec<Arc<RwLoc
         }
     };
 
-    // use std::collections::VecDeque; ???
 
     let mut hosts_list : Vec<Arc<RwLock<Host>>> = hosts.iter().map(|v| Arc::clone(&v)).collect();
+    hosts_list.sort_by(|b, a| a.read().unwrap().name.partial_cmp(&b.read().unwrap().name).unwrap());
 
     let mut results : HashMap<usize, Vec<Arc<RwLock<Host>>>> = HashMap::new();
     for batch_num in 0..batch_count {
