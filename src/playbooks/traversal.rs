@@ -47,7 +47,8 @@ pub struct RunState {
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
-    pub tags: Option<Vec<String>>
+    pub tags: Option<Vec<String>>,
+    pub allow_localhost_delegation: bool
 }
 
 pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {

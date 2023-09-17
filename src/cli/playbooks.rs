@@ -90,7 +90,8 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
             ConnectionMode::Local => Arc::new(RwLock::new(LocalFactory::new(inventory))),
             ConnectionMode::Simulate => Arc::new(RwLock::new(NoFactory::new()))
         },
-        tags: parser.tags.clone()
+        tags: parser.tags.clone(),
+        allow_localhost_delegation: parser.allow_localhost_delegation
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),

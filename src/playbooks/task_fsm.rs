@@ -83,7 +83,11 @@ fn get_actual_connection(run_state: &Arc<RunState>, host: &Arc<RwLock<Host>>, ta
                     return Ok((None, input_connection))
                 }
                 else if delegate.eq(&String::from("localhost")) {
-                    return Ok((Some(delegate.clone()), run_state.connection_factory.read().unwrap().get_local_connection(&run_state.context)?))
+                    if run_state.allow_localhost_delegation {
+                        return Ok((Some(delegate.clone()), run_state.connection_factory.read().unwrap().get_local_connection(&run_state.context)?))
+                    } else {
+                        return Err(format!("localhost delegation has potential security implementations, pass --allow-localhost-delegation to sign off"));
+                    }
                 }
                 else {
                     let has_host = run_state.inventory.read().unwrap().has_host(&delegate);

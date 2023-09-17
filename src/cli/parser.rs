@@ -72,6 +72,7 @@ pub struct CliParser {
     pub git_version: String,
     pub build_time: String,
     pub tags: Option<Vec<String>>,
+    pub allow_localhost_delegation: bool
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -120,6 +121,7 @@ const ARGUMENT_USER: &'static str = "--user";
 const ARGUMENT_USER_SHORT: &'static str = "-u";
 const ARGUMENT_SUDO: &'static str = "--sudo";
 const ARGUMENT_TAGS: &'static str = "--tags";
+const ARGUMENT_ALLOW_LOCALHOST: &'static str = "--allow-localhost-delegation";
 
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_THREADS_SHORT: &'static str = "-t";
@@ -262,7 +264,8 @@ impl CliParser  {
             build_time: format!("{:?}", built_time()),
             limit_groups: Vec::new(),
             limit_hosts: Vec::new(),
-            tags: None
+            tags: None,
+            allow_localhost_delegation: false
         };
         return p;
     }
@@ -347,6 +350,7 @@ impl CliParser  {
                             ARGUMENT_THREADS           => self.store_threads_value(&args[arg_count]),
                             ARGUMENT_THREADS_SHORT     => self.store_threads_value(&args[arg_count]),
                             ARGUMENT_PORT              => self.store_port_value(&args[arg_count]),
+                            ARGUMENT_ALLOW_LOCALHOST   => self.store_allow_localhost_delegation(),
                             ARGUMENT_VERBOSE           => self.increase_verbosity(1),
                             ARGUMENT_VERBOSER          => self.increase_verbosity(2),
                             ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
@@ -354,7 +358,8 @@ impl CliParser  {
 
                         };
                         if result.is_err() { return result; }
-                        if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST) {
+                        if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST)
+                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) {
                             // these do not take arguments
                         } else {
                             next_is_value = true;
@@ -527,6 +532,11 @@ impl CliParser  {
             Ok(n) =>  { self.default_port = n; return Ok(()); }
             Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_PORT)); }
         }
+    }
+
+    fn store_allow_localhost_delegation(&mut self) -> Result<(), String> {
+        self.allow_localhost_delegation = true;
+        Ok(())
     }
 
     fn increase_verbosity(&mut self, amount: u32) -> Result<(), String> {
