@@ -138,7 +138,9 @@ pub trait PlaybookVisitor : Send + Sync {
                 context.increment_removed_for_host(&host2.name);
             },
             TaskStatus::IsModified =>  {
-                println!("{color_blue}✓ {} => modified{color_reset}", &host2.name);
+                let changes2 : Vec<String> = task_response.changes.iter().map(|x| { format!("{:?}", x) }).collect();
+                let change_str = changes2.join(",");
+                println!("{color_blue}✓ {} => modified ({}){color_reset}", &host2.name, change_str);
                 context.increment_modified_for_host(&host2.name);
             },
             TaskStatus::IsExecuted =>  {
@@ -178,7 +180,9 @@ pub trait PlaybookVisitor : Send + Sync {
                 context.increment_removed_for_host(&host2.name);
             },
             TaskStatus::NeedsModification =>  {
-                println!("{color_blue}✓ {} => would modify{color_reset}", &host2.name);
+                let changes2 : Vec<String> = task_response.changes.iter().map(|x| { format!("{:?}", x) }).collect();
+                let change_str = changes2.join(",");
+                println!("{color_blue}✓ {} => would modify ({}) {color_reset}", &host2.name, change_str);
                 context.increment_modified_for_host(&host2.name);
             },
             TaskStatus::NeedsExecution =>  {
