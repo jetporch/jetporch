@@ -288,7 +288,6 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
 
 fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
     let json = input.to_string();
-    println!("LOADED JSON: {}", json);
     let file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_str(&json);
     match file_parse_result {
        Ok(parsed) => return parsed.clone(),

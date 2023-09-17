@@ -64,7 +64,7 @@ impl ConnectionFactory for LocalFactory {
 }
 
 pub struct LocalConnection {
-    host: Arc<RwLock<Host>>
+    host: Arc<RwLock<Host>>,
 }
 
 impl LocalConnection {

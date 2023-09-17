@@ -33,11 +33,6 @@ pub trait Connection : Send + Sync {
 
     fn whoami(&self) -> Result<String,String>;
 
-    /* 
-    FIXME: should add, return result
-    fn get_file(&self, remote_path: String) -> String;
-    */
-
     fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
 
 }

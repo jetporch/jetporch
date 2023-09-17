@@ -112,10 +112,11 @@ impl Remote {
     }
 
     fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc, use_sudo: UseSudo) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
         // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         // for parameterized calls that use that
-                
+               
         if safe == Safety::Safe {
             match screen_general_input_loose(&cmd) {
                 Ok(_x) => {},

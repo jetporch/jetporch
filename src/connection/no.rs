@@ -52,7 +52,8 @@ pub struct NoConnection {
 
 impl NoConnection {
     pub fn new() -> Self {
-        Self { }
+        Self { 
+        }
     }
 }
 

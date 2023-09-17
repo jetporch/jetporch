@@ -47,7 +47,7 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
             Ok(_)  => {
                 let connection = connection_result.unwrap();
                 run_state.visitor.read().unwrap().on_host_task_start(&run_state.context, &host);
-                let task_response = run_task_on_host(&run_state,&connection,&host,play,task,are_handlers);
+                let task_response = run_task_on_host(&run_state,connection,&host,play,task,are_handlers);
 
                 match task_response {
                     Ok(x) => {
@@ -74,23 +74,63 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
     return Ok(());
 }
 
+fn get_actual_connection(run_state: &Arc<RunState>, host: &Arc<RwLock<Host>>, task: &Task, input_connection: Arc<Mutex<dyn Connection>>)-> Result<(Option<String>,Arc<Mutex<dyn Connection>>), String> {
+    return match task.get_with() {
+        Some(task_with) => match task_with.delegate_to {
+            Some(delegate) => {
+                let hn = host.read().unwrap().name.clone();
+                if delegate.eq(&hn) {
+                    return Ok((None, input_connection))
+                }
+                else if delegate.eq(&String::from("localhost")) {
+                    return Ok((Some(delegate.clone()), run_state.connection_factory.read().unwrap().get_local_connection(&run_state.context)?))
+                }
+                else {
+                    let has_host = run_state.inventory.read().unwrap().has_host(&delegate);
+                    if ! has_host {
+                        return Err(format!("cannot delegate to a host not found in inventory: {}", delegate));
+                    }
+                    let host = run_state.inventory.read().unwrap().get_host(&delegate);
+                    return Ok((Some(delegate.clone()), run_state.connection_factory.read().unwrap().get_connection(&run_state.context, &host)?));
+                } 
+            },
+            None => Ok((None, input_connection))
+        },
+        None => Ok((None, input_connection))
+    };
+}
+
 fn run_task_on_host(
     run_state: &Arc<RunState>,
-    connection: &Arc<Mutex<dyn Connection>>,
+    input_connection: Arc<Mutex<dyn Connection>>,
     host: &Arc<RwLock<Host>>,
     play: &Play, 
     task: &Task,
     are_handlers: HandlerMode) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
 
-    let handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(connection), Arc::clone(host)));
     let validate = TaskRequest::validate();
+
+    let gac_result = get_actual_connection(run_state, host, task, Arc::clone(&input_connection));
+
+    let (delegated, connection, handle) = match gac_result {
+        Ok((None, ref conn)) => (None, conn, Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))),
+        Ok((Some(delegate), ref conn)) => (Some(delegate.clone()), conn, Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))),
+        Err(msg) => {
+            let tmp_handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(&input_connection), Arc::clone(host)));
+            return Err(tmp_handle.response.is_failed(&validate, &msg));
+        }
+    };
+
+    if delegated.is_some() {
+        run_state.visitor.read().unwrap().on_host_delegate(&run_state.context, host, &delegated.unwrap());
+    }
+ 
     let evaluated = task.evaluate(&handle, &validate, TemplateMode::Off)?;
 
     let items_input = match evaluated.with.is_some() {
         true => &evaluated.with.as_ref().as_ref().unwrap().items,
         false => &None
     };
-
 
     let mut mapping = serde_yaml::Mapping::new();
     let mut last : Option<Result<Arc<TaskResponse>,Arc<TaskResponse>>> = None;
@@ -113,7 +153,7 @@ fn run_task_on_host(
         };
     
         loop {
-            match run_task_on_host_inner(run_state, connection, host, play, task, are_handlers, &handle, &validate, &evaluated) {
+            match run_task_on_host_inner(run_state, &connection, host, play, task, are_handlers, &handle, &validate, &evaluated) {
                 Err(e) => match retries {
                     0 => { return Err(e); },
                     _ => { 
@@ -152,8 +192,6 @@ fn run_task_on_host_inner(
     handle: &Arc<TaskHandle>,
     validate: &Arc<TaskRequest>,
     evaluated: &EvaluatedTask) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-
-    // FIXME: break into smaller functions...
 
     let play_count = run_state.context.read().unwrap().play_count;
     let modify_mode = ! run_state.visitor.read().unwrap().is_check_mode();
@@ -197,7 +235,6 @@ fn run_task_on_host_inner(
     // don't return the wrong states, even when returning an error, to prevent
     // unpredictability in the program
 
-    // FIXME: break up into smaller functions
     let query = TaskRequest::query(&sudo_details);
     let qrc = action.dispatch(&handle, &query);
 
@@ -326,14 +363,10 @@ fn run_task_on_host_inner(
     };
 
     if result.is_ok() {
-
         if post_logic.is_some() {
-
             let logic = post_logic.as_ref().as_ref().unwrap();
-
             if are_handlers == HandlerMode::NormalTasks && result.is_ok() && logic.notify.is_some() {
                 let notify = logic.notify.as_ref().unwrap().clone();
-
                 let status = &result.as_ref().unwrap().status;
                 match status {
                     TaskStatus::IsCreated | TaskStatus::IsModified | TaskStatus::IsRemoved | TaskStatus::IsExecuted => {
@@ -343,13 +376,8 @@ fn run_task_on_host_inner(
                     _ => { }
                 }
             }
-
         }
-
     }
 
-    // FIXME: apply post-logic ("and") to result here (in function)
-
     return result;
-
 }

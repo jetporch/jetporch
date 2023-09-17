@@ -33,7 +33,8 @@ pub struct PreLogicInput {
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
     pub items: Option<ItemsInput>,
-    pub tags: Option<Vec<String>>
+    pub tags: Option<Vec<String>>,
+    pub delegate_to: Option<String>
 }
 
 #[derive(Deserialize,Debug,Clone)]
