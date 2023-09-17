@@ -43,6 +43,7 @@ pub struct RunState {
     pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub limit_hosts: Vec<String>,
     pub limit_groups: Vec<String>,
+    pub batch_size: Option<usize>,
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
@@ -121,8 +122,7 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     //load_external_modules(run_state, play)?;
 
     // support for serialization if using push configuration
-    let batch_size_num = play.batch_size.unwrap_or(0);
-    let (_batch_size, batch_count, batches) = get_host_batches(run_state, play, batch_size_num, hosts);
+    let (_batch_size, batch_count, batches) = get_host_batches(run_state, play, hosts);
 
     let mut failed: bool = false;
     let mut failure_message: String = String::new();
@@ -307,16 +307,47 @@ fn process_role(run_state: &Arc<RunState>, play: &Play, invocation: &RoleInvocat
 
 // FIXME: this is not yet implemented to make --batch-size work
 
-fn get_host_batches(_run_state: &Arc<RunState>, _play: &Play, _batch_size: usize, hosts: Vec<Arc<RwLock<Host>>>) 
+fn get_host_batches(run_state: &Arc<RunState>, play: &Play, hosts: Vec<Arc<RwLock<Host>>>) 
     -> (usize, usize, HashMap<usize, Vec<Arc<RwLock<Host>>>>) {
 
-    let mut results : HashMap<usize, Vec<Arc<RwLock<Host>>>> = HashMap::new();
-    //for host in hosts.iter() {
-    //    results.insert(0usize, Arc::clone(&host));
-    // }
+    let batch_size = match play.batch_size {
+        Some(x) => x,
+        None => match run_state.batch_size {
+            Some(y) => y,
+            None => hosts.len() 
+        }
+    };
+    let host_count = hosts.len();
+    let batch_count = match host_count {
+        0 => 1,
+        _ => {
 
-    results.insert(0, hosts.iter().map(|v| Arc::clone(&v)).collect());
-    return (1, 1, results);
+            let mut count = host_count / batch_size;
+            let remainder = host_count % batch_size;
+            if remainder > 0 { count = count + 1 }
+            count
+        }
+    };
+
+    // use std::collections::VecDeque; ???
+
+    let mut hosts_list : Vec<Arc<RwLock<Host>>> = hosts.iter().map(|v| Arc::clone(&v)).collect();
+
+    let mut results : HashMap<usize, Vec<Arc<RwLock<Host>>>> = HashMap::new();
+    for batch_num in 0..batch_count {
+        let mut batch : Vec<Arc<RwLock<Host>>> = Vec::new();
+        for _host_ct in 0..batch_size {
+            let host = hosts_list.pop();
+            if host.is_some() {
+                batch.push(host.unwrap());
+            } else {
+                break;
+            }
+        }
+        results.insert(batch_num, batch);
+    }
+
+    return (batch_size, batch_count, results);
 
 }
 

@@ -79,6 +79,7 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
         role_paths: Arc::clone(&parser.role_paths),
         limit_hosts: parser.limit_hosts.clone(),
         limit_groups: parser.limit_groups.clone(),
+        batch_size: parser.batch_size.clone(),
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: match check_mode {
             CheckMode::Yes => Arc::new(RwLock::new(CheckVisitor::new())),
