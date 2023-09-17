@@ -17,7 +17,7 @@
 use crate::handle::handle::TaskHandle;
 use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
-use crate::tasks::logic::{PreLogicEvaluated,PostLogicEvaluated};
+use crate::tasks::logic::{PreLogicInput,PreLogicEvaluated,PostLogicEvaluated};
 use std::sync::Arc;
 use crate::tasks::TemplateMode;
 
@@ -31,7 +31,8 @@ pub trait IsTask : Send + Sync {
 
     fn get_module(&self) -> String;
     fn get_name(&self) -> Option<String>;
-
+    fn get_with(&self) -> Option<PreLogicInput>;
+    
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>>;
 
     fn get_display_name(&self) -> String {

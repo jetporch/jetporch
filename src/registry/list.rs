@@ -107,6 +107,24 @@ impl Task {
         };
     }
 
+    pub fn get_with(&self) -> Option<PreLogicInput> {
+        return match self {
+            Task::Apt(x)        => x.get_with(),
+            Task::Assert(x)     => x.get_with(),
+            Task::Copy(x)       => x.get_with(), 
+            Task::Dnf(x)        => x.get_with(),
+            Task::Directory(x)  => x.get_with(),
+            Task::Echo(x)       => x.get_with(),
+            Task::Facts(x)      => x.get_with(),
+            Task::Fail(x)       => x.get_with(), 
+            Task::File(x)       => x.get_with(), 
+            Task::Sd_Service(x) => x.get_with(),
+            Task::Set(x)        => x.get_with(),
+            Task::Shell(x)      => x.get_with(), 
+            Task::Template(x)   => x.get_with(), 
+        };
+    }
+
     pub fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {

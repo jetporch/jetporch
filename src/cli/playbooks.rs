@@ -81,7 +81,8 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
         connection_factory: match ssh {
             SshMode::Yes => Arc::new(RwLock::new(SshFactory::new(inventory))),
             SshMode::No => Arc::new(RwLock::new(LocalFactory::new(inventory))),
-        }
+        },
+        tags: parser.tags.clone()
     });
     return match playbook_traversal(&run_state) {
         Ok(_)  => run_state.visitor.read().unwrap().get_exit_status(&run_state.context),

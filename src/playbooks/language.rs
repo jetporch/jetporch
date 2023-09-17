@@ -17,12 +17,14 @@
 use serde::{Deserialize};
 use crate::registry::list::Task;
 
+/*
 #[derive(Debug,Deserialize)]
 #[serde(untagged)]
 pub enum AsInteger {
     String(String),
     Integer(usize),
 }
+*/
 
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,9 +57,8 @@ pub struct Role {
 #[serde(deny_unknown_fields)]
 pub struct RoleInvocation {
     pub role: String,
-    pub vars: Option<serde_yaml::Mapping>
+    pub vars: Option<serde_yaml::Mapping>,
+    pub tags: Option<Vec<String>>
 }
 
-
-// for Tasks definitions please, see modules/list.rs
-// which includes items form module_library/*.rs
+// for Task/module definitions see registry/list.rs

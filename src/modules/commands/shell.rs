@@ -36,7 +36,6 @@ pub struct ShellTask {
     pub unsafe_: Option<String>, /* FIXME: can use r#unsafe instead */
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>,
-
 }
 struct ShellAction {
     pub cmd: String,
@@ -51,6 +50,7 @@ impl IsTask for ShellTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
+    fn get_with(&self) -> Option<PreLogicInput> { self.with.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(

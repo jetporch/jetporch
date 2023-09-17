@@ -46,6 +46,7 @@ pub struct RunState {
     pub context: Arc<RwLock<PlaybookContext>>,
     pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
+    pub tags: Option<Vec<String>>
 }
 
 pub fn playbook_traversal(run_state: &Arc<RunState>) -> Result<(), String> {
@@ -169,7 +170,7 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
     // handle loose play tasks
     if play.tasks.is_some() {
         let tasks = play.tasks.as_ref().unwrap();
-        for task in tasks.iter() { process_task(run_state, &play, &task, HandlerMode::NormalTasks)?; }
+        for task in tasks.iter() { process_task(run_state, &play, &task, HandlerMode::NormalTasks, None)?; }
     }
 
     // handle role handlers
@@ -182,22 +183,51 @@ fn handle_batch(run_state: &Arc<RunState>, play: &Play, hosts: &Vec<Arc<RwLock<H
     // handle loose play handlers
     if play.handlers.is_some() {
         let handlers = play.handlers.as_ref().unwrap();
-        for handler in handlers { process_task(run_state, &play, &handler, HandlerMode::Handlers)?;  }
+        for handler in handlers { process_task(run_state, &play, &handler, HandlerMode::Handlers, None)?;  }
     }
     return Ok(())
 
 }
 
-fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode) -> Result<(), String> {
+fn check_tags(run_state: &Arc<RunState>, task: &Task, role_invocation: Option<&RoleInvocation>) -> bool {
+    match &run_state.tags {
+        Some(cli_tags) => {
+            match task.get_with() {
+                Some(task_with) => match task_with.tags {
+                    Some(task_tags) => {
+                        for x in task_tags.iter() {  if cli_tags.contains(&x) { return true; } }
+                    },
+                    None => {}
+                },
+                None => {}
+            };
+            match role_invocation {
+                Some(role_invoke) => match &role_invoke.tags {
+                    Some(role_tags) => {
+                        for x in role_tags.iter() { if cli_tags.contains(&x) { return true; } }
+                    },
+                    None => {}
+                },
+                None => {}
+            };
+        }
+        None => { return true; }
+    }
+    return false;
+}
+
+fn process_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_handlers: HandlerMode, role_invocation: Option<&RoleInvocation>) -> Result<(), String> {
 
     let hosts : HashMap<String, Arc<RwLock<Host>>> = run_state.context.read().unwrap().get_remaining_hosts();
     if hosts.len() == 0 { return Err(String::from("no hosts remaining")) }
 
-    run_state.context.write().unwrap().set_task(&task);
-    run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
-    run_state.context.write().unwrap().increment_task_count();
-
-    fsm_run_task(run_state, play, task, are_handlers)?;
+    let should_run = check_tags(run_state, task, role_invocation);
+    if should_run {
+        run_state.context.write().unwrap().set_task(&task);
+        run_state.visitor.read().unwrap().on_task_start(&run_state.context, are_handlers);
+        run_state.context.write().unwrap().increment_task_count();
+        fsm_run_task(run_state, play, task, are_handlers)?;
+    }
 
     return Ok(());
 }
@@ -260,7 +290,7 @@ fn process_role(run_state: &Arc<RunState>, play: &Play, invocation: &RoleInvocat
             }   
             let tasks = parsed.unwrap();
             for task in tasks.iter() {
-                process_task(run_state, &play, &task, are_handlers)?;
+                process_task(run_state, &play, &task, are_handlers, Some(invocation))?;
             }
         }
 

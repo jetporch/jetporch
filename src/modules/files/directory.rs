@@ -47,6 +47,7 @@ impl IsTask for DirectoryTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
+    fn get_with(&self) -> Option<PreLogicInput> { self.with.clone() }
 
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         let recurse = match handle.template.boolean_option_default_false(&request, tm, &String::from("recurse"), &self.recurse)? {

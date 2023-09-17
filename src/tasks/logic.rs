@@ -26,13 +26,14 @@ use crate::playbooks::templar::TemplateMode;
 // this is storage behind all 'and' and 'with' statements in the program, which
 // are mostly implemented in task_fsm
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize,Debug,Clone)]
 #[serde(deny_unknown_fields)]
 pub struct PreLogicInput {
     pub condition: Option<String>,
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
-    pub items: Option<ItemsInput>
+    pub items: Option<ItemsInput>,
+    pub tags: Option<Vec<String>>
 }
 
 #[derive(Deserialize,Debug,Clone)]
@@ -47,7 +48,8 @@ pub struct PreLogicEvaluated {
     pub condition: bool,
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
-    pub items: Option<ItemsInput>
+    pub items: Option<ItemsInput>,
+    pub tags: Option<Vec<String>>
 }
 
 #[derive(Deserialize,Debug)]
@@ -82,7 +84,8 @@ impl PreLogicInput {
             },
             sudo: handle.template.string_option_no_spaces(request, tm, &String::from("sudo"), &input2.sudo)?,
             subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
-            items: input2.items.clone()
+            items: input2.items.clone(),
+            tags: input2.tags.clone()
         }));
     }
 

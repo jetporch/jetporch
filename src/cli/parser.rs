@@ -71,6 +71,7 @@ pub struct CliParser {
     pub verbosity: u32,
     pub git_version: String,
     pub build_time: String,
+    pub tags: Option<Vec<String>>,
     // FIXME: threads and other arguments should be added here.
 }
 
@@ -116,6 +117,7 @@ const ARGUMENT_PORT: &'static str = "--port";
 const ARGUMENT_USER: &'static str = "--user";
 const ARGUMENT_USER_SHORT: &'static str = "-u";
 const ARGUMENT_SUDO: &'static str = "--sudo";
+const ARGUMENT_TAGS: &'static str = "--tags";
 
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_THREADS_SHORT: &'static str = "-t";
@@ -197,6 +199,8 @@ fn show_help(git_version: &String) {
                        | misc:\n\
                        | | --sudo username | sudo to this user by default for all tasks\n\
                        | |\n\
+                       | | --tags tag1:tag2 | only run tasks or roles with one of these tags\n\
+                       | |\n\
                        | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
                        |-|";
@@ -255,7 +259,8 @@ impl CliParser  {
             git_version: git_version(),
             build_time: format!("{:?}", built_time()),
             limit_groups: Vec::new(),
-            limit_hosts: Vec::new()
+            limit_hosts: Vec::new(),
+            tags: None
         };
         return p;
     }
@@ -329,6 +334,7 @@ impl CliParser  {
                             ARGUMENT_INVENTORY         => self.append_inventory_value(&args[arg_count]),
                             ARGUMENT_INVENTORY_SHORT   => self.append_inventory_value(&args[arg_count]),
                             ARGUMENT_SUDO              => self.store_sudo_value(&args[arg_count]),
+                            ARGUMENT_TAGS              => self.store_tags_value(&args[arg_count]),
                             ARGUMENT_USER              => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_USER_SHORT        => self.store_default_user_value(&args[arg_count]),
                             ARGUMENT_SHOW_GROUPS       => self.store_show_groups_value(&args[arg_count]),
@@ -475,6 +481,14 @@ impl CliParser  {
         match split_string(value) {
             Ok(values)  =>  { self.limit_hosts = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_HOSTS, err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn store_tags_value(&mut self, value: &String) -> Result<(), String> {
+        match split_string(value) {
+            Ok(values)  =>  { self.tags = Some(values); },
+            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_TAGS, err_msg)),
         }
         return Ok(());
     }
