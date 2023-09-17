@@ -193,7 +193,7 @@ fn show_help(git_version: &String) {
                        | |\n\
                        | | -t, --threads N| how many parallel threads to use. Alternatively set $JET_THREADS\n\
                        | |\n\
-                       | | --batch N| fully configure this many hosts before moving to the next batch\n\
+                       | | --batch-size N| fully configure this many hosts before moving to the next batch\n\
                        | |\n\
                        | | --limit-groups group1:group2 | further limits scope for playbook runs\n\
                        | |\n\
@@ -204,6 +204,8 @@ fn show_help(git_version: &String) {
                        | | --sudo username | sudo to this user by default for all tasks\n\
                        | |\n\
                        | | --tags tag1:tag2 | only run tasks or roles with one of these tags\n\
+                       | |\n\
+                       | | --allow-localhost-delegation | signs off on variable sourcing risks and enables localhost actions with delegate_to\n\
                        | |\n\
                        | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
