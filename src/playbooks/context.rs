@@ -61,6 +61,9 @@ pub struct PlaybookContext {
     modified_count_for_host:  HashMap<String, usize>,
     executed_count_for_host:  HashMap<String, usize>,
     passive_count_for_host:   HashMap<String, usize>,
+    matched_count_for_host:   HashMap<String, usize>,
+    skipped_count_for_host:   HashMap<String, usize>,
+
     failed_count_for_host:    HashMap<String, usize>,
     
     pub failed_tasks:           usize,
@@ -107,7 +110,9 @@ impl PlaybookContext {
             modified_count_for_host:  HashMap::new(),
             executed_count_for_host:  HashMap::new(),
             passive_count_for_host:   HashMap::new(),
+            matched_count_for_host:   HashMap::new(),
             failed_count_for_host:    HashMap::new(),
+            skipped_count_for_host:   HashMap::new(),
             connection_cache:         RwLock::new(ConnectionCache::new()),
             templar:                  RwLock::new(Templar::new()),
             defaults_storage:         RwLock::new(serde_yaml::Mapping::new()),
@@ -376,6 +381,14 @@ impl PlaybookContext {
         *self.passive_count_for_host.entry(host.clone()).or_insert(0) += 1;
     }
 
+    pub fn increment_matched_for_host(&mut self, host: &String) {
+        *self.matched_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+
+    pub fn increment_skipped_for_host(&mut self, host: &String) {
+        *self.skipped_count_for_host.entry(host.clone()).or_insert(0) += 1;
+    }
+
     pub fn get_total_attempted_count(&self) -> usize {
         return self.attempted_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
@@ -408,6 +421,14 @@ impl PlaybookContext {
         return self.passive_count_for_host.values().fold(0, |ttl, &x| ttl + x);
     }
 
+    pub fn get_total_matched_count(&self) -> usize {
+        return self.matched_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+
+    pub fn get_total_skipped_count(&self) -> usize {
+        return self.skipped_count_for_host.values().fold(0, |ttl, &x| ttl + x);
+    }
+
     pub fn get_hosts_creation_count(&self) -> usize {
         return self.created_count_for_host.keys().len();
     }
@@ -426,6 +447,14 @@ impl PlaybookContext {
 
     pub fn get_hosts_passive_count(&self) -> usize {
         return self.passive_count_for_host.keys().len();
+    }
+
+    pub fn get_hosts_matched_count(&self) -> usize {
+        return self.matched_count_for_host.keys().len();
+    }
+
+    pub fn get_hosts_skipped_count(&self) -> usize {
+        return self.skipped_count_for_host.keys().len();
     }
 
     pub fn get_hosts_failed_count(&self) -> usize {

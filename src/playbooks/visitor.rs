@@ -152,10 +152,14 @@ pub trait PlaybookVisitor : Send + Sync {
                 context.increment_passive_for_host(&host2.name);
             }
             TaskStatus::IsMatched  =>  {
-                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name);
+                println!("{color_green}✓ {} => matched {color_reset}", &host2.name);
+                context.increment_matched_for_host(&host2.name);
+
             }
             TaskStatus::IsSkipped  =>  {
                 println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name);
+                context.increment_skipped_for_host(&host2.name);
+
             }
             TaskStatus::Failed => {
                 println!("{color_yellow}✓ {} => failed (ignored){color_reset}", &host2.name);
@@ -193,10 +197,12 @@ pub trait PlaybookVisitor : Send + Sync {
                 context.increment_passive_for_host(&host2.name);
             }
             TaskStatus::IsMatched  =>  {
-                println!("{color_green}✓ {} => perfect {color_reset}", &host2.name);
+                println!("{color_green}✓ {} => matched {color_reset}", &host2.name);
+                context.increment_matched_for_host(&host2.name);
             }
             TaskStatus::IsSkipped  =>  {
                 println!("{color_yellow}✓ {} => skipped {color_reset}", &host2.name);
+                context.increment_skipped_for_host(&host2.name);
             }
             TaskStatus::Failed => {
                 println!("{color_yellow}✓ {} => failed (ignored){color_reset}", &host2.name);
@@ -295,6 +301,10 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
     let executed_hosts = ctx.get_hosts_executions_count();
     let passive_ct = ctx.get_total_passive_count();
     let passive_hosts = ctx.get_hosts_passive_count();
+    let matched_ct = ctx.get_total_matched_count();
+    let matched_hosts = ctx.get_hosts_matched_count();
+    let skipped_ct = ctx.get_total_skipped_count();
+    let skipped_hosts = ctx.get_hosts_skipped_count();
     let adjusted_ct = ctx.get_total_adjusted_count();
     let adjusted_hosts = ctx.get_hosts_adjusted_count();
     let unchanged_hosts = seen_hosts - adjusted_hosts;
@@ -316,11 +326,13 @@ pub fn show_playbook_summary(context: &Arc<RwLock<PlaybookContext>>) {
                       | Roles | {role_ct} | |\n\
                       | Tasks | {task_ct} | {seen_hosts}|\n\
                       | --- | --- | --- |\n\
+                      | Matched | {matched_ct} | {matched_hosts}\n\
                       | Created | {created_ct} | {created_hosts}\n\
                       | Modified | {modified_ct} | {modified_hosts}\n\
                       | Removed | {removed_ct} | {removed_hosts}\n\
                       | Executed | {executed_ct} | {executed_hosts}\n\
                       | Passive | {passive_ct} | {passive_hosts}\n\
+                      | Skipped | {skipped_ct} | {skipped_hosts}\n\
                       | --- | --- | ---\n\
                       | Unchanged | {unchanged_ct} | {unchanged_hosts}\n\
                       | Changed | {adjusted_ct} | {adjusted_hosts}\n\
