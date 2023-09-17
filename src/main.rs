@@ -29,7 +29,7 @@ use crate::inventory::inventory::Inventory;
 use crate::inventory::loading::{load_inventory};
 use crate::cli::show::{show_inventory_group,show_inventory_host};
 use crate::cli::parser::{CliParser};
-use crate::cli::playbooks::{playbook_ssh,playbook_local,playbook_check_ssh,playbook_check_local}; // FIXME: check modes coming
+use crate::cli::playbooks::{playbook_ssh,playbook_local,playbook_check_ssh,playbook_check_local,playbook_simulate}; // FIXME: check modes coming
 use std::sync::{Arc,RwLock};
 use std::process;
 use rayon;
@@ -56,7 +56,7 @@ fn liftoff() -> Result<(),String> {
     let inventory : Arc<RwLock<Inventory>> = Arc::new(RwLock::new(Inventory::new()));
 
     match cli_parser.mode {
-        cli::parser::CLI_MODE_SSH | cli::parser::CLI_MODE_CHECK_SSH | cli::parser::CLI_MODE_SHOW => {
+        cli::parser::CLI_MODE_SSH | cli::parser::CLI_MODE_CHECK_SSH | cli::parser::CLI_MODE_SHOW | cli::parser::CLI_MODE_SIMULATE => {
             load_inventory(&inventory, Arc::clone(&cli_parser.inventory_paths))?;
             if ! cli_parser.inventory_set {
                 return Err(String::from("--inventory is required"));
@@ -95,6 +95,7 @@ fn liftoff() -> Result<(),String> {
         cli::parser::CLI_MODE_CHECK_SSH   => playbook_check_ssh(&inventory, &cli_parser),
         cli::parser::CLI_MODE_LOCAL       => playbook_local(&inventory, &cli_parser),
         cli::parser::CLI_MODE_CHECK_LOCAL => playbook_check_local(&inventory, &cli_parser),
+        cli::parser::CLI_MODE_SIMULATE    => playbook_simulate(&inventory, &cli_parser),
 
         _ => { println!("invalid CLI mode"); 1 }
     };

@@ -82,6 +82,7 @@ pub const CLI_MODE_CHECK_LOCAL: u32 = 3;
 pub const CLI_MODE_SSH: u32 = 4;
 pub const CLI_MODE_CHECK_SSH: u32 = 5;
 pub const CLI_MODE_SHOW: u32 = 6;
+pub const CLI_MODE_SIMULATE: u32 = 7;
 
 fn is_cli_mode_valid(value: &String) -> bool {
     match cli_mode_from_string(value) {
@@ -92,10 +93,11 @@ fn is_cli_mode_valid(value: &String) -> bool {
 
 fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     return match s.as_str() {
-        "local"          => Ok(CLI_MODE_LOCAL),
-        "check-local"    => Ok(CLI_MODE_CHECK_LOCAL),
-        "ssh"            => Ok(CLI_MODE_SSH),
-        "check-ssh"      => Ok(CLI_MODE_CHECK_SSH),
+        "local"           => Ok(CLI_MODE_LOCAL),
+        "check-local"     => Ok(CLI_MODE_CHECK_LOCAL),
+        "ssh"             => Ok(CLI_MODE_SSH),
+        "check-ssh"       => Ok(CLI_MODE_CHECK_SSH),
+        "__simulate"      => Ok(CLI_MODE_SIMULATE),
         "show-inventory" => Ok(CLI_MODE_SHOW),
         _ => Err(format!("invalid mode: {}", s))
     }

@@ -18,6 +18,7 @@ use crate::cli::parser::CliParser;
 
 use crate::connection::ssh::SshFactory;
 use crate::connection::local::LocalFactory;
+use crate::connection::no::NoFactory;
 use crate::playbooks::traversal::{playbook_traversal,RunState};
 use crate::playbooks::context::PlaybookContext;
 use crate::playbooks::visitor::PlaybookVisitor;
@@ -45,28 +46,33 @@ enum CheckMode {
     No
 }
 
-enum SshMode {
-    Yes,
-    No
+enum ConnectionMode {
+    Ssh,
+    Local,
+    Simulate
 }
 
 pub fn playbook_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    return playbook(inventory, parser, CheckMode::No, SshMode::Yes);
+    return playbook(inventory, parser, CheckMode::No, ConnectionMode::Ssh);
 }
 
 pub fn playbook_check_ssh(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    return playbook(inventory, parser, CheckMode::Yes, SshMode::Yes);
+    return playbook(inventory, parser, CheckMode::Yes, ConnectionMode::Ssh);
 }
 
 pub fn playbook_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    return playbook(inventory, parser, CheckMode::No, SshMode::No);
+    return playbook(inventory, parser, CheckMode::No, ConnectionMode::Local);
 }
 
 pub fn playbook_check_local(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
-    return playbook(inventory, parser, CheckMode::Yes, SshMode::No);
+    return playbook(inventory, parser, CheckMode::Yes, ConnectionMode::Local);
 }
 
-fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: CheckMode, ssh: SshMode) -> i32 {
+pub fn playbook_simulate(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> i32 {
+    return playbook(inventory, parser, CheckMode::No, ConnectionMode::Simulate);
+}
+
+fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: CheckMode, connection_mode: ConnectionMode) -> i32 {
     let run_state = Arc::new(RunState {
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
@@ -78,9 +84,10 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
             CheckMode::Yes => Arc::new(RwLock::new(CheckVisitor::new())),
             CheckMode::No => Arc::new(RwLock::new(LiveVisitor::new())),
         },
-        connection_factory: match ssh {
-            SshMode::Yes => Arc::new(RwLock::new(SshFactory::new(inventory))),
-            SshMode::No => Arc::new(RwLock::new(LocalFactory::new(inventory))),
+        connection_factory: match connection_mode {
+            ConnectionMode::Ssh => Arc::new(RwLock::new(SshFactory::new(inventory))),
+            ConnectionMode::Local => Arc::new(RwLock::new(LocalFactory::new(inventory))),
+            ConnectionMode::Simulate => Arc::new(RwLock::new(NoFactory::new()))
         },
         tags: parser.tags.clone()
     });
