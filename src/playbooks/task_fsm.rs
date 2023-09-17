@@ -23,6 +23,8 @@ use crate::playbooks::traversal::HandlerMode;
 use crate::playbooks::language::Play;
 use crate::tasks::request::SudoDetails;
 use crate::tasks::*;
+use crate::handle::template::BlendTarget;
+use crate::playbooks::templar::TemplateMode;
 use crate::tasks::logic::{empty_items_vector,template_items};
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
@@ -74,10 +76,12 @@ pub fn fsm_run_task(run_state: &Arc<RunState>, play: &Play, task: &Task, are_han
     return Ok(());
 }
 
-fn get_actual_connection(run_state: &Arc<RunState>, host: &Arc<RwLock<Host>>, task: &Task, input_connection: Arc<Mutex<dyn Connection>>)-> Result<(Option<String>,Arc<Mutex<dyn Connection>>), String> {
+fn get_actual_connection(run_state: &Arc<RunState>, host: &Arc<RwLock<Host>>, task: &Task, input_connection: Arc<Mutex<dyn Connection>>) -> Result<(Option<String>,Arc<Mutex<dyn Connection>>), String> {
     return match task.get_with() {
         Some(task_with) => match task_with.delegate_to {
-            Some(delegate) => {
+            Some(pre_delegate) => {
+                let delegate = run_state.context.read().unwrap().render_template(&pre_delegate, host, BlendTarget::NotTemplateModule, TemplateMode::Strict)?;
+
                 let hn = host.read().unwrap().name.clone();
                 if delegate.eq(&hn) {
                     return Ok((None, input_connection))
