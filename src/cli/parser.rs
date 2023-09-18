@@ -23,17 +23,14 @@ use std::vec::Vec;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
 use crate::util::io::directory_as_string;
-
-//extern crate built;
 use built;
 
-// Use of a mod or pub mod is not actually necessary.
+// allows -v and --help to show version info
 pub mod built_info {
-    // The file has been placed there by the build script.
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
  }
 
- /// The time this crate was built
+// The time this crate was built
 pub fn built_time() -> built::chrono::DateTime<built::chrono::Local> {
     built::util::strptime(built_info::BUILT_TIME_UTC).with_timezone(&built::chrono::offset::Local)
 }
@@ -49,6 +46,9 @@ pub fn git_version() -> String {
     };
     return format!("{} @ {}", g1, g2);
 }
+
+// the CLI parser struct values hold various values calculated when calling parse() on
+// the struct
 
 pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
@@ -73,8 +73,10 @@ pub struct CliParser {
     pub build_time: String,
     pub tags: Option<Vec<String>>,
     pub allow_localhost_delegation: bool
-    // FIXME: threads and other arguments should be added here.
 }
+
+// subcommands are usually required
+// FIXME: convert this to an enum
 
 pub const CLI_MODE_UNSET: u32 = 0;
 pub const CLI_MODE_SYNTAX: u32 = 1;
@@ -104,6 +106,7 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
     }
 }
 
+// all the supported flags
 const ARGUMENT_VERSION: &'static str  = "--version";
 const ARGUMENT_INVENTORY: &'static str = "--inventory";
 const ARGUMENT_INVENTORY_SHORT: &'static str = "-i";
@@ -122,13 +125,14 @@ const ARGUMENT_USER_SHORT: &'static str = "-u";
 const ARGUMENT_SUDO: &'static str = "--sudo";
 const ARGUMENT_TAGS: &'static str = "--tags";
 const ARGUMENT_ALLOW_LOCALHOST: &'static str = "--allow-localhost-delegation";
-
 const ARGUMENT_THREADS: &'static str = "--threads";
 const ARGUMENT_THREADS_SHORT: &'static str = "-t";
 const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 const ARGUMENT_VERBOSE: &'static str = "-v";
 const ARGUMENT_VERBOSER: &'static str = "-vv";
 const ARGUMENT_VERBOSEST: &'static str = "-vvv";
+
+// output from --version
 
 fn show_version(git_version: &String) {
 
@@ -148,6 +152,7 @@ fn show_version(git_version: &String) {
     println!("");
 }
 
+// output from --help
 
 fn show_help(git_version: &String) {
 
@@ -219,6 +224,9 @@ fn show_help(git_version: &String) {
 
 impl CliParser  {
 
+
+    // construct a parser with empty result values that will be filled in once parsed.
+
     pub fn new() -> Self {
 
         let p = CliParser {
@@ -280,10 +288,15 @@ impl CliParser  {
         show_version(&self.git_version);
     }
 
+    // actual CLI parsing happens here
+
     pub fn parse(&mut self) -> Result<(), String> {
 
         let mut arg_count: usize = 0;
         let mut next_is_value = false;
+
+        // we go through each CLI arg in a loop, certain arguments take
+        // parameters and others do not.
 
         let args: Vec<String> = env::args().collect();
         'each_argument: for argument in &args {
@@ -392,11 +405,6 @@ impl CliParser  {
             self.add_implicit_role_paths()?;
         }
 
-        return self.validate_internal_consistency()
-    }
-
-    fn validate_internal_consistency(&mut self) -> Result<(), String> {
-        return Ok(());
     }
 
     fn store_mode_value(&mut self, value: &String) -> Result<(), String> {

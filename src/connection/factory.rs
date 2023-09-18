@@ -22,6 +22,8 @@ use std::sync::Mutex;
 use std::sync::RwLock;
 use std::marker::{Send,Sync};
 
+// the factory trait that serves as the base for SshFactory, LocalFactory, and NoFactory
+
 pub trait ConnectionFactory : Send + Sync {
 
     fn get_connection(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>, String>;

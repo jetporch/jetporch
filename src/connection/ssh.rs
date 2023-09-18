@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use crate::connection::connection::Connection;
 use crate::connection::command::CommandResult;
 use crate::connection::factory::ConnectionFactory;
@@ -33,6 +32,8 @@ use std::time::Duration;
 use std::net::ToSocketAddrs;
 use std::fs::File;
 
+// implementation for both Ssh Connections and the Ssh Connection factory
+
 pub struct SshFactory {
     local_factory: LocalFactory,
     localhost: Arc<RwLock<Host>>
@@ -40,6 +41,7 @@ pub struct SshFactory {
 
 impl SshFactory { 
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
+        // we create a local connection factory for localhost rather than establishing local connections with SSH
         Self {
             localhost : inventory.read().expect("inventory read").get_host(&String::from("localhost")),
             local_factory: LocalFactory::new(inventory)
@@ -57,11 +59,15 @@ impl ConnectionFactory for SshFactory {
         let ctx = context.read().expect("context read");
         let hostname1 = host.read().expect("host read").name.clone();
         if hostname1.eq("localhost") {
+            // if we are asked for a connection to localhost because it's in a group, we'll be called here
+            // instead of from get_local_connecton, so have to return the local connection versus assuming SSH
             let conn : Arc<Mutex<dyn Connection>> = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn);
         } 
 
         {
+            // SSH connections are kept open between tasks generally but cleared at many strategic points during playbook traversal
+            // between plays, in between batches, etc.
             let cache = ctx.connection_cache.read().unwrap();
             if cache.has_connection(host) {
                 let conn = cache.get_connection(host);
@@ -69,12 +75,17 @@ impl ConnectionFactory for SshFactory {
             }
         }
 
+        // how we connect to a host depends on some settings of the play (ssh_port, ssh_user), the CLI (--user) and
+        // possibly magic variables on the host.  The context contains all of this logic.
         let (hostname2, user, port) = ctx.get_ssh_connection_details(host);      
         if hostname2.eq("localhost") { 
+            // jet_ssh_hostname was set to localhost, which doesn't make a lot of sense but could happen in testing
+            // contrived playbooks when we don't want a lot of real remote hosts
             let conn : Arc<Mutex<dyn Connection>> = self.local_factory.get_connection(context, &self.localhost)?;
             return Ok(conn); 
         }
 
+        // actually connect here
         let mut conn = SshConnection::new(Arc::clone(&host), &user, port);
         return match conn.connect() {
             Ok(_)  => { 
@@ -87,7 +98,7 @@ impl ConnectionFactory for SshFactory {
         }
     }
 }
-
+ 
 pub struct SshConnection {
     pub host: Arc<RwLock<Host>>,
     pub username: String,
@@ -104,13 +115,15 @@ impl SshConnection {
 impl Connection for SshConnection {
 
     fn whoami(&self) -> Result<String,String> {
-        // FIXME: these methods will need changes when sudo is added shortly
+        // if asked who we are logged in as, it is the user we have connected with
+        // sudoers info is on top of that, and this logic is expressed in remote.rs
         return Ok(self.username.clone());
     }
 
     fn connect(&mut self) -> Result<(), String> {
 
         if self.session.is_some() {
+            // don't re-connect if we are already connected (the code might not try this anyway?)
             return Ok(());
         }
 
@@ -119,8 +132,12 @@ impl Connection for SshConnection {
         let mut agent = match session.agent() { Ok(x) => x, Err(_y) => { return Err(String::from("failed to acquire SSH-agent")); } };
         
 
-        // Connect the agent and request a list of identities
+        // Connect the agent
         match agent.connect() { Ok(_x) => {}, Err(_y)  => { return Err(String::from("failed to connect to SSH-agent")) }}
+       
+        // currently we don't do anything with listing the identities in SSH agent.  It might be helpful to provide a nice error
+        // if none were detected
+
         //agent.list_identities().unwrap();
         //for identity in agent.identities().unwrap() {
         //    println!("{}", identity.comment());
@@ -139,24 +156,22 @@ impl Connection for SshConnection {
         let addr = addrs_iter2.next();
         if ! addr.is_some() { return Err(String::from("unable to resolve(2)"));  }
         
-
-        // actually connect here
+        // actually connect (finally) here
         let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) { Ok(x) => x, _ => { 
             return Err(format!("SSH connection attempt failed for {}:{}", self.host.read().expect("host read").name, self.port)); } };
         
-
         // new session & handshake
         let mut sess = match Session::new() { Ok(x) => x, _ => { return Err(String::from("SSH session failed")); } };
         sess.set_tcp_stream(tcp);
         match sess.handshake() { Ok(_) => {}, _ => { return Err(String::from("SSH handshake failed")); } } ;
         
-
-        // try to authenticate with the first identity in the agent.
+        // try to authenticate with the identities in the agent
         match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(format!("SSH auth failed for user {}", self.username)); } };
         if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
         
+        // OS detection -- always run uname -a on first connect so we know the OS type, which will allow the command library and facts
+        // module to work correctly.
 
-        // OS detection
         let uname_result = run_command_low_level(&sess, &String::from("uname -a"));
         match uname_result {
             Ok((_rc,out)) => {
@@ -170,8 +185,6 @@ impl Connection for SshConnection {
             },
             Err((rc,out)) => return Err(format!("uname -a command failed: rc={}, out={}", rc,out))
         }
-
-
 
         // we are connected and the OS was identified ok, so save the session
         self.session = Some(sess);
@@ -193,6 +206,12 @@ impl Connection for SshConnection {
     }
 
     fn write_data(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, data: &String, remote_path: &String) -> Result<(),Arc<TaskResponse>> {
+
+        // SFTP writing does not allow root to overwrite files root does not own, and does not support sudo. 
+        // as such this is a pretty low level write (as is copy_file) and logic around tempfiles and permissions is handled in remote.rs
+
+        // write_data writes a string and is really meant for small files like the template module. Large files should use copy_file instead.
+
         let session = self.session.as_ref().expect("session not established");
         let sftp_result = session.sftp();
         let sftp = match sftp_result {
@@ -215,6 +234,8 @@ impl Connection for SshConnection {
     }
 
     fn copy_file(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, src: &Path, remote_path: &String) -> Result<(), Arc<TaskResponse>> {
+
+        // this is a streaming copy that should be fine with large files.
 
         let src_open_result = File::open(src);
         let mut src = match src_open_result {
@@ -260,8 +281,7 @@ impl Connection for SshConnection {
 }
 
 fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String),(i32,String)> {
-    // FIXME: catch all these unwraps and return nice errors here
-
+    // FIXME: catch the rare possibility this unwrap fails and return a nice error?
     let mut channel = session.channel_session().unwrap();
     let actual_cmd = format!("{} 2>&1", cmd);
     match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
@@ -271,18 +291,3 @@ fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String)
     let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
     return Ok((exit_status, s.clone()));
 }
-
-// SHELL may look like this?
-/*
-channel.shell().unwrap();
-for command in commands {
-    channel.write_all(command.as_bytes()).unwrap();
-    channel.write_all(b"\n").unwrap();
-} // Bit inefficient to use separate write calls
-channel.send_eof().unwrap();
-println!("Waiting for output");
-channel.read_to_string(&mut s).unwrap();
-println!("{}", s);
-https://stackoverflow.com/questions/74512626/how-can-i-run-a-sequence-of-commands-using-ssh2-rs
-*/
-

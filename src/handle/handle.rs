@@ -54,15 +54,23 @@ impl TaskHandle {
         // since we can't really have back-references (thanks Rust?) we pass to each namespace what we need of the others
         // thankfully, no circular references seem to be required :)
 
+        // response contains namespaced shortcuts for returning results from module calls
         let response = Arc::new(Response::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&host_handle)
         ));
+
+        // template contains various functions around templating strings, and is most commonly seen in processing module
+        // input parameters as well as directly used in modules like template. It's also used in a few places inside
+        // the engine itself.
         let template = Arc::new(Template::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));
+
+        // remote contains code for interacting with the host being configured.  The host could actually be 'localhost', but it's usually
+        // a machine different from the control machine.  this could be called "configuration_target" instead but that would be more typing
         let remote = Arc::new(Remote::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&connection_handle), 
@@ -70,11 +78,19 @@ impl TaskHandle {
             Arc::clone(&template),
             Arc::clone(&response)
         ));
+
+        // local contains code that is related to looking at the control machine.  Even in local configuration modes, functions here are
+        // not used to configure the actual system, those would be from remote. this could be thought of as 'control-machine-side-module-support'.
+
         let local = Arc::new(Local::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));
+
+        // the handle itself allows access to all of the above namespaces and also has a reference to the host being configured.
+        // run_state itself is a bit of a pseudo-global and contains quite a few more parameters, see playbook/traversal.rs for
+        // what it contains. 
 
         return Self {
             run_state: Arc::clone(&run_state_handle),

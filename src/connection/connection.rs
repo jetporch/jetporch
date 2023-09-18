@@ -21,6 +21,8 @@ use std::sync::Arc;
 use std::marker::{Send,Sync};
 use std::path::Path;
 
+// the connection trait that serves as the base for SshConnection, LocalConnection, and NoConnection
+
 pub trait Connection : Send + Sync {
 
     fn connect(&mut self) -> Result<(),String>;  

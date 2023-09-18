@@ -19,7 +19,12 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use crate::inventory::inventory::Inventory;
 
+// cli support for the show-inventory subcommand
+
 fn string_slice(values: &Vec<String>) -> String {
+    // if there are too many values the output of various group/host lists in the tables
+    // stops being useful. we may want to have some flag where we don't show the
+    // nice tables for this, though right now they really don't exist
     if values.len() > 500 {
         let tmp = values[0..499].to_vec();
         return format!("{}, ...", tmp.join(", "));
@@ -120,11 +125,6 @@ pub fn show_inventory_group(inventory: &Arc<RwLock<Inventory>>, group_name: &Str
         (String::from("All Ancestors"), ancestors_string),
         (String::from("Parents"), parents_string)
     ];
-
-    // FIXME: print child hosts without termimad, as there are too many in very large inventories
-    // just print the first 100 or so and add ...
-
-    // FIXME: also sort
 
     let host_elements : Vec<(String, String)> = vec![
         (format!("All Ancestors ({})",descendant_hosts_count), descendant_hosts_string),

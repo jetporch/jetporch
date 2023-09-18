@@ -46,8 +46,6 @@ pub fn screen_path(path: &String) -> Result<String,String> {
 
 pub fn screen_general_input_strict(input: &String) -> Result<String,String> {
     let input2 = input.trim();
-    // FIXME: use regex, but compile once, convert to allow list
-    // some characters like quotes can break commands but they should not cause operational problems.
     let bad = vec![ ";", "{", "}", "(", ")", "<", ">", "&", "*", "|", "=", "?", "[", "]", "$", "%", "+", "`"];
 
     for invalid in bad.iter() {
@@ -64,7 +62,6 @@ pub fn screen_general_input_strict(input: &String) -> Result<String,String> {
 
 pub fn screen_general_input_loose(input: &String) -> Result<String,String> {
     let input2 = input.trim();
-    // FIXME: use regex, but compile once, convert to allow list
     let bad = vec![ ";", "<", ">", "&", "*", "|", "?", "{", "}", "[", "]", "$", "`"];
     for invalid in bad.iter() {
         if input2.find(invalid).is_some() {
@@ -74,6 +71,7 @@ pub fn screen_general_input_loose(input: &String) -> Result<String,String> {
     return Ok(input2.to_string());
 }
 
+// require that octal inputs be ... octal
 
 pub fn screen_mode(mode: &String) -> Result<String,String> {
     if FileAttributesInput::is_octal_string(&mode) {

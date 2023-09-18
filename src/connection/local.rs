@@ -34,6 +34,8 @@ use std::path::Path;
 use std::io::Write;
 use std::env;
 
+// implementation for both the local connection factory and local connections
+
 #[allow(dead_code)]
 pub struct LocalFactory {
     local_connection: Arc<Mutex<dyn Connection>>,
@@ -42,6 +44,9 @@ pub struct LocalFactory {
 
 impl LocalFactory {
     pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self {
+
+        // we require a localhost to be in the inventory and immediately construct a connection to it
+
         let host = inventory.read().expect("inventory read").get_host(&String::from("localhost"));
         let mut lc = LocalConnection::new(&Arc::clone(&host));
         lc.connect().expect("connection ok");
@@ -53,6 +58,7 @@ impl LocalFactory {
 }
 impl ConnectionFactory for LocalFactory {
     fn get_connection(&self, _context: &Arc<RwLock<PlaybookContext>>, _host: &Arc<RwLock<Host>>) -> Result<Arc<Mutex<dyn Connection>>,String> {
+        // rather than producing new connections, this always returns a clone of the already established local connection from the constructor
         let conn : Arc<Mutex<dyn Connection>> = Arc::clone(&self.local_connection);
         return Ok(conn);
     }
@@ -76,6 +82,7 @@ impl LocalConnection {
 impl Connection for LocalConnection {
 
     fn whoami(&self) -> Result<String,String> {
+        // get the currently logged in user.
         let user_result = env::var("USER");
         return match user_result {
             Ok(x) => Ok(x),
@@ -84,7 +91,7 @@ impl Connection for LocalConnection {
     }
 
     fn connect(&mut self) -> Result<(),String> {
-
+        // upon connection make sure the localhost detection routine runs
         let result = detect_os(&self.host);
         if result.is_ok() {
             return Ok(());
@@ -96,7 +103,6 @@ impl Connection for LocalConnection {
     }
 
     fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        // FIXME: eventually also add sudo strings in here
         let mut base = Command::new("sh");
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         match command.output() {
@@ -157,6 +163,8 @@ impl Connection for LocalConnection {
 }
 
 pub fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
+    // output from the Rust command class can contain junk bytes, here we mostly don't try to solve this yet
+    // and will basically fail if output contains junk. This may be dealt with later.
     let mut base = match std::str::from_utf8(output) {
         Ok(val) => val.to_string(),
         Err(_) => String::from("invalid UTF-8 characters in response"),
@@ -170,8 +178,9 @@ pub fn convert_out(output: &Vec<u8>, err: &Vec<u8>) -> String {
     return base.trim().to_string();
 }
 
-// connection runs uname -a on connect to check the OS type.
 fn detect_os(host: &Arc<RwLock<Host>>) -> Result<(),(i32, String)> {
+    // upon connection we run uname -a on connect to check the OS type.
+    
     let mut base = Command::new("uname");
     let command = base.arg("-a");
     return match command.output() {
