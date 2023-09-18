@@ -32,6 +32,11 @@ use crate::handle::template::Template;
 use crate::tasks::files::Recurse;
 use std::path::PathBuf;
 
+// contains all code that eventually reaches out and touches systems to be configured.
+// this includes the local system (somewhat confusingly) in 'local' mode, and of course
+// SSH-based remotes. 'Remote' should be thought of as 'for the system being configured'
+// as opposed to from the perspective of the control machine.
+
 pub struct Remote {
     run_state: Arc<RunState>, 
     connection: Arc<Mutex<dyn Connection>>,
@@ -74,9 +79,13 @@ impl Remote {
     }
 
     #[inline(always)]
+    // who is the remote user?
     pub fn get_whoami(&self) -> Result<String,String> {
         return self.connection.lock().unwrap().whoami();
     }
+
+    // various files need to store things in tmp locations, mainly because SFTP does not support sudo or give the root
+    // user the ability to replace unowned files
 
     pub fn make_temp_path(&self, who: &String, request: &Arc<TaskRequest>) -> Result<(PathBuf, PathBuf), Arc<TaskResponse>> {
         let mut pb = PathBuf::new();
@@ -96,6 +105,8 @@ impl Remote {
         return Ok((pb.clone(), pb2.clone()));
     }
 
+    // wrappers around running CLI commands
+
     #[inline(always)]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes);
@@ -106,6 +117,9 @@ impl Remote {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No);
     }
 
+    // the unsafe version of this doesn't check the shell string for possible shell variable injections, the most obvious and basic being ";"
+    // usage of unsafe requires a special keyword in the 'shell' module for instance, or that no variables are present in the cmd parameter.
+
     #[inline(always)]
     pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes);
@@ -114,15 +128,20 @@ impl Remote {
     fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc, use_sudo: UseSudo) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
+
         // apply basic screening of the entire shell command, more filtering should already be done by cmd_library
         // for parameterized calls that use that
                
         if safe == Safety::Safe {
+            // check for invalid shell parameters
             match screen_general_input_loose(&cmd) {
                 Ok(_x) => {},
                 Err(y) => return Err(self.response.is_failed(request, &y.clone()))
             }
         }
+
+        // use the sudo template to choose a new command to execute if specified.
+        // this doesn't need to be sudo specifically, it's really a generic concept that can wrap a command with another tool
 
         let cmd_out = match use_sudo {
             UseSudo::Yes => match self.template.add_sudo_details(request, &cmd) {
@@ -134,13 +153,13 @@ impl Remote {
 
         let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out);
 
-        // FIXME: this is reused below, move into function (see run_local)
+        // if requested, turn non-zero return codes into errors
+
         if check_rc == CheckRc::Checked {
             if result.is_ok() {
                 let ok_result = result.as_ref().unwrap();
                 let cmd_result = ok_result.command_result.as_ref().as_ref().unwrap();
                 if cmd_result.rc != 0 {
-                    // FIXME: since cmd_result is cloneable there is no need for it to be in an Arc
                     return Err(self.response.command_failed(request, &Arc::new(Some(cmd_result.clone()))));
                 }
             }
@@ -148,6 +167,8 @@ impl Remote {
 
         return result;
     }
+
+    // the OS type of a host is set on connection by automatically running a discovery command
 
     pub fn get_os_type(&self) -> HostOSType {
         let os_type = self.host.read().unwrap().os_type;
@@ -157,6 +178,8 @@ impl Remote {
         return os_type.unwrap();
     }
 
+    // when we need to write a file we need to place it in a particular temp location and then move it
+
     fn get_transfer_location(&self, request: &Arc<TaskRequest>, _path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
         let whoami = match self.get_whoami() {
             Ok(x) => x,
@@ -165,6 +188,8 @@ impl Remote {
         let (p1,f1) = self.make_temp_path(&whoami, request)?;
         return Ok((Some(p1.clone()), Some(f1.clone())))
     }
+
+    // supporting code for file transfer using temp files
 
     fn get_effective_filename(&self, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, path: &String) -> String {
         let result = match temp_dir.is_some() {
@@ -176,6 +201,8 @@ impl Remote {
         };
         return result;
     }
+
+    // more supporting code for file transfer using temp files
 
     fn conditionally_move_back(&self, request: &Arc<TaskRequest>, temp_dir: Option<PathBuf>, temp_path: Option<PathBuf>, desired_path: &String) -> Result<(), Arc<TaskResponse>> {
         if temp_dir.is_some() {
@@ -191,6 +218,7 @@ impl Remote {
     }
 
     // writes a string (for example, from a template) to a remote file location
+
     pub fn write_data<G>(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
         where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
         let (temp_dir, temp_path) = self.get_transfer_location(request, path)?;
@@ -201,6 +229,8 @@ impl Remote {
         return Ok(xfer_result);
     }
 
+    // copies a file to a remote location
+
     pub fn copy_file<G>(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
     where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
         let (temp_dir, temp_path) = self.get_transfer_location(request, dest)?;
@@ -210,6 +240,8 @@ impl Remote {
         self.conditionally_move_back(request, temp_dir.clone(), temp_path.clone(), dest)?;
         return Ok(xfer_result);
     }
+
+    // gets the octal string mode of a remote file
 
     pub fn get_mode(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<String>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::get_mode_command(self.get_os_type(), path);
@@ -224,6 +256,8 @@ impl Remote {
         }
     }
 
+    // is a remote path a file?
+
     pub fn get_is_file(&self, request: &Arc<TaskRequest>, path: &String) -> Result<bool,Arc<TaskResponse>> {
         return match self.get_is_directory(request, path) {
             Ok(true) => Ok(false),
@@ -231,6 +265,8 @@ impl Remote {
             Err(x) => Err(x)
         };
     }
+
+    // is a remote path a directory?
 
     pub fn get_is_directory(&self, request: &Arc<TaskRequest>, path: &String) -> Result<bool,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::get_is_directory_command(self.get_os_type(), path);
@@ -272,6 +308,9 @@ impl Remote {
         }
         return self.run(request, &cmd, CheckRc::Checked);  
     }
+
+    // return the (owner,group) tuple for a remote file.  If the command fails this will instead return None
+    // so consider running get_mode first.  See the various file modules for examples.
 
     pub fn get_ownership(&self, request: &Arc<TaskRequest>, path: &String) -> Result<Option<(String,String)>,Arc<TaskResponse>> {
         let get_cmd_result = crate::tasks::cmd_library::get_ownership_command(self.get_os_type(), path);
@@ -324,13 +363,11 @@ impl Remote {
     pub fn get_sha512(&self, request: &Arc<TaskRequest>, path: &String) -> Result<String,Arc<TaskResponse>> {
         return self.internal_sha512(request, path);
     }
-   
+
+    // right now we assume there's a good way to run SHA-512 preinstalled on all platforms.
 
     fn internal_sha512(&self, request: &Arc<TaskRequest>, path: &String) -> Result<String,Arc<TaskResponse>> {
         
-        // these games around local command execution should only happen here and not complicate other functions, 
-        // local_action/delegate_to will happen at a higher level in the taskfsm.
-
         let os_type = self.get_os_type();
         let get_cmd_result = crate::tasks::cmd_library::get_sha512_command(os_type, path);
         let cmd = self.unwrap_string_result(&request, &get_cmd_result)?;
@@ -354,6 +391,8 @@ impl Remote {
         };
     }
 
+    // supporting code for any tasks that has an 'attributes' member, see 'template' for one example of usage
+    // TODO: add SELinux
 
     pub fn query_common_file_attributes(&self, request: &Arc<TaskRequest>, remote_path: &String, 
         attributes_in: &Option<FileAttributesEvaluated>, changes: &mut Vec<Field>, recurse: Recurse) -> Result<Option<String>,Arc<TaskResponse>> {
@@ -399,6 +438,10 @@ impl Remote {
         return Ok(remote_mode);
     }
 
+    // supporting code for workign with files that have configurable attributes. See above + also
+    // modules like template.
+    // TODO: add SELinux
+
     pub fn process_common_file_attributes(&self, 
         request: &Arc<TaskRequest>, 
         remote_path: &String, 
@@ -432,6 +475,8 @@ impl Remote {
         }
         return Ok(());
     }
+
+    // see above comments about file attributes features.  
 
     pub fn process_all_common_file_attributes(&self, 
         request: &Arc<TaskRequest>, 

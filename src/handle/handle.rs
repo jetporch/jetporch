@@ -30,6 +30,7 @@ use crate::handle::response::Response;
 // are mostly module authors don't need to think about how things work as much.  This is
 // especially true for the finite state machine that executes tasks.
 
+// whether commands should treat non-zero returns as errors
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum CheckRc {
     Checked,
@@ -49,6 +50,10 @@ pub struct TaskHandle {
 impl TaskHandle {
 
     pub fn new(run_state_handle: Arc<RunState>, connection_handle: Arc<Mutex<dyn Connection>>, host_handle: Arc<RwLock<Host>>) -> Self {
+
+        // since we can't really have back-references (thanks Rust?) we pass to each namespace what we need of the others
+        // thankfully, no circular references seem to be required :)
+
         let response = Arc::new(Response::new(
             Arc::clone(&run_state_handle), 
             Arc::clone(&host_handle)
@@ -70,7 +75,6 @@ impl TaskHandle {
             Arc::clone(&host_handle),
             Arc::clone(&response)
         ));
-
 
         return Self {
             run_state: Arc::clone(&run_state_handle),

@@ -17,14 +17,7 @@
 use serde::{Deserialize};
 use crate::registry::list::Task;
 
-/*
-#[derive(Debug,Deserialize)]
-#[serde(untagged)]
-pub enum AsInteger {
-    String(String),
-    Integer(usize),
-}
-*/
+// all the playbook language YAML structures!
 
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]

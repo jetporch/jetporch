@@ -17,7 +17,6 @@
 
 use crate::playbooks::context::PlaybookContext;
 use std::sync::Arc;
-
 use crate::tasks::*;
 use std::sync::RwLock;
 use crate::inventory::hosts::Host;
@@ -25,6 +24,10 @@ use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_rese
 use std::marker::{Send,Sync};
 use crate::connection::command::CommandResult;
 use crate::playbooks::traversal::HandlerMode;
+
+// visitor contains various functions that are called from all over the program
+// to send feedback to the user.  Eventually this object will also take
+// care of logging requirements (TODO)
 
 pub trait PlaybookVisitor : Send + Sync {
 
@@ -36,10 +39,12 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("{color_cyan}  ..... (debug) : {}{color_reset}", message);
     }
 
+    // used by the echo module
     fn debug_host(&self, host: &Arc<RwLock<Host>>, message: &String) {
         println!("{color_cyan}  ..... {} : {}{color_reset}", host.read().unwrap().name, message);
     }
 
+    // a version of debug that locks with a mutex to prevent the output from being interlaced
     fn debug_lines(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, messages: &Vec<String>) {
         let _lock = context.write().unwrap();
         for message in messages.iter() {
@@ -81,7 +86,6 @@ pub trait PlaybookVisitor : Send + Sync {
     }
 
     fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> () {
-
         println!("----------------------------------------------------------");
         println!("");
         show_playbook_summary(context);
@@ -174,6 +178,8 @@ pub trait PlaybookVisitor : Send + Sync {
             }
         }
     }
+
+    // the check mode version of on_host_task_ok - different possible states, slightly different output
 
     fn on_host_task_check_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();

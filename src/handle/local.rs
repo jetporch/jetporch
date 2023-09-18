@@ -24,6 +24,10 @@ use crate::tasks::cmd_library::screen_general_input_loose;
 use crate::handle::handle::CheckRc;
 use crate::handle::response::Response;
 
+// local contains code that always executes on the control machine, whether in SSH mode or 'local' execution
+// mode. The code that refers to the machine being configured is always in 'remote.rs', whether in SSH
+// mode or using a local connection also!
+
 pub struct Local {
     run_state: Arc<RunState>, 
     _host: Arc<RwLock<Host>>, 
@@ -51,6 +55,9 @@ impl Local {
             Err(y) => Err(self.response.is_failed(request, &y.clone()))
         };
     }
+
+    // runs a shell command.  These can only be executed in the query stage as we don't want anything done to actually configure
+    // a machine in local.rs. 
 
     fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         

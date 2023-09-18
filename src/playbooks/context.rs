@@ -30,8 +30,9 @@ use std::ops::Deref;
 use std::env;
 use guid_create::GUID;
 
+// the playbook traversal state, and a little bit more than that.
 // the playbook context keeps track of where we are in a playbook
-// execution and various results/stats along the way
+// execution and various results/stats along the way.
 
 pub struct PlaybookContext {
 
@@ -63,7 +64,6 @@ pub struct PlaybookContext {
     passive_count_for_host:   HashMap<String, usize>,
     matched_count_for_host:   HashMap<String, usize>,
     skipped_count_for_host:   HashMap<String, usize>,
-
     failed_count_for_host:    HashMap<String, usize>,
     
     pub failed_tasks:           usize,
@@ -73,14 +73,12 @@ pub struct PlaybookContext {
     pub role_vars_storage:      RwLock<serde_yaml::Mapping>,
     pub env_storage:            RwLock<serde_yaml::Mapping>,
     
-    //pub default_remote_user:  String,
     pub connection_cache:     RwLock<ConnectionCache>,
     pub templar:              RwLock<Templar>,
 
     pub ssh_user:             String,
     pub ssh_port:             i64,
     pub sudo:                 Option<String>,
-   
 
 }
 
@@ -102,7 +100,6 @@ impl PlaybookContext {
             targetted_hosts: HashMap::new(),
             failed_hosts: HashMap::new(),
             role_path: None,
-            //role_name: None,
             adjusted_count_for_host:  HashMap::new(),
             attempted_count_for_host: HashMap::new(),
             created_count_for_host:   HashMap::new(),
@@ -128,8 +125,8 @@ impl PlaybookContext {
         return s;
     }
 
-    // ===============================================================================
-    // HOST TARGETTING
+    // the remaining hosts in a play are those that have not failed yet
+    // other functions remove these hosts from the list.
 
     pub fn get_remaining_hosts(&self) -> HashMap<String, Arc<RwLock<Host>>> {
         let mut results : HashMap<String, Arc<RwLock<Host>>> = HashMap::new();
@@ -139,6 +136,10 @@ impl PlaybookContext {
         return results;
     }
 
+    // SSH details are set in traversal and may come from the playbook or
+    // or CLI options. These values are not guaranteed to be used as magic
+    // variables could still exist in inventory for particular hosts
+
     pub fn set_ssh_user(&mut self, ssh_user: &String) {
         self.ssh_user = ssh_user.clone();
     }
@@ -146,6 +147,9 @@ impl PlaybookContext {
     pub fn set_ssh_port(&mut self, ssh_port: i64) {
         self.ssh_port = ssh_port;
     }
+
+    // used in traversal to tell the context what the current set of possible
+    // hosts is.
 
     pub fn set_targetted_hosts(&mut self, hosts: &Vec<Arc<RwLock<Host>>>) {
         self.targetted_hosts.clear();
@@ -161,6 +165,10 @@ impl PlaybookContext {
         }
     }
 
+    // called when a host returns an unacceptable final response.  removes
+    // the host from the targetted pool for the play.  when no hosts
+    // remain the entire play will fail.
+
     pub fn fail_host(&mut self, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         let hostname = host2.name.clone();
@@ -170,18 +178,6 @@ impl PlaybookContext {
         self.targetted_hosts.remove(&hostname);
         self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
     }
-
-    /*
-    pub fn syntax_fail_host(&mut self, host: &Arc<RwLock<Host>>) {
-        self.failed_tasks = self.failed_tasks + 1;
-        let host2 = host.read().unwrap();
-        let hostname = host2.name.clone();
-        self.failed_hosts.insert(hostname.clone(), Arc::clone(&host));
-    }
-    */
-
-    // =================================================================================
-    // SIGNPOSTS
 
     pub fn set_playbook_path(&mut self, path: &PathBuf) {
         self.playbook_path = Some(path_as_string(&path));
@@ -206,12 +202,7 @@ impl PlaybookContext {
 
     pub fn set_role(&mut self, role: &Role, invocation: &RoleInvocation, role_path: &String) {
         self.role = Some(role.clone());
-        //self.role_name  = Some(role.name.clone());
         self.role_path = Some(role_path.clone());
-
-        //let mut blended = serde_yaml::Value::from(serde_yaml::Mapping::new());
-        //blend_variables(&mut blended, serde_yaml::Value::Mapping(src2));
-        //let src1 = self.defaults_storage.read().unwrap();
         if role.defaults.is_some() { 
              *self.role_defaults_storage.write().unwrap() = role.defaults.as_ref().unwrap().clone();
         }
@@ -219,18 +210,16 @@ impl PlaybookContext {
             *self.role_vars_storage.write().unwrap() = invocation.vars.as_ref().unwrap().clone();
         }
     }
-    // FIXME: need to clear after leaving role.
 
     pub fn unset_role(&mut self) {
         self.role = None;
-        //self.role_name = None;
         self.role_path = None;
         self.role_defaults_storage.write().unwrap().clear();
         self.role_vars_storage.write().unwrap().clear();
     }
 
-    // ==================================================================================
-    // VARIABLES
+    // template functions need to access all the variables about a host taking variable precendence rules into effect
+    // to get a dictionary of variables to use in template expressions
 
     pub fn get_complete_blended_variables(&self, host: &Arc<RwLock<Host>>, blend_target: BlendTarget) -> serde_yaml::Mapping  {
         let blended = self.get_complete_blended_variables_as_value(host, blend_target);
@@ -275,15 +264,23 @@ impl PlaybookContext {
         return blended;
     }
 
+    // template code is not used here directly, but in handle/template.rs, which passes back through here, since
+    // only the context knows all the variables from the playbook traversal to fill in and how to blend
+    // variables in the correct order.
+
     pub fn render_template(&self, template: &String, host: &Arc<RwLock<Host>>, blend_target: BlendTarget, template_mode: TemplateMode) -> Result<String,String> {
         let vars = self.get_complete_blended_variables(host, blend_target);
         return self.templar.read().unwrap().render(template, vars, template_mode);
     }
 
+    // testing conditions for truthiness works much like templating strings
+
     pub fn test_condition(&self, expr: &String, host: &Arc<RwLock<Host>>, tm: TemplateMode) -> Result<bool,String> {
         let vars = self.get_complete_blended_variables(host, BlendTarget::NotTemplateModule);
         return self.templar.read().unwrap().test_condition(expr, vars, tm);
     }
+
+    // a version of template evaluation that allows some additional variables, for example from a module
 
     pub fn test_condition_with_extra_data(&self, expr: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping, tm: TemplateMode) -> Result<bool,String> {
         let mut vars = self.get_complete_blended_variables_as_value(host, BlendTarget::NotTemplateModule);
@@ -293,6 +290,9 @@ impl PlaybookContext {
             _ => { panic!("impossible input to test_condition"); }
         };
     }
+
+    // when a host needs to connect over SSH it asks this function - we can use some settings configured
+    // already on the context or check some variables in inventory.
 
     pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
 
@@ -329,6 +329,39 @@ impl PlaybookContext {
 
         return (remote_hostname, remote_user, remote_port)
     } 
+
+    // loads environment variables into the context, adding an "ENV_foo" prefix
+    // to each environment variable "foo". These variables will only be made available
+    // to the template module since we use them for secret management features.
+
+    pub fn load_environment(&mut self) -> () {
+        let mut my_env = self.env_storage.write().unwrap();
+        // some common environment variables that may occur are not useful for playbooks
+        // or they have no need to share that with other hosts
+        let do_not_load = vec![
+            "OLDPWD",
+            "PWD",
+            "SHLVL",
+            "SSH_AUTH_SOCK",
+            "SSH_AGENT_PID",
+            "TERM_SESSION_ID",
+            "XPC_FLAGS",
+            "XPC_SERVICE_NAME",
+            "_"
+        ];
+        
+        for (k,v) in env::vars() {
+            if ! do_not_load.contains(&k.as_str()) {
+                my_env.insert(serde_yaml::Value::String(format!("ENV_{k}")) , serde_yaml::Value::String(v));
+            }
+        }
+    }
+
+    // various functions in Jet make use of GUIDs, for example for temp file locations
+
+    pub fn get_guid(&self) -> String {
+        return GUID::rand().to_string();
+    }
 
     // ==================================================================================
     // STATISTICS
@@ -469,32 +502,6 @@ impl PlaybookContext {
         return self.seen_hosts.keys().len();
     }
     
-    pub fn load_environment(&mut self) -> () {
-        let mut my_env = self.env_storage.write().unwrap();
-        // some common environment variables that may occur are not useful for playbooks
-        // or they have no need to share that with other hosts
-        let do_not_load = vec![
-            "OLDPWD",
-            "PWD",
-            "SHLVL",
-            "SSH_AUTH_SOCK",
-            "SSH_AGENT_PID",
-            "TERM_SESSION_ID",
-            "XPC_FLAGS",
-            "XPC_SERVICE_NAME",
-            "_"
-        ];
-        
-        for (k,v) in env::vars() {
-            if ! do_not_load.contains(&k.as_str()) {
-                my_env.insert(serde_yaml::Value::String(format!("ENV_{k}")) , serde_yaml::Value::String(v));
-            } else {
-            }
-        }
-    }
 
-    pub fn get_guid(&self) -> String {
-        return GUID::rand().to_string();
-    }
 
 }
