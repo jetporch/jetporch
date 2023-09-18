@@ -80,11 +80,11 @@ impl Remote {
 
     pub fn make_temp_path(&self, who: &String, request: &Arc<TaskRequest>) -> Result<(PathBuf, PathBuf), Arc<TaskResponse>> {
         let mut pb = PathBuf::new();
-        // slight buglet, if the user has no homedir access in this location it this will not work, but it seemed better than trusting $HOME
-        // users can make a symlink in the worst case
-
         let tmpdir = match who.eq("root") {
-            false => format!("/home/{}/.jet/tmp", who),
+            false => match self.host.read().unwrap().os_type {
+                Some(HostOSType::MacOS) => format!("/Users/{}/.jet/tmp", who),
+                _ => format!("/home/{}/.jet/tmp", who),
+            }
             true => String::from("/root/.jet/tmp")
         };
         pb.push(tmpdir);
