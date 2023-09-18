@@ -25,6 +25,13 @@ use crate::tasks::cmd_library::{screen_path,screen_general_input_strict};
 use crate::handle::response::Response;
 use crate::playbooks::templar::{Templar,TemplateMode};
 
+// template contains support code for all variable evaluation in the playbook language, as well as
+// support for the template module, and ALSO the code to validate and process module arguments to make
+// sure they are the right type.
+//
+// because module arguments come in as strings, we evaluate templates here and then see if they can
+// be parsed as their desired types.
+
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum BlendTarget {
     NotTemplateModule,
