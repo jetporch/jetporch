@@ -26,17 +26,9 @@ static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     return hb;
 });
 
-static HANDLEBARS_UNSTRICT: Lazy<Handlebars> = Lazy::new(|| {
-    let mut hb = Handlebars::new();
-    hb.register_escape_fn(handlebars::no_escape);
-    hb.set_strict_mode(true);
-    return hb;
-});
-
 #[derive(PartialEq,Copy,Clone,Debug)]
 pub enum TemplateMode {
     Strict,
-    NotStrict,
     Off
 }
 
@@ -53,7 +45,6 @@ impl Templar {
     pub fn render(&self, template: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<String, String> {
         let result : Result<String, RenderError> = match template_mode {
             TemplateMode::Strict => HANDLEBARS.render_template(template, &data),
-            TemplateMode::NotStrict => HANDLEBARS_UNSTRICT.render_template(template, &data),
             /* this is only used to get back the raw 'items' collection inside the task FSM */
             TemplateMode::Off => Ok(String::from("empty"))
         };
@@ -67,15 +58,8 @@ impl Templar {
         }
     }
 
-    pub fn render_value(&self, template: &String, data: serde_yaml::Value, template_mode: TemplateMode) -> Result<String, String> {
-        match data {
-            serde_yaml::Value::Mapping(x) => { return self.render(template, x, template_mode); }
-            _ => { panic!("this method requires a mapping"); }
-        }
-    }
-
     pub fn test_condition(&self, expr: &String, data: serde_yaml::Mapping, template_mode: TemplateMode) -> Result<bool, String> {
-        if (template_mode == TemplateMode::Off) {
+        if template_mode == TemplateMode::Off {
             /* this is only used to get back the raw 'items' collection inside the task FSM */
             return Ok(true);
         }

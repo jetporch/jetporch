@@ -116,7 +116,7 @@ impl Host {
     }
 
     pub fn has_group(&self, group_name: &String) -> bool {
-        for (k,v) in self.groups.iter() {
+        for (k,_v) in self.groups.iter() {
             if k == group_name {
                 return true;
             }

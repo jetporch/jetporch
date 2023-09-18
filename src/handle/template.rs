@@ -55,13 +55,6 @@ impl Template {
         }
     }
 
-    fn contains_vars(&self, input: &String) -> bool {
-        if input.find("{{").is_some() {
-            return true;
-        }
-        return false;
-    }
-
     #[inline(always)]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);

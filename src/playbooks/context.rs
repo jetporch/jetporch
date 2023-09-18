@@ -280,15 +280,6 @@ impl PlaybookContext {
         return self.templar.read().unwrap().render(template, vars, template_mode);
     }
 
-    pub fn render_template_with_extra_data(&self, template: &String, host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<String,String> {
-        let mut vars = self.get_complete_blended_variables_as_value(host, BlendTarget::NotTemplateModule);
-        blend_variables(&mut vars, serde_yaml::Value::Mapping(vars_input));
-        return match vars {
-            serde_yaml::Value::Mapping(ref x) => self.templar.read().unwrap().render_value(template, vars, TemplateMode::Strict),
-            _ => { panic!("impossible input to test_condition"); }
-        };
-    }
-
     pub fn test_condition(&self, expr: &String, host: &Arc<RwLock<Host>>, tm: TemplateMode) -> Result<bool,String> {
         let vars = self.get_complete_blended_variables(host, BlendTarget::NotTemplateModule);
         return self.templar.read().unwrap().test_condition(expr, vars, tm);

@@ -124,7 +124,7 @@ pub trait PlaybookVisitor : Send + Sync {
         println!("… {} => notified: {}", host2.name, which_handler);
     }
 
-    fn on_host_delegate(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, delegated: &String) {
+    fn on_host_delegate(&self, host: &Arc<RwLock<Host>>, delegated: &String) {
         let host2 = host.read().unwrap();
         println!("{color_blue}✓ {} => delegating to: {}{color_reset}",  &host2.name, delegated.clone());
     }

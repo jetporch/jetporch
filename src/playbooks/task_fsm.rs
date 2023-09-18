@@ -25,7 +25,7 @@ use crate::tasks::request::SudoDetails;
 use crate::tasks::*;
 use crate::handle::template::BlendTarget;
 use crate::playbooks::templar::TemplateMode;
-use crate::tasks::logic::{empty_items_vector,template_items};
+use crate::tasks::logic::template_items;
 use std::sync::{Arc,RwLock,Mutex};
 use std::collections::HashMap;
 use rayon::prelude::*;
@@ -134,7 +134,7 @@ fn run_task_on_host(
     };
 
     if delegated.is_some() {
-        run_state.visitor.read().unwrap().on_host_delegate(&run_state.context, host, &delegated.unwrap());
+        run_state.visitor.read().unwrap().on_host_delegate(host, &delegated.unwrap());
     }
  
     let evaluated = task.evaluate(&handle, &validate, TemplateMode::Off)?;

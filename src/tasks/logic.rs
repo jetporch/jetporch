@@ -19,7 +19,6 @@ use crate::tasks::request::TaskRequest;
 use std::sync::Arc;
 use crate::tasks::response::TaskResponse;
 use serde::Deserialize;
-use std::collections::HashMap;
 use crate::handle::template::BlendTarget;
 use crate::playbooks::templar::TemplateMode;
 
