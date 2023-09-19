@@ -48,7 +48,7 @@ impl IsTask for FailTask {
             EvaluatedTask {
                 action: Arc::new(FailAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg:  handle.template.string_option_unsafe(request, tm, &String::from("msg"), &self.msg)?,
+                    msg:  handle.template.string_option_unsafe_for_shell(request, tm, &String::from("msg"), &self.msg)?,
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, tm, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, tm, &self.and)?),

@@ -92,7 +92,7 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
         limit_groups: parser.limit_groups.clone(),
         batch_size: parser.batch_size.clone(),
         // the context is constructed with an instance of the parser instead of having a back-reference
-        // to run-state.  Context should mostly *not* load parameters from the parser unless they
+        // to run-state.  Context should mostly *not* get parameters from the parser unless they
         // are going to appear in variables.
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
         visitor: match check_mode {

@@ -32,11 +32,23 @@ use crate::playbooks::templar::{Templar,TemplateMode};
 // because module arguments come in as strings, we evaluate templates here and then see if they can
 // be parsed as their desired types.
 
+// when blend target must be specified, it is either the template module or *not*.
+// the only real difference (at the moment) is that the template module is allowed access
+// to environment variables which are prefixed as ENV_foo. The environment mechanism is how
+// we work with secret manager tools. See the website secrets documentation for details
+
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum BlendTarget {
     NotTemplateModule,
     TemplateModule,
 }
+
+// where used, safe means screening commands or arguments for unexpected shell characters
+// that could lead to command escapes. Because a command is marked unsafe does not mean
+// it is actually unsafe, it just means that it is not checked. A command using
+// variables from untrusted sources may actually be unsafe, for instance, the shell
+// module when used with 'unsafe: true'.  Though if no variables are used, it would
+// be quite safe.
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Safety {
@@ -53,6 +65,10 @@ pub struct Template {
 
 impl Template {
 
+    // templating is always done in reference to a specific host, so that we can mix in host specific variables
+    // the response is in the constructor as need it to return errors that are passed upwards from
+    // functions below.
+
     pub fn new(run_state_handle: Arc<RunState>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
         Self {
             run_state: run_state_handle,
@@ -62,7 +78,6 @@ impl Template {
         }
     }
 
-    #[inline(always)]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
@@ -77,8 +92,6 @@ impl Template {
     }
 
     fn template_unsafe_internal(&self, request: &Arc<TaskRequest>, tm: TemplateMode, _field: &String, template: &String, blend_target: BlendTarget) -> Result<String,Arc<TaskResponse>> {
-        // note to module authors:
-        // if you have a path, call template_path instead!  Do not call template_str as you will ignore path sanity checks.
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host, blend_target, tm);
         if result.is_ok() {
             let result_ok = result.as_ref().unwrap();
@@ -90,18 +103,32 @@ impl Template {
         return Ok(result2);
     }
     
-    #[inline(always)]
     pub fn string_for_template_module_use_only(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // this is the version of templating that gives access to secret variables, we don't allow them elsewhere as they would be easy to leak to CI/CD/build output/logs
+        // and the contents to templates are not shown to anything
         return self.template_unsafe_internal(request, tm, field, template, BlendTarget::TemplateModule);
     }
 
-    #[inline(always)]
     pub fn string_unsafe_for_shell(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // indicates templating a string that will not without further processing, be passed to a shell command
         return self.template_unsafe_internal(request, tm, field, template, BlendTarget::NotTemplateModule);
     }
 
-    #[inline(always)]
+
+    // FIXME: this code is possibly a bit redundant - perhaps calling methods can use the public function and this can be eliminated
+
+    fn string_option_unsafe(&self, request: &Arc<TaskRequest>, tm: TemplateMode,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // templates a string that is not allowed to be used in shell commands and may contain special characters
+        if template.is_none() { return Ok(None); }
+        let result = self.string(request, tm, field, &template.as_ref().unwrap());
+        return match result { 
+            Ok(x) => Ok(Some(x)), 
+            Err(y) => { Err(self.response.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
+        };
+    }
+    
     pub fn string_option_unsafe_for_shell(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // indicates templating a string that will not without further processing, be passed to a shell command
         return match template.is_none() {
             true => Ok(None),
             false => Ok(Some(self.template_unsafe_internal(request, tm, field, &template.as_ref().unwrap(), BlendTarget::NotTemplateModule)?))
@@ -109,6 +136,7 @@ impl Template {
     }
 
     pub fn string(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // templates a required string parameter - the simplest of argument processing, this requires no casting to other types
         let result = self.string_unsafe_for_shell(request, tm, field, template);
         return match result {
             Ok(x) => match screen_general_input_strict(&x) {
@@ -120,6 +148,7 @@ impl Template {
     }
 
     pub fn string_no_spaces(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // same as self.string above, this version also does not allow spaces in the resulting string
         let value = self.string(request, tm, field, template)?;
         if self.has_spaces(&value) {
             return Err(self.response.is_failed(request, &format!("field ({}): spaces are not allowed", field)))
@@ -128,6 +157,7 @@ impl Template {
     }
 
     pub fn string_option_no_spaces(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // this is a version of string_no_spaces that allows the value to be optional
         let prelim = self.string_option(request, tm, field, template)?;
         if prelim.is_some() {
             let value = prelim.as_ref().unwrap();
@@ -139,6 +169,8 @@ impl Template {
     }
 
     pub fn string_option_trim(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // for processing parameters that take optional strings, but make sure to remove any extra surrounding whitespace
+        // YAML should do this anyway so it's mostly overkill but may prevent some rare errors from inventory variable sources
         let prelim = self.string_option(request, tm, field, template)?;
         if prelim.is_some() {
             return Ok(Some(prelim.unwrap().trim().to_string()));
@@ -147,6 +179,7 @@ impl Template {
     }
 
     pub fn no_template_string_option_trim(&self, input: &Option<String>) -> Option<String> {
+        // takes a string option and uses it verbatim, for parameters that do not allow variables in them
         if input.is_some() {
             let value = input.as_ref().unwrap();
             return Some(value.trim().to_string());
@@ -155,6 +188,7 @@ impl Template {
     }
 
     pub fn path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<String,Arc<TaskResponse>> {
+        // templates a string and makes sure the output looks like a valid path
         let result = self.run_state.context.read().unwrap().render_template(template, &self.host, BlendTarget::NotTemplateModule, tm);
         let result2 = self.unwrap_string_result(request, &result)?;
         return match screen_path(&result2) {
@@ -162,16 +196,10 @@ impl Template {
         }
     }
 
-    pub fn string_option_unsafe(&self, request: &Arc<TaskRequest>, tm: TemplateMode,field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
-        if template.is_none() { return Ok(None); }
-        let result = self.string(request, tm, field, &template.as_ref().unwrap());
-        return match result { 
-            Ok(x) => Ok(Some(x)), 
-            Err(y) => { Err(self.response.is_failed(request, &format!("field ({}) template error: {:?}", field, y))) } 
-        };
-    }
+
 
     pub fn string_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
+        // templates an optional string
         let result = self.string_option_unsafe(request, tm, field, template);
         return match result {
             Ok(x1) => match x1 {
@@ -187,6 +215,7 @@ impl Template {
 
     #[allow(dead_code)]
     pub fn integer(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String)-> Result<u64,Arc<TaskResponse>> {
+        // templates a required value that must resolve to an integer
         if tm == TemplateMode::Off {
             return Ok(0);
         }
@@ -199,6 +228,7 @@ impl Template {
     }
 
     pub fn integer_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
+        // templates an optional value that must resolve to an integer
         if tm == TemplateMode::Off {
             return Ok(0);
         }
@@ -216,6 +246,9 @@ impl Template {
 
     #[allow(dead_code)]
     pub fn boolean(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &String) -> Result<bool,Arc<TaskResponse>> {
+        // templates a required value that must resolve to a boolean
+        // where possible, consider using boolean_option_default_true/false instead
+        // jet mostly favors booleans defaulting to false, but it doesn't always make sense
         if tm == TemplateMode::Off {
             return Ok(true);
         }
@@ -228,15 +261,17 @@ impl Template {
 
     #[allow(dead_code)]
     pub fn boolean_option_default_true(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        // templates an optional value that resolves to a boolean, if omitted, assume the answer is true
         return self.internal_boolean_option(request, tm, field, template, true);
     }
 
-    #[inline(always)]
     pub fn boolean_option_default_false(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<bool,Arc<TaskResponse>>{
+        // templates an optional value that resolves to a boolean, if omitted, assume the answer is false
         return self.internal_boolean_option(request, tm, field, template, false);
     }
   
     fn internal_boolean_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: bool)-> Result<bool,Arc<TaskResponse>>{
+        // supporting code for boolean parsing above
         if tm == TemplateMode::Off {
             return Ok(false);
         }
@@ -252,6 +287,7 @@ impl Template {
     }
 
     pub fn boolean_option_default_none(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>)-> Result<Option<bool>,Arc<TaskResponse>>{
+        // supports an optional boolean value that does not default to true or false - effectively making the option a trinary value where None is "no preference"
         if tm == TemplateMode::Off {
             return Ok(None);
         }
@@ -267,6 +303,7 @@ impl Template {
     }
 
     pub fn test_condition(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String) -> Result<bool, Arc<TaskResponse>> {
+        // used to evaluate in-language conditionals throughout the program.
         if tm == TemplateMode::Off {
             return Ok(false);
         }
@@ -277,6 +314,7 @@ impl Template {
     }
 
     pub fn test_condition_with_extra_data(&self, request: &Arc<TaskRequest>, tm: TemplateMode, expr: &String, _host: &Arc<RwLock<Host>>, vars_input: serde_yaml::Mapping) -> Result<bool,Arc<TaskResponse>> {
+        // same as test_condition but mixes in some temporary data that is not stored elsewhere for future template evaluation
         if tm == TemplateMode::Off {
             return Ok(false);
         }
@@ -286,17 +324,19 @@ impl Template {
         }
     }
 
-    #[inline(always)]
     pub fn find_template_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        // templates a string and then looks for the resulting file in the logical templates/ locations (if not an absolute path)
+        // raises errors if the source files are not found
         return self.find_sub_path(&String::from("templates"), request, tm, field, str_path);
     }
 
-    #[inline(always)]
     pub fn find_file_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        // simialr to find_template_path, this one assumes a 'files/' directory for relative paths.
         return self.find_sub_path(&String::from("files"), request, tm, field, str_path);
     }
 
     fn find_sub_path(&self, prefix: &String, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+        // supporting code for find_template_path and find_file_path
         if tm == TemplateMode::Off {
             return Ok(PathBuf::new());
         }
@@ -324,13 +364,15 @@ impl Template {
         }
     }
 
-    #[inline(always)]
-    pub fn has_spaces(&self, input: &String) -> bool {
+    fn has_spaces(&self, input: &String) -> bool {
         let found = input.find(" ");
         return found.is_some();
     }
 
     pub fn add_sudo_details(&self, request: &TaskRequest, cmd: &String) -> Result<String, String> {
+        // this is used by remote.rs to modify any command, inserting the results of evaluating the configured sudo_template
+        // instead of the original command. only specific variables are allowed in the sudo template as opposed
+        // to all the variables in jet's current host context.
         if ! request.is_sudoing() {
             return Ok(cmd.clone());
         }

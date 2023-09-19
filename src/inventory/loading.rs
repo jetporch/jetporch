@@ -208,8 +208,6 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
 
     let mut inventory = inv.write().unwrap();
 
-    println!("loading dynamic_inventory: NOT IMPLEMENTED");
-
     let mut command = Command::new(format!("{}", path.display()));
     let output = match command.output() {
         Ok(x) => {
@@ -227,11 +225,6 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
     } 
     let json_result = file_parse_result.unwrap();
 
-    // inventory.store_subgroup(&group_name.clone(), &subgroupname.clone()); 
-    // for hostname in hosts { inventory.store_host(&group_name.clone(), &hostname.clone()); }
-    // inv_obj.store_group(&String::from("all"));
-
-
     for (possible_group_name, entry) in json_result.iter() {
         let group_name = match possible_group_name.eq("_meta") {
             true => String::from("all"),
@@ -247,7 +240,6 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
         if entry.hostvars.is_some() {
             let hostvars = entry.hostvars.as_ref().unwrap();
             for (host_name, values) in hostvars.iter() {
-                println!("host {} is a member of {}", host_name, group_name);
                 inventory.store_host(&group_name, &host_name);
                 let host = inventory.get_host(&host_name);
                 let vars = convert_json_vars(&values);
@@ -258,24 +250,19 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
         if entry.hosts.is_some() {
             let hosts = entry.hosts.as_ref().unwrap();
             for host_name in hosts.iter() {
-                println!("host {} is a member of {}", &host_name, group_name);
                 inventory.store_host(&group_name, &host_name);
 
             }
         }
         if entry.children.as_ref().is_some() {
             let subgroups = entry.children.as_ref().unwrap();
-            println!("found an entry: {}", group_name );
             for subgroup_name in subgroups.iter() {
-                println!("a subgroup {} descends from {}", subgroup_name, group_name);
                 inventory.store_subgroup(&group_name, &subgroup_name);
             }
         }
         if entry.vars.as_ref().is_some() {
             let vars = entry.vars.as_ref().unwrap();
-            println!("found some vars: {}", group_name);
             for (_key, values) in vars.iter() {
-                println!("found some group values: {}, {:?}", group_name, values);
                 let vars = convert_json_vars(&values);
                 let mut grp = group.write().unwrap();
                 grp.update_variables(vars);
@@ -286,7 +273,9 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
     Ok(())
 }
 
-fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
+// TODO: this is used in the parser also, move to utils/
+
+pub fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
     let json = input.to_string();
     let file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_str(&json);
     match file_parse_result {

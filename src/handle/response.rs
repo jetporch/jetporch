@@ -44,12 +44,10 @@ impl Response {
         }
     }
 
-    #[inline(always)]
     pub fn get_context(&self) -> Arc<RwLock<PlaybookContext>> {
         return Arc::clone(&self.run_state.context);
     }
 
-    #[inline(always)]
     pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
     }
@@ -65,7 +63,6 @@ impl Response {
         });
     }
 
-    #[inline(always)]
     pub fn not_supported(&self, request: &Arc<TaskRequest>) -> Arc<TaskResponse> {
         // modules should return this on any request legs they don't support... though they should also never
         // be called against those legs if the Query leg is written correctly!

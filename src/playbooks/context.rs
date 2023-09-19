@@ -44,7 +44,6 @@ pub struct PlaybookContext {
     
     pub role: Option<Role>,
     pub role_path: Option<String>,
-    //pub role_name: Option<String>,
     pub play_count: usize,
     pub role_count: usize,
 
@@ -66,6 +65,7 @@ pub struct PlaybookContext {
     skipped_count_for_host:   HashMap<String, usize>,
     failed_count_for_host:    HashMap<String, usize>,
     
+    // TODO: some of these don't need to be pub.
     pub failed_tasks:           usize,
     pub defaults_storage:       RwLock<serde_yaml::Mapping>,
     pub vars_storage:           RwLock<serde_yaml::Mapping>,
@@ -79,6 +79,7 @@ pub struct PlaybookContext {
     pub ssh_user:             String,
     pub ssh_port:             i64,
     pub sudo:                 Option<String>,
+    extra_vars:               serde_yaml::Value,
 
 }
 
@@ -120,6 +121,7 @@ impl PlaybookContext {
             ssh_user:                 parser.default_user.clone(),
             ssh_port:                 parser.default_port,
             sudo:                     parser.sudo.clone(),
+            extra_vars:               parser.extra_vars.clone(),
         };
         s.load_environment();
         return s;
@@ -250,6 +252,8 @@ impl PlaybookContext {
         let src3r = self.role_vars_storage.read().unwrap();
         let src3ar = src3r.deref();
         blend_variables(&mut blended, serde_yaml::Value::Mapping(src3ar.clone()));
+
+        blend_variables(&mut blended, self.extra_vars.clone());
 
         match blend_target {
             BlendTarget::NotTemplateModule => { },

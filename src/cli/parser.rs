@@ -23,6 +23,11 @@ use std::vec::Vec;
 use std::path::PathBuf;
 use std::sync::{Arc,RwLock};
 use crate::util::io::directory_as_string;
+use crate::util::yaml::blend_variables;
+use crate::inventory::loading::convert_json_vars;
+use crate::util::io::jet_file_open;
+use crate::util::yaml::show_yaml_error_in_context;
+use std::path::Path;
 use built;
 
 // allows -v and --help to show version info
@@ -72,7 +77,8 @@ pub struct CliParser {
     pub git_version: String,
     pub build_time: String,
     pub tags: Option<Vec<String>>,
-    pub allow_localhost_delegation: bool
+    pub allow_localhost_delegation: bool,
+    pub extra_vars: serde_yaml::Value,
 }
 
 // subcommands are usually required
@@ -131,6 +137,8 @@ const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
 const ARGUMENT_VERBOSE: &'static str = "-v";
 const ARGUMENT_VERBOSER: &'static str = "-vv";
 const ARGUMENT_VERBOSEST: &'static str = "-vvv";
+const ARGUMENT_EXTRA_VARS: &'static str = "--extra-vars";
+const ARGUMENT_EXTRA_VARS_SHORT: &'static str = "-e";
 
 // output from --version
 
@@ -212,6 +220,8 @@ fn show_help(git_version: &String) {
                        | |\n\
                        | | --allow-localhost-delegation | signs off on variable sourcing risks and enables localhost actions with delegate_to\n\
                        | |\n\
+                       | | -e, --extra-vars @filename | injects extra variables into the playbook runtime context from a YAML file, or quoted JSON\n\
+                       | |\n\
                        | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
                        |-|";
@@ -275,7 +285,8 @@ impl CliParser  {
             limit_groups: Vec::new(),
             limit_hosts: Vec::new(),
             tags: None,
-            allow_localhost_delegation: false
+            allow_localhost_delegation: false,
+            extra_vars: serde_yaml::Value::Mapping(serde_yaml::Mapping::new())
         };
         return p;
     }
@@ -369,6 +380,8 @@ impl CliParser  {
                             ARGUMENT_VERBOSE           => self.increase_verbosity(1),
                             ARGUMENT_VERBOSER          => self.increase_verbosity(2),
                             ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
+                            ARGUMENT_EXTRA_VARS        => self.store_extra_vars_value(&args[arg_count]),
+                            ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars_value(&args[arg_count]),
                             _                          => Err(format!("invalid flag: {}", argument_str)),
 
                         };
@@ -404,6 +417,7 @@ impl CliParser  {
             self.add_role_paths_from_environment()?;
             self.add_implicit_role_paths()?;
         }
+        Ok(())
 
     }
 
@@ -589,6 +603,41 @@ impl CliParser  {
         }
         return Ok(());
     }
+
+    fn store_extra_vars_value(&mut self, value: &String) -> Result<(), String> {
+
+        if value.starts_with("@") {
+            // input is a filename where the data is YAML
+
+            let rest_of_path = value.replace("@","");
+            let path = Path::new(&rest_of_path);
+            if ! path.is_file() {
+                return Err(format!("--extra-vars parameter with @ expects a file: {}", rest_of_path))
+            }
+            let extra_file = jet_file_open(path)?;
+            let parsed: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_reader(extra_file);
+            if parsed.is_err() {
+                show_yaml_error_in_context(&parsed.unwrap_err(), &path);
+                return Err(format!("edit the file and try again?"));
+            }   
+            blend_variables(&mut self.extra_vars, serde_yaml::Value::Mapping(parsed.unwrap()));
+
+        } else {
+            // input is inline JSON (as YAML wouldn't make sense with the newlines)
+
+            let parsed: Result<serde_json::Value, serde_json::Error> = serde_json::from_str(value);
+            let actual = match parsed {
+                Ok(x) => x,
+                Err(y) => { return Err(format!("inline json is not valid: {}", y)) }
+            };   
+            let serde_map = convert_json_vars(&actual);
+            blend_variables(&mut self.extra_vars, serde_yaml::Value::Mapping(serde_map));
+        
+        }
+        
+        return Ok(());
+
+     }
 
 }
 

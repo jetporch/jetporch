@@ -124,12 +124,10 @@ impl Host {
         return false;
     }
 
-    #[inline(always)]
     pub fn get_group_names(&self) -> Vec<String> {
         return self.get_groups().iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    #[inline(always)]
     pub fn add_group(&mut self, name: &String, group: Arc<RwLock<Group>>) {
         self.groups.insert(name.clone(), Arc::clone(&group));
     }
@@ -146,22 +144,18 @@ impl Host {
         return results;
     }
 
-    #[inline(always)]
     pub fn get_ancestor_group_names(&self) -> Vec<String> {
         return self.get_ancestor_groups(20usize).iter().map(|(k,_v)| k.clone()).collect();
     }
 
-    #[inline(always)]
     pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
 
-    #[inline(always)]
     pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
         self.variables = variables.clone();
     }
 
-    #[inline(always)]
     pub fn update_variables(&mut self, mapping: serde_yaml::Mapping) {
         let map = mapping.clone();
         blend_variables(&mut self.dyn_variables, serde_yaml::Value::Mapping(map));

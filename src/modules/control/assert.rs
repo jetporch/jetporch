@@ -59,7 +59,7 @@ impl IsTask for AssertTask {
             EvaluatedTask {
                 action: Arc::new(AssertAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    msg: handle.template.string_option_unsafe(request, tm, &String::from("msg"), &self.msg)?,
+                    msg: handle.template.string_option_unsafe_for_shell(request, tm, &String::from("msg"), &self.msg)?,
                     r#true: match self.r#true.is_some() {
                             true => handle.template.test_condition(request, tm, &self.r#true.as_ref().unwrap())?,
                             false => true

@@ -78,7 +78,6 @@ impl Remote {
         };
     }
 
-    #[inline(always)]
     // who is the remote user?
     pub fn get_whoami(&self) -> Result<String,String> {
         return self.connection.lock().unwrap().whoami();
@@ -107,12 +106,10 @@ impl Remote {
 
     // wrappers around running CLI commands
 
-    #[inline(always)]
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes);
     }
 
-    #[inline(always)]
     pub fn run_no_sudo(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No);
     }
@@ -120,7 +117,6 @@ impl Remote {
     // the unsafe version of this doesn't check the shell string for possible shell variable injections, the most obvious and basic being ";"
     // usage of unsafe requires a special keyword in the 'shell' module for instance, or that no variables are present in the cmd parameter.
 
-    #[inline(always)]
     pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes);
     }
@@ -359,7 +355,6 @@ impl Remote {
         return self.run(request,&cmd,CheckRc::Checked);
     }
 
-    #[inline(always)]
     pub fn get_sha512(&self, request: &Arc<TaskRequest>, path: &String) -> Result<String,Arc<TaskResponse>> {
         return self.internal_sha512(request, path);
     }
