@@ -25,7 +25,7 @@ use std::sync::Arc;
 use std::vec::Vec;
 use crate::tasks::files::Recurse;
 
-const MODULE: &'static str = "template";
+const MODULE: &str = "template";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

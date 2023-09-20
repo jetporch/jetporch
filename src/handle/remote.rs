@@ -54,18 +54,18 @@ pub enum UseSudo {
 impl Remote {
 
     pub fn new(
-        run_state_handle: Arc<RunState>, 
-        connection_handle: Arc<Mutex<dyn Connection>>, 
-        host_handle: Arc<RwLock<Host>>, 
-        template_handle: Arc<Template>,
+        run_state: Arc<RunState>, 
+        connection: Arc<Mutex<dyn Connection>>, 
+        host: Arc<RwLock<Host>>, 
+        template: Arc<Template>,
         response: Arc<Response>) -> Self {
         
         Self {
-            run_state: run_state_handle,
-            connection: connection_handle,
-            host: host_handle,
-            template: template_handle,
-            response: response,
+            run_state,
+            connection,
+            host,
+            template,
+            response,
         }
     }
 
@@ -151,13 +151,11 @@ impl Remote {
 
         // if requested, turn non-zero return codes into errors
 
-        if check_rc == CheckRc::Checked {
-            if result.is_ok() {
-                let ok_result = result.as_ref().unwrap();
-                let cmd_result = ok_result.command_result.as_ref().as_ref().unwrap();
-                if cmd_result.rc != 0 {
-                    return Err(self.response.command_failed(request, &Arc::new(Some(cmd_result.clone()))));
-                }
+        if check_rc == CheckRc::Checked && result.is_ok() {
+            let ok_result = result.as_ref().unwrap();
+            let cmd_result = ok_result.command_result.as_ref().as_ref().unwrap();
+            if cmd_result.rc != 0 {
+                return Err(self.response.command_failed(request, &Arc::new(Some(cmd_result.clone()))));
             }
         }
 
@@ -414,20 +412,14 @@ impl Remote {
             }
             let (remote_owner, remote_group) = owner_result.unwrap();
 
-            if attributes.owner.is_some() {
-                if ! remote_owner.eq(attributes.owner.as_ref().unwrap()) { 
-                    changes.push(Field::Owner); 
-                }
+            if attributes.owner.is_some() && ! remote_owner.eq(attributes.owner.as_ref().unwrap()) { 
+                changes.push(Field::Owner); 
             }
-            if attributes.group.is_some() {
-                if ! remote_group.eq(attributes.group.as_ref().unwrap())  { 
-                    changes.push(Field::Group); 
-                }
+            if attributes.group.is_some() && ! remote_group.eq(attributes.group.as_ref().unwrap())  { 
+                changes.push(Field::Group); 
             }
-            if attributes.mode.is_some() {
-                if ! remote_mode.as_ref().unwrap().eq(attributes.mode.as_ref().unwrap()) { 
-                    changes.push(Field::Mode); 
-                }
+            if attributes.mode.is_some() && ! remote_mode.as_ref().unwrap().eq(attributes.mode.as_ref().unwrap()) { 
+                changes.push(Field::Mode); 
             }
         }
         return Ok(remote_mode);

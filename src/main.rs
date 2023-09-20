@@ -32,7 +32,6 @@ use crate::cli::parser::{CliParser};
 use crate::cli::playbooks::{playbook_ssh,playbook_local,playbook_check_ssh,playbook_check_local,playbook_simulate}; // FIXME: check modes coming
 use std::sync::{Arc,RwLock};
 use std::process;
-use rayon;
 
 fn main() {
     match liftoff() { Err(e) => quit(&e), _ => {} }

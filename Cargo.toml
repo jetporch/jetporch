@@ -1,16 +1,11 @@
 [package]
 name = "jetp"
-build = "build.rs"
 version = "0.1.0"
 edition = "2021"
-
-[build-dependencies]
-built = { version = "0.6", features = ["chrono","git2"] }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-built={ version = "0.6", features = ["chrono"] }
 once_cell="1.18.0"
 ssh2="0.9.4"
 serde_derive= "=1.0.171"

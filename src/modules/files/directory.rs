@@ -23,7 +23,7 @@ use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &'static str = "directory";
+const MODULE: &str = "directory";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

@@ -69,11 +69,11 @@ impl Template {
     // the response is in the constructor as need it to return errors that are passed upwards from
     // functions below.
 
-    pub fn new(run_state_handle: Arc<RunState>, host_handle: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
+    pub fn new(run_state: Arc<RunState>, host: Arc<RwLock<Host>>, response:Arc<Response>) -> Self {
         Self {
-            run_state: run_state_handle,
-            host: host_handle,
-            response: response,
+            run_state,
+            host,
+            response,
             detached_templar: Templar::new()
         }
     }

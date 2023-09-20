@@ -85,7 +85,7 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) -> () {
+    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) {
         println!("----------------------------------------------------------");
         println!("");
         show_playbook_summary(context);

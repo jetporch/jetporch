@@ -338,7 +338,7 @@ impl PlaybookContext {
     // to each environment variable "foo". These variables will only be made available
     // to the template module since we use them for secret management features.
 
-    pub fn load_environment(&mut self) -> () {
+    pub fn load_environment(&mut self) {
         let mut my_env = self.env_storage.write().unwrap();
         // some common environment variables that may occur are not useful for playbooks
         // or they have no need to share that with other hosts

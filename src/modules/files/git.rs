@@ -24,7 +24,7 @@ use std::vec::Vec;
 use crate::tasks::files::Recurse;
 use std::collections::HashMap;
 
-const MODULE: &'static str = "git";
+const MODULE: &str = "git";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
@@ -33,7 +33,6 @@ pub struct GitTask {
     pub repo: String,
     pub path: String,
     pub branch: Option<String>,
-    pub version: Option<String>,
     pub ssh_options: Option<HashMap<String,String>>,
     pub accept_keys: Option<String>,
     pub update: Option<String>,
@@ -45,7 +44,6 @@ pub struct GitTask {
 struct GitAction {
     pub repo: String,
     pub path: String,
-    pub version: Option<String>,
     pub branch: String,
     pub ssh_options: Vec<String>,
     pub accept_keys: bool,
@@ -65,7 +63,6 @@ impl IsTask for GitTask {
                 action: Arc::new(GitAction {
                     repo:         handle.template.string(&request, tm, &String::from("repo"), &self.repo)?,
                     path:         handle.template.path(&request, tm, &String::from("path"), &self.path)?,
-                    version:      handle.template.string_option(&request, tm, &String::from("version"), &self.version)?,
                     branch:       handle.template.string_option_default(&request, tm, &String::from("branch"), &self.branch, &String::from("main"))?,
                     accept_keys:  handle.template.boolean_option_default_true(&request, tm, &String::from("accept_keys"), &self.accept_keys)?,
                     update:       handle.template.boolean_option_default_true(&request, tm, &String::from("update"), &self.update)?,
@@ -131,7 +128,7 @@ impl IsAction for GitAction {
                                 println!("local_version: {}", local_version);
                                 println!("local_branch: {}", local_branch);
                                 println!("remote_version: {}", remote_version);
-                                if self.update && ! remote_version.eq(&local_version) {
+                                if self.update && (! remote_version.eq(&local_version)) {
                                     changes.push(Field::Version);
                                 }
                                 if ! local_branch.eq(&self.branch) {
@@ -150,20 +147,20 @@ impl IsAction for GitAction {
             }
                 
             TaskRequestType::Create => {
-                handle.remote.create_directory(request, &self.path);
+                handle.remote.create_directory(request, &self.path)?;
                 handle.remote.process_all_common_file_attributes(request, &self.path, &self.attributes, Recurse::Yes)?;
-                self.clone(handle, request);
-                self.switch_branch(handle, request);                           
+                self.clone(handle, request)?;
+                self.switch_branch(handle, request)?;                           
                 return Ok(handle.response.is_created(request));
             },
 
             TaskRequestType::Modify => {
                 handle.remote.process_common_file_attributes(request, &self.path, &self.attributes, &request.changes, Recurse::Yes)?;
                 if request.changes.contains(&Field::Branch) || request.changes.contains(&Field::Version) {
-                    self.pull(handle,request);
+                    self.pull(handle,request)?;
                 }
                 if request.changes.contains(&Field::Branch) {
-                    self.switch_branch(handle, request);
+                    self.switch_branch(handle, request)?;
                 }
                 return Ok(handle.response.is_modified(request, request.changes.clone()));
             },
@@ -198,7 +195,7 @@ impl GitAction {
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
         let cmd = format!("cd {}; git rev-parse HEAD", self.path);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
-        let (rc, out) = cmd_info(&result);
+        let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
 
@@ -206,7 +203,7 @@ impl GitAction {
         let options = self.get_ssh_options_string();
         let cmd = format!("{} git ls-remote {} | head -n 1 | cut -f 1", options, self.repo);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
-        let (rc, out) = cmd_info(&result);
+        let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
     
@@ -219,10 +216,9 @@ impl GitAction {
     }
 
     fn get_local_branch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
-        let options = self.get_ssh_options_string();
         let cmd = format!("cd {}; git rev-parse --abbrev-ref HEAD", self.path);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
-        let (rc, out) = cmd_info(&result);
+        let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
 

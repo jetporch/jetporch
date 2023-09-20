@@ -464,19 +464,17 @@ fn run_task_on_host_inner(
 
     // if and/notify is present, notify handlers when changed actions are seen
 
-    if result.is_ok() {
-        if post_logic.is_some() {
-            let logic = post_logic.as_ref().as_ref().unwrap();
-            if are_handlers == HandlerMode::NormalTasks && result.is_ok() && logic.notify.is_some() {
-                let notify = logic.notify.as_ref().unwrap().clone();
-                let status = &result.as_ref().unwrap().status;
-                match status {
-                    TaskStatus::IsCreated | TaskStatus::IsModified | TaskStatus::IsRemoved | TaskStatus::IsExecuted => {
-                        run_state.visitor.read().unwrap().on_notify_handler(host, &notify.clone());
-                        host.write().unwrap().notify(play_count, &notify.clone());
-                    },
-                    _ => { }
-                }
+    if result.is_ok() && post_logic.is_some() {
+        let logic = post_logic.as_ref().as_ref().unwrap();
+        if are_handlers == HandlerMode::NormalTasks && result.is_ok() && logic.notify.is_some() {
+            let notify = logic.notify.as_ref().unwrap().clone();
+            let status = &result.as_ref().unwrap().status;
+            match status {
+                TaskStatus::IsCreated | TaskStatus::IsModified | TaskStatus::IsRemoved | TaskStatus::IsExecuted => {
+                    run_state.visitor.read().unwrap().on_notify_handler(host, &notify.clone());
+                    host.write().unwrap().notify(play_count, &notify.clone());
+                },
+                _ => { }
             }
         }
     }

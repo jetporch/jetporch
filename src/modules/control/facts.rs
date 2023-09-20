@@ -21,7 +21,7 @@ use crate::inventory::hosts::{HostOSType};
 use serde::Deserialize;
 use std::sync::{Arc,RwLock};
 
-const MODULE: &'static str = "facts";
+const MODULE: &str = "facts";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

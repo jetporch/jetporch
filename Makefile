@@ -2,6 +2,7 @@ all: bin
 loc:
 	loc
 bin:
+	sh ./version.sh
 	# RUSTFLAGS='-C target-feature=+crt-static' cargo build --release # --target x86_64-unknown-linux-gnu
 	cargo build --release # --target x86_64-unknown-linux-gnu
 m1:

@@ -22,7 +22,7 @@ use serde::{Deserialize};
 use std::sync::{Arc};
 
 
-const MODULE: &'static str = "Set";
+const MODULE: &str = "Set";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

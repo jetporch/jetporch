@@ -22,7 +22,7 @@ use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &'static str = "sd_service";
+const MODULE: &str = "sd_service";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

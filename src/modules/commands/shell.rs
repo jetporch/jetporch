@@ -22,7 +22,7 @@ use serde::{Deserialize};
 use std::sync::{Arc,RwLock};
 use crate::inventory::hosts::Host;
 
-const MODULE: &'static str = "Shell";
+const MODULE: &str = "Shell";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

@@ -20,7 +20,7 @@ use crate::handle::handle::TaskHandle;
 use serde::Deserialize;
 use std::sync::Arc;
 
-const MODULE: &'static str = "echo";
+const MODULE: &str = "echo";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]

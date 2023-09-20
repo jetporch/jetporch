@@ -27,30 +27,8 @@ use crate::util::yaml::blend_variables;
 use crate::inventory::loading::convert_json_vars;
 use crate::util::io::jet_file_open;
 use crate::util::yaml::show_yaml_error_in_context;
+use crate::cli::version::{GIT_VERSION,GIT_BRANCH,BUILD_TIME};
 use std::path::Path;
-use built;
-
-// allows -v and --help to show version info
-pub mod built_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
- }
-
-// The time this crate was built
-pub fn built_time() -> built::chrono::DateTime<built::chrono::Local> {
-    built::util::strptime(built_info::BUILT_TIME_UTC).with_timezone(&built::chrono::offset::Local)
-}
-
-pub fn git_version() -> String {
-    let g1 = match built_info::GIT_HEAD_REF {
-        Some(x) => x.to_string(),
-        None => String::from("?"),
-    };
-    let g2 =  match built_info::GIT_COMMIT_HASH {
-        Some(x) => x.to_string(),
-        None => String::from("?"),
-    };
-    return format!("{} @ {}", g1, g2);
-}
 
 // the CLI parser struct values hold various values calculated when calling parse() on
 // the struct
@@ -74,8 +52,6 @@ pub struct CliParser {
     pub default_port: i64,
     pub threads: usize,
     pub verbosity: u32,
-    pub git_version: String,
-    pub build_time: String,
     pub tags: Option<Vec<String>>,
     pub allow_localhost_delegation: bool,
     pub extra_vars: serde_yaml::Value,
@@ -113,47 +89,46 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
 }
 
 // all the supported flags
-const ARGUMENT_VERSION: &'static str  = "--version";
-const ARGUMENT_INVENTORY: &'static str = "--inventory";
-const ARGUMENT_INVENTORY_SHORT: &'static str = "-i";
-const ARGUMENT_PLAYBOOK: &'static str  = "--playbook";
-const ARGUMENT_PLAYBOOK_SHORT: &'static str  = "-p";
-const ARGUMENT_ROLES: &'static str  = "--roles";
-const ARGUMENT_ROLES_SHORT: &'static str  = "-r";
-const ARGUMENT_SHOW_GROUPS: &'static str = "--show-groups";
-const ARGUMENT_SHOW_HOSTS: &'static str = "--show-hosts";
-const ARGUMENT_LIMIT_GROUPS: &'static str = "--limit-groups";
-const ARGUMENT_LIMIT_HOSTS: &'static str = "--limit-hosts";
-const ARGUMENT_HELP: &'static str = "--help";
-const ARGUMENT_PORT: &'static str = "--port";
-const ARGUMENT_USER: &'static str = "--user";
-const ARGUMENT_USER_SHORT: &'static str = "-u";
-const ARGUMENT_SUDO: &'static str = "--sudo";
-const ARGUMENT_TAGS: &'static str = "--tags";
-const ARGUMENT_ALLOW_LOCALHOST: &'static str = "--allow-localhost-delegation";
-const ARGUMENT_THREADS: &'static str = "--threads";
-const ARGUMENT_THREADS_SHORT: &'static str = "-t";
-const ARGUMENT_BATCH_SIZE: &'static str = "--batch-size";
-const ARGUMENT_VERBOSE: &'static str = "-v";
-const ARGUMENT_VERBOSER: &'static str = "-vv";
-const ARGUMENT_VERBOSEST: &'static str = "-vvv";
-const ARGUMENT_EXTRA_VARS: &'static str = "--extra-vars";
-const ARGUMENT_EXTRA_VARS_SHORT: &'static str = "-e";
+const ARGUMENT_VERSION: &str  = "--version";
+const ARGUMENT_INVENTORY: & str = "--inventory";
+const ARGUMENT_INVENTORY_SHORT: &str = "-i";
+const ARGUMENT_PLAYBOOK: &str  = "--playbook";
+const ARGUMENT_PLAYBOOK_SHORT: &str  = "-p";
+const ARGUMENT_ROLES: &str  = "--roles";
+const ARGUMENT_ROLES_SHORT: &str  = "-r";
+const ARGUMENT_SHOW_GROUPS: &str = "--show-groups";
+const ARGUMENT_SHOW_HOSTS: &str = "--show-hosts";
+const ARGUMENT_LIMIT_GROUPS: &str = "--limit-groups";
+const ARGUMENT_LIMIT_HOSTS: &str = "--limit-hosts";
+const ARGUMENT_HELP: &str = "--help";
+const ARGUMENT_PORT: &str = "--port";
+const ARGUMENT_USER: &str = "--user";
+const ARGUMENT_USER_SHORT: &str = "-u";
+const ARGUMENT_SUDO: &str = "--sudo";
+const ARGUMENT_TAGS: &str = "--tags";
+const ARGUMENT_ALLOW_LOCALHOST: &str = "--allow-localhost-delegation";
+const ARGUMENT_THREADS: &str = "--threads";
+const ARGUMENT_THREADS_SHORT: &str = "-t";
+const ARGUMENT_BATCH_SIZE: &str = "--batch-size";
+const ARGUMENT_VERBOSE: &str = "-v";
+const ARGUMENT_VERBOSER: &str = "-vv";
+const ARGUMENT_VERBOSEST: &str = "-vvv";
+const ARGUMENT_EXTRA_VARS: &str = "--extra-vars";
+const ARGUMENT_EXTRA_VARS_SHORT: &str = "-e";
 
 // output from --version
 
-fn show_version(git_version: &String) {
+fn show_version() {
 
     let header_table = format!("|-|:-\n\
                                 |jetp | http://www.jetporch.com/\n\
                                 | | (C) Michael DeHaan + contributors, 2023\n\
                                 | |\n\
-                                | build | {}\n\
+                                | build | {}@{}\n\
                                 | | {}\n\
-                                | time | {}\n\
                                 | --- | ---\n\
                                 | | usage: jetp <MODE> [flags]\n\
-                                |-|-", git_version, built_info::TARGET.to_string(), built_time());
+                                |-|-", GIT_VERSION, GIT_BRANCH, BUILD_TIME);
 
     println!("");
     crate::util::terminal::markdown_print(&String::from(header_table));
@@ -162,9 +137,9 @@ fn show_version(git_version: &String) {
 
 // output from --help
 
-fn show_help(git_version: &String) {
+fn show_help() {
 
-    show_version(git_version);
+    show_version();
 
     let mode_table = "|:-|:-|:-\n\
                       | *Category* | *Mode* | *Description*\n\
@@ -280,8 +255,6 @@ impl CliParser  {
             inventory_set: false,
             playbook_set: false,
             verbosity: 0,
-            git_version: git_version(),
-            build_time: format!("{:?}", built_time()),
             limit_groups: Vec::new(),
             limit_hosts: Vec::new(),
             tags: None,
@@ -292,11 +265,11 @@ impl CliParser  {
     }
 
     pub fn show_help(&self) {
-        show_help(&self.git_version);
+        show_help();
     }
 
     pub fn show_version(&self) {
-        show_version(&self.git_version);
+        show_version();
     }
 
     // actual CLI parsing happens here
