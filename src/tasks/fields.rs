@@ -23,6 +23,7 @@ use std::vec::Vec;
 
 #[derive(Eq,Hash,PartialEq,Clone,Copy,Debug)]
 pub enum Field {
+    Branch,
     Content,
     Disable,
     Enable,

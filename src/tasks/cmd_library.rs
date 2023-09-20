@@ -125,8 +125,8 @@ pub fn get_delete_file_command(_os_type: HostOSType, untrusted_path: &String) ->
 pub fn get_delete_directory_command(_os_type: HostOSType, untrusted_path: &String, recurse: Recurse) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     match recurse {
-        Recurse::No  => { return Ok(format!("rm '{}'", path));    },
-        Recurse::Yes => { return Ok(format!("rm -r '{}'", path)); }
+        Recurse::No  => { return Ok(format!("rm -d '{}'", path));    },
+        Recurse::Yes => { return Ok(format!("rm -rf '{}'", path)); }
     }
 }
 

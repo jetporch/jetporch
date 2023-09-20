@@ -168,6 +168,15 @@ impl Template {
         return Ok(prelim.clone());
     }
 
+    pub fn string_option_default(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: &String) -> Result<String,Arc<TaskResponse>> {
+        // this is a version of string_no_spaces that allows the value to be optional
+        let prelim = self.string_option(request, tm, field, template)?;
+        match prelim {
+            Some(x) => Ok(x.clone()),
+            None => Ok(default.clone())
+        }
+    }
+
     pub fn string_option_trim(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>) -> Result<Option<String>,Arc<TaskResponse>> {
         // for processing parameters that take optional strings, but make sure to remove any extra surrounding whitespace
         // YAML should do this anyway so it's mostly overkill but may prevent some rare errors from inventory variable sources

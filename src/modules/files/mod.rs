@@ -19,4 +19,5 @@
 pub mod copy;
 pub mod directory;
 pub mod file;
+pub mod git;
 pub mod template;
