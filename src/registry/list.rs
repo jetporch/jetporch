@@ -31,6 +31,7 @@ use crate::modules::commands::shell::ShellTask;
 
 // control
 use crate::modules::control::assert::AssertTask;
+use crate::modules::control::debug::DebugTask;
 use crate::modules::control::echo::EchoTask;
 use crate::modules::control::fail::FailTask;
 use crate::modules::control::facts::FactsTask;
@@ -58,6 +59,7 @@ pub enum Task {
     Apt(AptTask),
     Assert(AssertTask),
     Copy(CopyTask),
+    Debug(DebugTask),
     Dnf(DnfTask),
     Directory(DirectoryTask),
     Echo(EchoTask),
@@ -78,6 +80,7 @@ impl Task {
             Task::Apt(x)        => x.get_module(),
             Task::Assert(x)     => x.get_module(),
             Task::Copy(x)       => x.get_module(),
+            Task::Debug(x)      => x.get_module(),
             Task::Dnf(x)        => x.get_module(),
             Task::Directory(x)  => x.get_module(),
             Task::Echo(x)       => x.get_module(),
@@ -96,7 +99,8 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.get_name(),
             Task::Assert(x)     => x.get_name(),
-            Task::Copy(x)       => x.get_name(), 
+            Task::Copy(x)       => x.get_name(),
+            Task::Debug(x)      => x.get_name(), 
             Task::Dnf(x)        => x.get_name(),
             Task::Directory(x)  => x.get_name(),
             Task::Echo(x)       => x.get_name(),
@@ -115,7 +119,8 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.get_with(),
             Task::Assert(x)     => x.get_with(),
-            Task::Copy(x)       => x.get_with(), 
+            Task::Copy(x)       => x.get_with(),
+            Task::Debug(x)      => x.get_with(), 
             Task::Dnf(x)        => x.get_with(),
             Task::Directory(x)  => x.get_with(),
             Task::Echo(x)       => x.get_with(),
@@ -135,7 +140,8 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.evaluate(handle, request, tm),
             Task::Assert(x)     => x.evaluate(handle, request, tm),
-            Task::Copy(x)       => x.evaluate(handle, request, tm), 
+            Task::Copy(x)       => x.evaluate(handle, request, tm),
+            Task::Debug(x)      => x.evaluate(handle, request, tm), 
             Task::Dnf(x)        => x.evaluate(handle, request, tm),
             Task::Directory(x)  => x.evaluate(handle, request, tm), 
             Task::Echo(x)       => x.evaluate(handle, request, tm),

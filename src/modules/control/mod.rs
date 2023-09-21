@@ -17,6 +17,7 @@
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
 pub mod assert;
+pub mod debug;
 pub mod echo;
 pub mod fail;
 pub mod facts;

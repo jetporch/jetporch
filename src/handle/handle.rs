@@ -107,4 +107,8 @@ impl TaskHandle {
         self.run_state.visitor.read().unwrap().debug_host(&self.host, message);
     }
 
+    pub fn debug_lines(&self, _request: &Arc<TaskRequest>, lines: &Vec<String>) {
+        self.run_state.visitor.read().unwrap().debug_lines(&self.run_state.context, &self.host, lines);
+    }
+
 }
