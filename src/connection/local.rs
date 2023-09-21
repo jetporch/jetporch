@@ -18,6 +18,7 @@ use crate::connection::connection::Connection;
 use crate::connection::command::CommandResult;
 use crate::playbooks::context::PlaybookContext;
 use crate::connection::factory::ConnectionFactory;
+use crate::connection::command::Forward;
 
 use crate::inventory::hosts::Host;
 use crate::handle::response::Response;
@@ -102,7 +103,7 @@ impl Connection for LocalConnection {
         }
     }
 
-    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, _forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let mut base = Command::new("sh");
         let command = base.arg("-c").arg(cmd).arg("2>&1");
         match command.output() {

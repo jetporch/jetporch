@@ -185,53 +185,62 @@ impl GitAction {
         }
         else {
             let accept_keys = match self.accept_keys {
-                true => String::from(" -o StrictHostKeyChecking=accept-new"),
+                true  => String::from(" -o StrictHostKeyChecking=accept-new"),
                 false => String::from("")
             };
-            return format!("GIT_SSH_OPTIONS=\"{}{}\" GIT_TERMINAL_PROMPT=0", options, accept_keys);
+            return format!("GIT_SSH_COMMAND=\"ssh {}{}\" GIT_TERMINAL_PROMPT=0", options, accept_keys);
         }
     }
 
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
-        let cmd = format!("cd {}; git rev-parse HEAD", self.path);
+        let cmd = format!("git -C {} rev-parse HEAD", self.path);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
         let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
 
     fn get_remote_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
-        let options = self.get_ssh_options_string();
-        let cmd = format!("{} git ls-remote {} | head -n 1 | cut -f 1", options, self.repo);
-        let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
+        let ssh_options = self.get_ssh_options_string();
+        let cmd = format!("{} git ls-remote {} | head -n 1 | cut -f 1", ssh_options, self.repo);
+        let result = match self.repo.starts_with("git://") {
+            true  => handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
+            false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
+        };
         let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
     
 
     fn pull(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
-        let options = self.get_ssh_options_string();
-        let cmd = format!("cd {}; {} git pull", self.path, options);
-        handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
+        let ssh_options = self.get_ssh_options_string();
+        let cmd = format!("{} git -C {} pull", self.path, ssh_options);
+        match self.repo.starts_with("git://") {
+            true  => handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
+            false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
+        };
         return Ok(());
     }
 
     fn get_local_branch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
-        let cmd = format!("cd {}; git rev-parse --abbrev-ref HEAD", self.path);
+        let cmd = format!("git -C {} rev-parse --abbrev-ref HEAD", self.path);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
         let (_rc, out) = cmd_info(&result);
         return Ok(out);
     }
 
     fn clone(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(),Arc<TaskResponse>> {
-        let options = self.get_ssh_options_string();
+        let ssh_options = self.get_ssh_options_string();
         handle.remote.create_directory(request, &self.path)?;
-        let cmd = format!("{} git clone {} {}", options, self.repo, self.path);
-        handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?;
+        let cmd = format!("{} git clone {} {}", ssh_options, self.repo, self.path);
+        match self.repo.starts_with("git://") {
+            true =>  handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
+            false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
+        };
         return Ok(());
     }
 
     fn switch_branch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
-        let cmd = format!("cd {}; git switch {}", self.path, self.branch);
+        let cmd = format!("git -C {} switch {}", self.path, self.branch);
         handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
         return Ok(());
     }

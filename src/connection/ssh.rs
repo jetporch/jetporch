@@ -23,6 +23,9 @@ use crate::tasks::*;
 use crate::inventory::hosts::Host;
 use crate::Inventory;
 use crate::handle::response::Response;
+use crate::connection::command::Forward;
+use crate::connection::local::convert_out;
+use std::process::Command;
 use std::sync::{Arc,Mutex,RwLock};
 use ssh2::Session;
 use std::io::{Read,Write};
@@ -36,15 +39,17 @@ use std::fs::File;
 
 pub struct SshFactory {
     local_factory: LocalFactory,
-    localhost: Arc<RwLock<Host>>
+    localhost: Arc<RwLock<Host>>,
+    forward_agent: bool
 }
 
 impl SshFactory { 
-    pub fn new(inventory: &Arc<RwLock<Inventory>>) -> Self { 
+    pub fn new(inventory: &Arc<RwLock<Inventory>>, forward_agent: bool) -> Self { 
         // we create a local connection factory for localhost rather than establishing local connections with SSH
         Self {
             localhost : inventory.read().expect("inventory read").get_host(&String::from("localhost")),
-            local_factory: LocalFactory::new(inventory)
+            local_factory: LocalFactory::new(inventory),
+            forward_agent
         } 
     }
 }
@@ -86,7 +91,7 @@ impl ConnectionFactory for SshFactory {
         }
 
         // actually connect here
-        let mut conn = SshConnection::new(Arc::clone(&host), &user, port);
+        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, self.forward_agent);
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
@@ -104,11 +109,12 @@ pub struct SshConnection {
     pub username: String,
     pub port: i64,
     pub session: Option<Session>,
+    pub forward_agent: bool
 }
 
 impl SshConnection {
-    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, ) -> Self {
-        Self { host: Arc::clone(&host), username: username.clone(), port: port, session: None }
+    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, forward_agent: bool) -> Self {
+        Self { host: Arc::clone(&host), username: username.clone(), port, session: None, forward_agent }
     }
 }
 
@@ -168,11 +174,13 @@ impl Connection for SshConnection {
         // try to authenticate with the identities in the agent
         match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(format!("SSH auth failed for user {}", self.username)); } };
         if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
-        
+      
         // OS detection -- always run uname -a on first connect so we know the OS type, which will allow the command library and facts
         // module to work correctly.
 
-        let uname_result = run_command_low_level(&sess, &String::from("uname -a"));
+        self.session = Some(sess);
+
+        let uname_result = self.run_command_low_level(&String::from("uname -a"));
         match uname_result {
             Ok((_rc,out)) => {
                 {
@@ -186,14 +194,19 @@ impl Connection for SshConnection {
             Err((rc,out)) => return Err(format!("uname -a command failed: rc={}, out={}", rc,out))
         }
 
-        // we are connected and the OS was identified ok, so save the session
-        self.session = Some(sess);
 
         return Ok(());
     }
 
-    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        let result = run_command_low_level(&self.session.as_ref().unwrap(), cmd);
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        let result = match forward {   
+            Forward::Yes => match self.forward_agent {
+                false => self.run_command_low_level(cmd),
+                true  => self.run_command_with_ssh_a(cmd)
+            },
+            Forward::No => self.run_command_low_level(cmd)
+        };
+
         match result {
             Ok((rc,s)) => {
                 // note that non-zero return codes are "ok" to the connection plugin, handle elsewhere!
@@ -268,26 +281,61 @@ impl Connection for SshConnection {
             };
             if n == 0 { break; }
             match fh.write(&chunk) {
-                Ok(_x) => {},
                 Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed: {y}"))); }
+                _ => {},
+
             }
         }
-
         return Ok(());
-
     }
-
-
 }
 
-fn run_command_low_level(session: &Session, cmd: &String) -> Result<(i32,String),(i32,String)> {
-    // FIXME: catch the rare possibility this unwrap fails and return a nice error?
-    let mut channel = session.channel_session().unwrap();
-    let actual_cmd = format!("{} 2>&1", cmd);
-    match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
-    let mut s = String::new();
-    match channel.read_to_string(&mut s) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
-    let _w = channel.wait_close();
-    let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
-    return Ok((exit_status, s.clone()));
+impl SshConnection {
+
+
+    fn run_command_low_level(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
+        // FIXME: catch the rare possibility this unwrap fails and return a nice error?
+        let session = self.session.as_ref().unwrap();
+        let mut channel = match session.channel_session() {
+            Ok(x) => x,
+            Err(y) => { return Err((500, format!("channel session failed: {:?}", y))); }
+        };
+        let actual_cmd = format!("{} 2>&1", cmd);
+        match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+        let mut s = String::new();
+        match channel.read_to_string(&mut s) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
+        // BOOKMARK: add sudo password prompt (configurable) support here (and below)
+        let _w = channel.wait_close();
+        let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
+        return Ok((exit_status, s.clone()));
+    }
+
+    fn run_command_with_ssh_a(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
+        // this is annoying but libssh2 agent support is not really working, so if we need to SSH -A we need to invoke
+        // SSHd directly
+
+        let mut base = Command::new("ssh");
+        let hostname = &self.host.read().unwrap().name;
+        let port = format!("{}", self.port);
+        let cmd2 = format!("{} 2>&1", cmd);
+        let command = base.arg(hostname).arg("-p").arg(port).arg("-l").arg(self.username.clone()).arg("-A").arg(cmd2);
+        println!("RAW COMMAND={:?}", command);
+        match command.output() {
+            Ok(x) => {
+                match x.status.code() {
+                    Some(rc) => {
+                        let out = convert_out(&x.stdout,&x.stderr);
+                        return Ok((rc, out.clone()))
+                    },
+                    None => {
+                        return Ok((418, String::from("")))
+                    }
+                }
+            },
+            Err(_x) => {
+                return Err((404, String::from("")))
+            }
+        };
+    }
+
 }

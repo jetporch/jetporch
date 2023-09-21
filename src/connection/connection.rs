@@ -20,6 +20,7 @@ use crate::handle::response::Response;
 use std::sync::Arc;
 use std::marker::{Send,Sync};
 use std::path::Path;
+use crate::connection::command::Forward;
 
 // the connection trait that serves as the base for SshConnection, LocalConnection, and NoConnection
 
@@ -35,6 +36,6 @@ pub trait Connection : Send + Sync {
 
     fn whoami(&self) -> Result<String,String>;
 
-    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
+    fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>;
 
 }

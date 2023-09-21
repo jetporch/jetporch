@@ -22,6 +22,7 @@ use crate::tasks::request::TaskRequest;
 use crate::tasks::response::TaskResponse;
 use crate::handle::response::Response;
 use crate::connection::command::CommandResult;
+use crate::connection::command::Forward;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -73,7 +74,7 @@ impl Connection for NoConnection {
        return Ok(());
    }
 
-   fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+   fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, _forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
        // all commands return junk output pretending they were successful
        return Ok(response.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: String::from("__simulated__"), rc: 0 }))));
    }

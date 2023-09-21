@@ -55,6 +55,7 @@ pub struct CliParser {
     pub tags: Option<Vec<String>>,
     pub allow_localhost_delegation: bool,
     pub extra_vars: serde_yaml::Value,
+    pub forward_agent: bool
 }
 
 // subcommands are usually required
@@ -107,6 +108,7 @@ const ARGUMENT_USER_SHORT: &str = "-u";
 const ARGUMENT_SUDO: &str = "--sudo";
 const ARGUMENT_TAGS: &str = "--tags";
 const ARGUMENT_ALLOW_LOCALHOST: &str = "--allow-localhost-delegation";
+const ARGUMENT_FORWARD_AGENT: &str = "--forward-agent";
 const ARGUMENT_THREADS: &str = "--threads";
 const ARGUMENT_THREADS_SHORT: &str = "-t";
 const ARGUMENT_BATCH_SIZE: &str = "--batch-size";
@@ -166,36 +168,38 @@ fn show_help() {
     let flags_table = "|:-|:-|\n\
                        | *Category* | *Flags* |*Description*\n\
                        | --- | ---\n\
-                       | basics:\n\
+                       | Basics:\n\
                        | | -p, --playbook path1:path2| specifies automation content\n\
+                       | |\n\
+                       | | -i, --inventory path1:path2| (required for ssh only) specifies which systems to manage\n\
                        | |\n\
                        | | -r, --roles path1:path2| adds additional role search paths. Also uses $JET_ROLES_PATH\n\
                        | |\n\
                        | --- | ---\n\
-                       | SSH specific:\n\
-                       | | -i, --inventory path1:path2| (required) specifies which systems to manage\n\
-                       | |\n\
-                       | | -u, --user username | use this default username instead of $JET_SSH_USER or $USER\n\
-                       | |\n\
-                       | | --port N | use this default port instead of $JET_SSH_PORT or 22\n\
-                       | |\n\
-                       | | -t, --threads N| how many parallel threads to use. Alternatively set $JET_THREADS\n\
-                       | |\n\
+                       | SSH options:\n\
                        | | --batch-size N| fully configure this many hosts before moving to the next batch\n\
+                       | |\n\
+                       | | --forward-agent | enables SSH agent forwarding but only on specific tasks (ex: git)\n\
                        | |\n\
                        | | --limit-groups group1:group2 | further limits scope for playbook runs\n\
                        | |\n\
                        | | --limit-hosts host1 | further limits scope for playbook runs\n\
                        | |\n\
+                       | | --port N | use this default port instead of $JET_SSH_PORT or 22\n\
+                       | |\n\
+                       | | -t, --threads N| how many parallel threads to use. Alternatively set $JET_THREADS\n\
+                       | |\n\
+                       | | -u, --user username | use this default username instead of $JET_SSH_USER or $USER\n\
+                       | |\n\
                        | --- | ---\n\
-                       | misc:\n\
-                       | | --sudo username | sudo to this user by default for all tasks\n\
-                       | |\n\
-                       | | --tags tag1:tag2 | only run tasks or roles with one of these tags\n\
-                       | |\n\
+                       | Misc options:\n\
                        | | --allow-localhost-delegation | signs off on variable sourcing risks and enables localhost actions with delegate_to\n\
                        | |\n\
                        | | -e, --extra-vars @filename | injects extra variables into the playbook runtime context from a YAML file, or quoted JSON\n\
+                       | |\n\
+                       | | --sudo username | sudo to this user by default for all tasks\n\
+                       | |\n\
+                       | | --tags tag1:tag2 | only run tasks or roles with one of these tags\n\
                        | |\n\
                        | | -v -vv -vvv| ever increasing verbosity\n\
                        | |\n\
@@ -259,7 +263,8 @@ impl CliParser  {
             limit_hosts: Vec::new(),
             tags: None,
             allow_localhost_delegation: false,
-            extra_vars: serde_yaml::Value::Mapping(serde_yaml::Mapping::new())
+            extra_vars: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
+            forward_agent: false
         };
         return p;
     }
@@ -308,7 +313,7 @@ impl CliParser  {
 
                     // if it's not --help, then the second argument is the
                     // required 'mode' parameter
-                    let _result = self.store_mode_value(argument)?;
+                    let _result = self.store_mode(argument)?;
                     continue 'each_argument;
                 },
 
@@ -331,36 +336,37 @@ impl CliParser  {
                         }
 
                         let result = match argument_str {
-                            ARGUMENT_PLAYBOOK          => self.append_playbook_value(&args[arg_count]),
-                            ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook_value(&args[arg_count]),
-                            ARGUMENT_ROLES             => self.append_roles_value(&args[arg_count]),
-                            ARGUMENT_ROLES_SHORT       => self.append_roles_value(&args[arg_count]),
-                            ARGUMENT_INVENTORY         => self.append_inventory_value(&args[arg_count]),
-                            ARGUMENT_INVENTORY_SHORT   => self.append_inventory_value(&args[arg_count]),
-                            ARGUMENT_SUDO              => self.store_sudo_value(&args[arg_count]),
-                            ARGUMENT_TAGS              => self.store_tags_value(&args[arg_count]),
-                            ARGUMENT_USER              => self.store_default_user_value(&args[arg_count]),
-                            ARGUMENT_USER_SHORT        => self.store_default_user_value(&args[arg_count]),
-                            ARGUMENT_SHOW_GROUPS       => self.store_show_groups_value(&args[arg_count]),
-                            ARGUMENT_SHOW_HOSTS        => self.store_show_hosts_value(&args[arg_count]),
-                            ARGUMENT_LIMIT_GROUPS       => self.store_limit_groups_value(&args[arg_count]),
-                            ARGUMENT_LIMIT_HOSTS        => self.store_limit_hosts_value(&args[arg_count]),
-                            ARGUMENT_BATCH_SIZE        => self.store_batch_size_value(&args[arg_count]),
-                            ARGUMENT_THREADS           => self.store_threads_value(&args[arg_count]),
-                            ARGUMENT_THREADS_SHORT     => self.store_threads_value(&args[arg_count]),
-                            ARGUMENT_PORT              => self.store_port_value(&args[arg_count]),
+                            ARGUMENT_PLAYBOOK          => self.append_playbook(&args[arg_count]),
+                            ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook(&args[arg_count]),
+                            ARGUMENT_ROLES             => self.append_roles(&args[arg_count]),
+                            ARGUMENT_ROLES_SHORT       => self.append_roles(&args[arg_count]),
+                            ARGUMENT_INVENTORY         => self.append_inventory(&args[arg_count]),
+                            ARGUMENT_INVENTORY_SHORT   => self.append_inventory(&args[arg_count]),
+                            ARGUMENT_SUDO              => self.store_sudo(&args[arg_count]),
+                            ARGUMENT_TAGS              => self.store_tags(&args[arg_count]),
+                            ARGUMENT_USER              => self.store_default_user(&args[arg_count]),
+                            ARGUMENT_USER_SHORT        => self.store_default_user(&args[arg_count]),
+                            ARGUMENT_SHOW_GROUPS       => self.store_show_groups(&args[arg_count]),
+                            ARGUMENT_SHOW_HOSTS        => self.store_show_hosts(&args[arg_count]),
+                            ARGUMENT_LIMIT_GROUPS      => self.store_limit_groups(&args[arg_count]),
+                            ARGUMENT_LIMIT_HOSTS       => self.store_limit_hosts(&args[arg_count]),
+                            ARGUMENT_BATCH_SIZE        => self.store_batch_size(&args[arg_count]),
+                            ARGUMENT_THREADS           => self.store_threads(&args[arg_count]),
+                            ARGUMENT_THREADS_SHORT     => self.store_threads(&args[arg_count]),
+                            ARGUMENT_PORT              => self.store_port(&args[arg_count]),
                             ARGUMENT_ALLOW_LOCALHOST   => self.store_allow_localhost_delegation(),
+                            ARGUMENT_FORWARD_AGENT     => self.store_forward_agent(),
                             ARGUMENT_VERBOSE           => self.increase_verbosity(1),
                             ARGUMENT_VERBOSER          => self.increase_verbosity(2),
                             ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
-                            ARGUMENT_EXTRA_VARS        => self.store_extra_vars_value(&args[arg_count]),
-                            ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars_value(&args[arg_count]),
+                            ARGUMENT_EXTRA_VARS        => self.store_extra_vars(&args[arg_count]),
+                            ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars(&args[arg_count]),
                             _                          => Err(format!("invalid flag: {}", argument_str)),
 
                         };
                         if result.is_err() { return result; }
                         if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST)
-                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) {
+                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) || argument_str.eq(ARGUMENT_FORWARD_AGENT) {
                             // these do not take arguments
                         } else {
                             next_is_value = true;
@@ -394,7 +400,7 @@ impl CliParser  {
 
     }
 
-    fn store_mode_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_mode(&mut self, value: &String) -> Result<(), String> {
         if is_cli_mode_valid(value) {
             self.mode = cli_mode_from_string(value).unwrap();
             return Ok(());
@@ -402,7 +408,7 @@ impl CliParser  {
         return Err(format!("jetp mode ({}) is not valid, see --help", value))
      }
 
-    fn append_playbook_value(&mut self, value: &String) -> Result<(), String> {
+    fn append_playbook(&mut self, value: &String) -> Result<(), String> {
         self.playbook_set = true;
         match parse_paths(&String::from("-p/--playbook"), value) {
             Ok(paths)  =>  { 
@@ -420,7 +426,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn append_roles_value(&mut self, value: &String) -> Result<(), String> {
+    fn append_roles(&mut self, value: &String) -> Result<(), String> {
 
         // FIXME: TODO: also load from environment at JET_ROLES_PATH
         match parse_paths(&String::from("-r/--roles"), value) {
@@ -439,7 +445,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn append_inventory_value(&mut self, value: &String) -> Result<(), String> {
+    fn append_inventory(&mut self, value: &String) -> Result<(), String> {
 
         self.inventory_set = true;
         if self.mode == CLI_MODE_LOCAL || self.mode == CLI_MODE_CHECK_LOCAL {
@@ -457,7 +463,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_show_groups_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_show_groups(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.show_groups = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_GROUPS, err_msg)),
@@ -465,7 +471,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_show_hosts_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_show_hosts(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.show_hosts = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_HOSTS, err_msg)),
@@ -473,7 +479,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_limit_groups_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_limit_groups(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.limit_groups = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_GROUPS, err_msg)),
@@ -481,7 +487,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_limit_hosts_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_limit_hosts(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.limit_hosts = values; },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_HOSTS, err_msg)),
@@ -489,7 +495,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_tags_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_tags(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.tags = Some(values); },
             Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_TAGS, err_msg)),
@@ -497,17 +503,17 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_sudo_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_sudo(&mut self, value: &String) -> Result<(), String> {
         self.sudo = Some(value.clone());
         return Ok(());
     }
 
-    fn store_default_user_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_default_user(&mut self, value: &String) -> Result<(), String> {
         self.default_user = value.clone();
         return Ok(());
     }
 
-    fn store_batch_size_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_batch_size(&mut self, value: &String) -> Result<(), String> {
         if self.batch_size.is_some() {
             return Err(format!("{} has been specified already", ARGUMENT_BATCH_SIZE));
         }
@@ -517,14 +523,14 @@ impl CliParser  {
         }
     }
 
-    fn store_threads_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_threads(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<usize>() {
             Ok(n) =>  { self.threads = n; return Ok(()); }
             Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_THREADS)); }
         }
     }
 
-    fn store_port_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_port(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<i64>() {
             Ok(n) =>  { self.default_port = n; return Ok(()); }
             Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_PORT)); }
@@ -577,7 +583,7 @@ impl CliParser  {
         return Ok(());
     }
 
-    fn store_extra_vars_value(&mut self, value: &String) -> Result<(), String> {
+    fn store_extra_vars(&mut self, value: &String) -> Result<(), String> {
 
         if value.starts_with("@") {
             // input is a filename where the data is YAML
@@ -610,6 +616,11 @@ impl CliParser  {
         
         return Ok(());
 
+     }
+
+     fn store_forward_agent(&mut self) -> Result<(), String>{
+        self.forward_agent = true;
+        return Ok(());
      }
 
 }

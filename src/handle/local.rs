@@ -23,6 +23,7 @@ use crate::playbooks::traversal::RunState;
 use crate::tasks::cmd_library::screen_general_input_loose;
 use crate::handle::handle::CheckRc;
 use crate::handle::response::Response;
+use crate::connection::command::Forward;
 
 // local contains code that always executes on the control machine, whether in SSH mode or 'local' execution
 // mode. The code that refers to the machine being configured is always in 'remote.rs', whether in SSH
@@ -73,7 +74,7 @@ impl Local {
             Ok(x) => x,
             Err(y) => { return Err(self.response.is_failed(request, &y.clone())) }
         };
-        let result = local_conn.lock().unwrap().run_command(&self.response, request, cmd);
+        let result = local_conn.lock().unwrap().run_command(&self.response, request, cmd, Forward::No);
 
         if check_rc == CheckRc::Checked {
             if result.is_ok() {

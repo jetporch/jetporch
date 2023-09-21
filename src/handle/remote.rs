@@ -24,6 +24,7 @@ use crate::inventory::hosts::{Host,HostOSType};
 use crate::playbooks::traversal::RunState;
 use crate::tasks::fields::Field;
 use crate::tasks::FileAttributesEvaluated;
+use crate::connection::command::Forward;
 use crate::tasks::cmd_library::screen_general_input_loose;
 use crate::handle::handle::CheckRc;
 use crate::handle::template::Safety;
@@ -107,21 +108,26 @@ impl Remote {
     // wrappers around running CLI commands
 
     pub fn run(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes);
+        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes, Forward::No);
+    }
+
+    pub fn run_forwardable(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::Yes, Forward::Yes);
     }
 
     pub fn run_no_sudo(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No);
+        return self.internal_run(request, cmd, Safety::Safe, check_rc, UseSudo::No, Forward::No);
     }
 
     // the unsafe version of this doesn't check the shell string for possible shell variable injections, the most obvious and basic being ";"
     // usage of unsafe requires a special keyword in the 'shell' module for instance, or that no variables are present in the cmd parameter.
 
     pub fn run_unsafe(&self, request: &Arc<TaskRequest>, cmd: &String, check_rc: CheckRc) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
-        return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes);
+        return self.internal_run(request, cmd, Safety::Unsafe, check_rc, UseSudo::Yes, Forward::No);
     }
 
-    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, safe: Safety, check_rc: CheckRc, use_sudo: UseSudo) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+    fn internal_run(&self, request: &Arc<TaskRequest>, cmd: &String, 
+        safe: Safety, check_rc: CheckRc, use_sudo: UseSudo, forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         
         assert!(request.request_type != TaskRequestType::Validate, "commands cannot be run in validate stage");
 
@@ -147,7 +153,7 @@ impl Remote {
             UseSudo::No => cmd.clone() 
         };
 
-        let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out);
+        let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out, forward);
 
         // if requested, turn non-zero return codes into errors
 
