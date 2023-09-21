@@ -58,11 +58,13 @@ pub fn screen_general_input_strict(input: &String) -> Result<String,String> {
 
 // a slightly lighter version of checking, that allows = signs and such
 // this is applied across all commands executed by the system, not just per-parameter checks
-// unless run_unsafe is used internally
+// unless run_unsafe is used internally. It is assumed that all inputs going into this command
+// (parameters) are already sufficiently screened for things that can break shell commands and arguments
+// are already quoted.
 
 pub fn screen_general_input_loose(input: &String) -> Result<String,String> {
     let input2 = input.trim();
-    let bad = vec![ ";", "<", ">", "&", "*", "|", "?", "{", "}", "[", "]", "$", "`"];
+    let bad = vec![ ";", "<", ">", "&", "*", "?", "{", "}", "[", "]", "$", "`"];
     for invalid in bad.iter() {
         if input2.find(invalid).is_some() {
             return Err(format!("illegal characters detected: {} ('{}')", input2, invalid.to_string()));

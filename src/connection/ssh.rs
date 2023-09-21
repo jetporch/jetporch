@@ -312,14 +312,14 @@ impl SshConnection {
 
     fn run_command_with_ssh_a(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
         // this is annoying but libssh2 agent support is not really working, so if we need to SSH -A we need to invoke
-        // SSHd directly
+        // SSHd directly, which we need to for example with git clones. we will likely use this again
+        // for fanout support.
 
         let mut base = Command::new("ssh");
         let hostname = &self.host.read().unwrap().name;
         let port = format!("{}", self.port);
         let cmd2 = format!("{} 2>&1", cmd);
         let command = base.arg(hostname).arg("-p").arg(port).arg("-l").arg(self.username.clone()).arg("-A").arg(cmd2);
-        println!("RAW COMMAND={:?}", command);
         match command.output() {
             Ok(x) => {
                 match x.status.code() {

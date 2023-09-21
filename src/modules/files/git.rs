@@ -125,9 +125,6 @@ impl IsAction for GitAction {
                                 let local_version = self.get_local_version(handle, request)?;
                                 let remote_version = self.get_remote_version(handle, request)?;
                                 let local_branch = self.get_local_branch(handle, request)?;
-                                println!("local_version: {}", local_version);
-                                println!("local_branch: {}", local_branch);
-                                println!("remote_version: {}", remote_version);
                                 if self.update && (! remote_version.eq(&local_version)) {
                                     changes.push(Field::Version);
                                 }
@@ -177,6 +174,11 @@ impl GitAction {
 
     // BOOKMARK: fleshing this all out... 
 
+    fn is_ssh_repo(&self) -> bool {
+        let result = self.repo.find("@").is_some() || self.repo.find("ssh://").is_some();
+        return result;
+    }
+
     fn get_ssh_options_string(&self) -> String {
         let options = self.ssh_options.join(" ");
         if self.path.starts_with("http") {
@@ -202,7 +204,7 @@ impl GitAction {
     fn get_remote_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
         let ssh_options = self.get_ssh_options_string();
         let cmd = format!("{} git ls-remote {} | head -n 1 | cut -f 1", ssh_options, self.repo);
-        let result = match self.repo.starts_with("git://") {
+        let result = match self.is_ssh_repo() {
             true  => handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
             false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
         };
@@ -213,8 +215,8 @@ impl GitAction {
 
     fn pull(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(), Arc<TaskResponse>> {
         let ssh_options = self.get_ssh_options_string();
-        let cmd = format!("{} git -C {} pull", self.path, ssh_options);
-        match self.repo.starts_with("git://") {
+        let cmd = format!("{} git -C {} pull", ssh_options, self.path);
+        match self.is_ssh_repo() {
             true  => handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
             false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
         };
@@ -232,7 +234,7 @@ impl GitAction {
         let ssh_options = self.get_ssh_options_string();
         handle.remote.create_directory(request, &self.path)?;
         let cmd = format!("{} git clone {} {}", ssh_options, self.repo, self.path);
-        match self.repo.starts_with("git://") {
+        match self.is_ssh_repo() {
             true =>  handle.remote.run_forwardable(request, &cmd, CheckRc::Checked)?,
             false => handle.remote.run_unsafe(&request, &cmd, CheckRc::Checked)?
         };
