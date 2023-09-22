@@ -80,9 +80,7 @@ pub fn load_inventory(inventory: &Arc<RwLock<Inventory>>, inventory_paths: Arc<R
                 return Err(format!("missing groups/ in --inventory path parameter ({})", inventory_path.display()))
             }
         } else {
-            println!("XDEBUG: I'm a FILE!");
             if is_executable(&inventory_path) {
-                println!("XDEBUG: LOADING!!!");
                 load_dynamic_inventory(inventory, &inventory_path)?;
                 let dirname = directory_as_string(&inventory_path);
                 let dir = Path::new(&dirname);

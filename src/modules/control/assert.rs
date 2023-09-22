@@ -109,23 +109,18 @@ impl IsAction for AssertAction {
             TaskRequestType::Passive => {
                 let mut fail = false;
                 if self.r#true == false {
-                    println!("XDEBUG: cond1");
                     fail = true;
                 }
                 else if self.r#false == true {
-                    println!("XDEBUG: cond2");
                     fail = true; 
                 }
                 else if self.all_true.contains(&false) {
-                    println!("XDEBUG: cond3");
                     fail = true;
                 }
                 else if self.all_false.contains(&true) {
-                    println!("XDEBUG: cond4");
                     fail = true;
                 } 
                 else if ! self.some_true.contains(&true) {
-                    println!("XDEBUG: cond5");
                     fail = true;
                 }
                 if fail {
