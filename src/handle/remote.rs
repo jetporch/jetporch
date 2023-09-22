@@ -225,6 +225,7 @@ impl Remote {
         where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
         let (temp_dir, temp_path) = self.get_transfer_location(request, path)?;
         let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), path); /* will be either temp_path or path */
+        self.response.get_visitor().read().expect("read visitor").on_before_transfer(&self.response.get_context(), &Arc::clone(&self.host), &real_path);
         let xfer_result = self.connection.lock().unwrap().write_data(&self.response, request, data, &real_path)?;
         before_complete(&real_path.clone())?;
         self.conditionally_move_back(request, temp_dir.clone(), temp_path.clone(), path)?;
@@ -237,6 +238,7 @@ impl Remote {
     where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
         let (temp_dir, temp_path) = self.get_transfer_location(request, dest)?;
         let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), dest); /* will be either temp_path or path */
+        self.response.get_visitor().read().expect("read visitor").on_before_transfer(&self.response.get_context(), &Arc::clone(&self.host), &real_path);
         let xfer_result = self.connection.lock().unwrap().copy_file(&self.response, &request, src, &real_path)?;        
         before_complete(&real_path.clone())?;
         self.conditionally_move_back(request, temp_dir.clone(), temp_path.clone(), dest)?;

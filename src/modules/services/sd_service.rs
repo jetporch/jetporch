@@ -142,7 +142,7 @@ impl SystemdServiceAction {
         if out.find("disabled").is_some() || out.find("deactivating").is_some() { is_enabled = false; }
         else if out.find("enabled").is_some() || out.find("alias").is_some() { is_enabled = true; } 
         else {
-            return Err(handle.response.is_failed(request, &format!("systemctl status unexpected for service({}): {}", self.service, out))); 
+            return Err(handle.response.is_failed(request, &format!("systemctl enablement status unexpected for service({}): ({})", self.service, out))); 
         }
 
         let result2 = handle.remote.run(request, &is_active_cmd, CheckRc::Unchecked)?;
@@ -150,7 +150,7 @@ impl SystemdServiceAction {
         if out2.find("inactive").is_some() { is_active = false; }
         else if out2.find("active").is_some() { is_active = true; }
         else { 
-            return Err(handle.response.is_failed(request, &format!("systemctl status unexpected for service({}): {}", self.service, out))); 
+            return Err(handle.response.is_failed(request, &format!("systemctl activity status unexpected for service({}): {}", self.service, out2))); 
         }
 
         return Ok(ServiceDetails {

@@ -265,6 +265,13 @@ pub trait PlaybookVisitor : Send + Sync {
             _ => 1
         };
     }
+    
+    fn on_before_transfer(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, path: &String) {
+        let host2 = host.read().unwrap();
+        if context.read().unwrap().verbosity > 0 {
+            println!("{color_blue}! {} => transferring to: {}", host2.name, &path.clone());
+        }
+    }
 
     fn on_command_run(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, cmd: &String) {
         let host2 = host.read().unwrap();
@@ -288,7 +295,7 @@ pub trait PlaybookVisitor : Send + Sync {
     fn on_command_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
         let host2 = host.read().expect("context read");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
-        if context.read().unwrap().verbosity > 1 {
+        if context.read().unwrap().verbosity > 2 {
             let _ctx2 = context.write().unwrap(); // lock for multi-line output
             println!("{color_red}! {} ... command failed", host2.name);
             println!("    cmd: {}", cmd_result.cmd);
