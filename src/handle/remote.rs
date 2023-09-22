@@ -153,6 +153,8 @@ impl Remote {
             UseSudo::No => cmd.clone() 
         };
 
+        self.response.get_visitor().read().expect("read visitor").on_command_run(&self.response.get_context(), &Arc::clone(&self.host), &cmd);
+
         let result = self.connection.lock().unwrap().run_command(&self.response, request, &cmd_out, forward);
 
         // if requested, turn non-zero return codes into errors
