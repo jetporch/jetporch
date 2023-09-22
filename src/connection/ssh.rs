@@ -40,16 +40,18 @@ use std::fs::File;
 pub struct SshFactory {
     local_factory: LocalFactory,
     localhost: Arc<RwLock<Host>>,
-    forward_agent: bool
+    forward_agent: bool,
+    login_password: Option<String>
 }
 
 impl SshFactory { 
-    pub fn new(inventory: &Arc<RwLock<Inventory>>, forward_agent: bool) -> Self { 
+    pub fn new(inventory: &Arc<RwLock<Inventory>>, forward_agent: bool, login_password: Option<String>) -> Self { 
         // we create a local connection factory for localhost rather than establishing local connections with SSH
         Self {
             localhost : inventory.read().expect("inventory read").get_host(&String::from("localhost")),
             local_factory: LocalFactory::new(inventory),
-            forward_agent
+            forward_agent,
+            login_password
         } 
     }
 }
@@ -91,7 +93,7 @@ impl ConnectionFactory for SshFactory {
         }
 
         // actually connect here
-        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, self.forward_agent);
+        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, self.forward_agent, self.login_password.clone());
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
@@ -109,12 +111,13 @@ pub struct SshConnection {
     pub username: String,
     pub port: i64,
     pub session: Option<Session>,
-    pub forward_agent: bool
+    pub forward_agent: bool,
+    pub login_password: Option<String>
 }
 
 impl SshConnection {
-    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, forward_agent: bool) -> Self {
-        Self { host: Arc::clone(&host), username: username.clone(), port, session: None, forward_agent }
+    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, forward_agent: bool, login_password: Option<String>) -> Self {
+        Self { host: Arc::clone(&host), username: username.clone(), port, session: None, forward_agent, login_password }
     }
 }
 
@@ -171,8 +174,27 @@ impl Connection for SshConnection {
         sess.set_tcp_stream(tcp);
         match sess.handshake() { Ok(_) => {}, _ => { return Err(String::from("SSH handshake failed")); } } ;
         
-        // try to authenticate with the identities in the agent
-        match sess.userauth_agent(&self.username) { Ok(_) => {}, _ => { return Err(format!("SSH auth failed for user {}", self.username)); } };
+        //let identities = agent.identities();
+        
+        if self.login_password.is_some() {
+            match sess.userauth_password(&self.username.clone(), self.login_password.clone().unwrap().as_str()) {
+                Ok(_) => {},
+                Err(x) => {
+                    return Err(format!("SSH password authentication failed for user {}: {}", self.username, x));
+                }
+            }
+        } else {
+            // try to authenticate with the identities in the agent
+            match sess.userauth_agent(&self.username) { 
+                Ok(_) => {}, 
+                Err(x) => { 
+                    return Err(format!("SSH agent authentication failed for user {}: {}", self.username, x));
+                }
+            };
+        }
+
+
+
         if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
       
         // OS detection -- always run uname -a on first connect so we know the OS type, which will allow the command library and facts

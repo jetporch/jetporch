@@ -29,6 +29,7 @@ use crate::util::io::jet_file_open;
 use crate::util::yaml::show_yaml_error_in_context;
 use crate::cli::version::{GIT_VERSION,GIT_BRANCH,BUILD_TIME};
 use std::path::Path;
+use std::io;
 
 // the CLI parser struct values hold various values calculated when calling parse() on
 // the struct
@@ -55,7 +56,8 @@ pub struct CliParser {
     pub tags: Option<Vec<String>>,
     pub allow_localhost_delegation: bool,
     pub extra_vars: serde_yaml::Value,
-    pub forward_agent: bool
+    pub forward_agent: bool,
+    pub login_password: Option<String>,
 }
 
 // subcommands are usually required
@@ -116,6 +118,8 @@ const ARGUMENT_VERBOSE: &str = "-v";
 const ARGUMENT_VERBOSER: &str = "-vv";
 const ARGUMENT_VERBOSEST: &str = "-vvv";
 const ARGUMENT_EXTRA_VARS: &str = "--extra-vars";
+const ARGUMENT_ASK_LOGIN_PASSWORD: &str = "--ask-login-password";
+
 const ARGUMENT_EXTRA_VARS_SHORT: &str = "-e";
 
 // output from --version
@@ -177,6 +181,8 @@ fn show_help() {
                        | |\n\
                        | --- | ---\n\
                        | SSH options:\n\
+                       | | --ask-login-password | prompt for the login password on standard input\n\
+                       | |\n\
                        | | --batch-size N| fully configure this many hosts before moving to the next batch\n\
                        | |\n\
                        | | --forward-agent | enables SSH agent forwarding but only on specific tasks (ex: git)\n\
@@ -264,7 +270,8 @@ impl CliParser  {
             tags: None,
             allow_localhost_delegation: false,
             extra_vars: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
-            forward_agent: false
+            forward_agent: false,
+            login_password: None
         };
         return p;
     }
@@ -361,12 +368,15 @@ impl CliParser  {
                             ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
                             ARGUMENT_EXTRA_VARS        => self.store_extra_vars(&args[arg_count]),
                             ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars(&args[arg_count]),
+                            ARGUMENT_ASK_LOGIN_PASSWORD => self.store_login_password(),
+
                             _                          => Err(format!("invalid flag: {}", argument_str)),
 
                         };
                         if result.is_err() { return result; }
                         if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST)
-                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) || argument_str.eq(ARGUMENT_FORWARD_AGENT) {
+                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) || argument_str.eq(ARGUMENT_FORWARD_AGENT)
+                             || argument_str.eq(ARGUMENT_ASK_LOGIN_PASSWORD) {
                             // these do not take arguments
                         } else {
                             next_is_value = true;
@@ -620,6 +630,16 @@ impl CliParser  {
 
      fn store_forward_agent(&mut self) -> Result<(), String>{
         self.forward_agent = true;
+        return Ok(());
+     }
+
+     fn store_login_password(&mut self) -> Result<(), String>{
+        let mut value = String::new();
+        println!("enter login password:");
+        match io::stdin().read_line(&mut value) {
+            Ok(_) => { self.login_password = Some(String::from(value.trim())); println!("GOT IT!: ({:?})", self.login_password.clone()) }
+            Err(e) =>  return Err(format!("failure reading input: {}", e))
+        }
         return Ok(());
      }
 
