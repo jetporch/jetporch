@@ -349,7 +349,7 @@ impl Template {
         if tm == TemplateMode::Off {
             return Ok(PathBuf::new());
         }
-        let prelim = match screen_path(&str_path) {
+        let prelim = match screen_path(str_path) {
             Ok(x) => x, 
             Err(y) => { return Err(self.response.is_failed(request, &format!("{}, for field: {}", y, field))) }
         };
@@ -374,16 +374,16 @@ impl Template {
     }
 
     fn has_spaces(&self, input: &String) -> bool {
-        let found = input.find(" ");
+        let found = input.find(' ');
         return found.is_some();
     }
 
-    pub fn add_sudo_details(&self, request: &TaskRequest, cmd: &String) -> Result<String, String> {
+    pub fn add_sudo_details(&self, request: &TaskRequest, cmd: &str) -> Result<String, String> {
         // this is used by remote.rs to modify any command, inserting the results of evaluating the configured sudo_template
         // instead of the original command. only specific variables are allowed in the sudo template as opposed
         // to all the variables in jet's current host context.
         if ! request.is_sudoing() {
-            return Ok(cmd.clone());
+            return Ok(cmd.to_owned());
         }
         let details = request.sudo_details.as_ref().unwrap();
         let user = details.user.as_ref().unwrap().clone();
