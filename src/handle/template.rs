@@ -390,7 +390,7 @@ impl Template {
         let sudo_template = details.template.clone();
         let mut data = serde_yaml::Mapping::new();            
         data.insert(serde_yaml::Value::String(String::from("jet_sudo_user")), serde_yaml::Value::String(user.clone()));
-        data.insert(serde_yaml::Value::String(String::from("jet_command")), serde_yaml::Value::String(cmd.clone()));
+        data.insert(serde_yaml::Value::String(String::from("jet_command")), serde_yaml::Value::String(cmd.to_string()));
         let result = self.detached_templar.render(&sudo_template, data, TemplateMode::Strict)?;
         return Ok(result)
     }
