@@ -17,4 +17,4 @@
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
 pub mod apt;
-pub mod dnf;
+pub mod yum_dnf;

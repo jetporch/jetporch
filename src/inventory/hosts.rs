@@ -28,6 +28,14 @@ pub enum HostOSType {
     MacOS,
 }
 
+#[derive(Clone,Copy,Debug)]
+pub enum PackagePreference {
+    // other package systems are supported but no other OSes are 'fuzzy' between distro families (yet)
+    // so we don't need to specify them here (yet)
+    Dnf,
+    Yum,
+}
+
 pub struct Host {
     pub name               : String,
     pub groups             : HashMap<String, Arc<RwLock<Group>>>,
@@ -37,6 +45,7 @@ pub struct Host {
     checksum_cache_task_id : usize,
     facts                  : serde_yaml::Value,
     dyn_variables          : serde_yaml::Value,
+    pub package_preference : Option<PackagePreference>,
     notified_handlers      : HashMap<usize, HashSet<String>>
 }
 
@@ -52,7 +61,8 @@ impl Host {
             checksum_cache_task_id: 0,
             facts: serde_yaml::Value::from(serde_yaml::Mapping::new()),
             dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
-            notified_handlers: HashMap::new()
+            notified_handlers: HashMap::new(),
+            package_preference: None
         }
     }
 

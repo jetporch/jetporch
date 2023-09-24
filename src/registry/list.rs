@@ -46,7 +46,7 @@ use crate::modules::files::template::TemplateTask;
 
 // packages
 use crate::modules::packages::apt::AptTask;
-use crate::modules::packages::dnf::DnfTask;
+use crate::modules::packages::yum_dnf::YumDnfTask;
 
 // services
 use crate::modules::services::sd_service::SystemdServiceTask;
@@ -60,7 +60,7 @@ pub enum Task {
     Assert(AssertTask),
     Copy(CopyTask),
     Debug(DebugTask),
-    Dnf(DnfTask),
+    Dnf(YumDnfTask),
     Directory(DirectoryTask),
     Echo(EchoTask),
     Fail(FailTask),
@@ -71,6 +71,7 @@ pub enum Task {
     Set(SetTask),
     Shell(ShellTask),
     Template(TemplateTask),
+    Yum(YumDnfTask),
 }
 
 impl Task {
@@ -92,6 +93,7 @@ impl Task {
             Task::Set(x)        => x.get_module(), 
             Task::Shell(x)      => x.get_module(), 
             Task::Template(x)   => x.get_module(), 
+            Task::Yum(x)        => x.get_module(),
         };
     }
 
@@ -112,6 +114,7 @@ impl Task {
             Task::Set(x)        => x.get_name(),
             Task::Shell(x)      => x.get_name(), 
             Task::Template(x)   => x.get_name(), 
+            Task::Yum(x)        => x.get_name(),
         };
     }
 
@@ -131,7 +134,8 @@ impl Task {
             Task::Sd_Service(x) => x.get_with(),
             Task::Set(x)        => x.get_with(),
             Task::Shell(x)      => x.get_with(), 
-            Task::Template(x)   => x.get_with(), 
+            Task::Template(x)   => x.get_with(),
+            Task::Yum(x)        => x.get_with(), 
         };
     }
 
@@ -153,6 +157,7 @@ impl Task {
             Task::Set(x)        => x.evaluate(handle, request, tm),
             Task::Shell(x)      => x.evaluate(handle, request, tm), 
             Task::Template(x)   => x.evaluate(handle, request, tm), 
+            Task::Yum(x)        => x.evaluate(handle, request, tm), 
         };
     }
 

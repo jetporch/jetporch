@@ -17,16 +17,17 @@
 use crate::tasks::*;
 use crate::handle::handle::{TaskHandle,CheckRc};
 use crate::tasks::fields::Field;
+use crate::inventory::hosts::PackagePreference;
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
 use std::vec::Vec;
 
-const MODULE: &str = "dnf";
+const MODULE: &str = "yum_dnf";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
-pub struct DnfTask {
+pub struct YumDnfTask {
     pub name: Option<String>,
     pub package: String,
     pub version: Option<String>,
@@ -36,7 +37,7 @@ pub struct DnfTask {
     pub and: Option<PostLogicInput>
 }
 
-struct DnfAction {
+struct YumDnfAction {
     pub package: String,
     pub version: Option<String>,
     pub update: bool,
@@ -49,7 +50,7 @@ struct PackageDetails {
     version: String,
 }
 
-impl IsTask for DnfTask {
+impl IsTask for YumDnfTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
     fn get_name(&self) -> Option<String> { self.name.clone() }
@@ -58,14 +59,14 @@ impl IsTask for DnfTask {
     fn evaluate(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, tm: TemplateMode) -> Result<EvaluatedTask, Arc<TaskResponse>> {
         return Ok(
             EvaluatedTask {
-                action: Arc::new(DnfAction {
+                action: Arc::new(YumDnfAction {
                     package:    handle.template.string_no_spaces(request, tm, &String::from("package"), &self.package)?,
                     version:    handle.template.string_option_no_spaces(&request, tm, &String::from("version"), &self.version)?,
                     update:     handle.template.boolean_option_default_false(&request, tm, &String::from("update"), &self.update)?,
                     remove:     handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
-                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?)
+                and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
             }
         );
     }
@@ -73,7 +74,7 @@ impl IsTask for DnfTask {
 }
 
 
-impl IsAction for DnfAction {
+impl IsAction for YumDnfAction {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
     
@@ -85,6 +86,9 @@ impl IsAction for DnfAction {
                 // will diverge.  Still, consider a common function.
 
                 let mut changes : Vec<Field> = Vec::new();
+
+                self.set_package_preference(handle, request)?;
+
                 let package_details = self.get_package_details(handle, request)?; 
 
                 if package_details.is_some() {
@@ -139,12 +143,43 @@ impl IsAction for DnfAction {
 
 }
 
-impl DnfAction {
+impl YumDnfAction {
+
+    pub fn set_package_preference(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<(),Arc<TaskResponse>> {
+        if handle.host.read().unwrap().package_preference.is_some() {
+            return Ok(());
+        }
+        match handle.remote.get_mode(request, &String::from("/usr/bin/dnf"))? {
+            Some(_) => {
+                handle.host.write().unwrap().package_preference = Some(PackagePreference::Dnf);
+            }
+            None => match handle.remote.get_mode(request, &String::from("/usr/bin/yum"))? {
+                Some(_) => {
+                    handle.host.write().unwrap().package_preference = Some(PackagePreference::Yum);
+                }
+                None => { return Err(handle.response.is_failed(request, &String::from("neither dnf nor yum detected"))); }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_package_preference(&self, handle: &Arc<TaskHandle>) -> Option<PackagePreference> {
+        handle.host.read().unwrap().package_preference
+    }
+
+    pub fn get_package_manager(&self, handle: &Arc<TaskHandle>) -> String {
+        match self.get_package_preference(handle) {
+            Some(PackagePreference::Yum) => String::from("yum"),
+            Some(PackagePreference::Dnf) => String::from("dnf"),
+            _ => { panic!("internal error, package preference not set correctly"); }
+        }
+    }
 
     pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        let which = self.get_package_manager(handle);
         let cmd = match self.version.is_none() {
-            true => format!("dnf info {}", self.package),
-            false => format!("dnf info {}-{}", self.package, self.version.as_ref().unwrap())
+            true => format!("{} info {}", which, self.package),
+            false => format!("{} info {}-{}", which, self.package, self.version.as_ref().unwrap())
         };
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
         let (_rc,out) = cmd_info(&result);
@@ -177,20 +212,23 @@ impl DnfAction {
     }
 
     pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let which = self.get_package_manager(handle);
         let cmd = match self.version.is_none() {
-            true => format!("dnf install '{}' -y", self.package),
-            false => format!("dnf install '{}-{}' -y", self.package, self.version.as_ref().unwrap())
+            true => format!("{} install '{}' -y", which, self.package),
+            false => format!("{}f install '{}-{}' -y", which, self.package, self.version.as_ref().unwrap())
         };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf update '{}' -y", self.package);
+        let which = self.get_package_manager(handle);
+        let cmd = format!("{} update '{}' -y", which, self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
     pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("dnf remove '{}' -y", self.package);
+        let which = self.get_package_manager(handle);
+        let cmd = format!("{} remove '{}' -y", which, self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
