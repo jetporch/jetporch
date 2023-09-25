@@ -1,25 +1,34 @@
-# JetPorch - the JET Enterprise Professional Orchestrator
+# JetPorch - the Jet Enterprise Professional Orchestrator
 
-Jet's goal is to be an community-driven enterprise automation and orchestration platform for the modern era, designed with an outlook towards:
+Jet is a general-purpose, community-driven IT automation platform for configuration management, 
+deployment, orchestration, patching, and arbitrary task execution workflows. 
 
-* Reliability, clean code, and predictability
-* Language simplicity and stability with a minimal aesthetic
-* True planetary scale and lightening fast execution performance
-* A strong enterprise security and audit focus
+Jet was created and is led by [Michael DeHaan](mailto:michael@michaeldehaan.net).
 
-# DOCUMENTATION 
+# ALL DOCUMENTATION
 
-* See https://www.jetporch.com/
+https://www.jetporch.com/
 
 # ANNOUNCEMENTS & BLOG
 
-* Sign up for https://jetporch.substack.com/
+Sign up for free emails at https://jetporch.substack.com/
+
+# INSTALLATION
+
+See https://www.jetporch.com/basics/installing-from-source
 
 # LICENSE
 
-Jetporch is GPLv3 licensed
+Jetporch is GPLv3 licensed and collectively copyrighted by all project contributors.
 
-# CONTACT
+# CONTRIBUTING
 
-Author - Michael DeHaan <michael@michaeldehaan.net>
+Please read https://www.jetporch.com/community/contributing first
+
+# Help, Questions, Ideas, Discussion?
+
+Please join Discord here: https://www.jetporch.com/community/discord-chat
+
+
+
 
