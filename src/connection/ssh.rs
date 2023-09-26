@@ -314,6 +314,14 @@ impl Connection for SshConnection {
 
 impl SshConnection {
 
+    fn trim_newlines(&self, s: &mut String) {
+        if s.ends_with('\n') {
+            s.pop();
+            if s.ends_with('\r') {
+                s.pop();
+            }
+        }
+    }
 
     fn run_command_low_level(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
         // FIXME: catch the rare possibility this unwrap fails and return a nice error?
@@ -329,6 +337,7 @@ impl SshConnection {
         // BOOKMARK: add sudo password prompt (configurable) support here (and below)
         let _w = channel.wait_close();
         let exit_status = match channel.exit_status() { Ok(x) => x, Err(y) => { return Err((500,y.to_string())) } };
+        self.trim_newlines(&mut s);
         return Ok((exit_status, s.clone()));
     }
 
@@ -346,7 +355,8 @@ impl SshConnection {
             Ok(x) => {
                 match x.status.code() {
                     Some(rc) => {
-                        let out = convert_out(&x.stdout,&x.stderr);
+                        let mut out = convert_out(&x.stdout,&x.stderr);
+                        self.trim_newlines(&mut out);
                         return Ok((rc, out.clone()))
                     },
                     None => {

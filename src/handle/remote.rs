@@ -407,7 +407,7 @@ impl Remote {
             return Ok(None);
         }
 
-        if recurse == Recurse::Yes {
+        if attributes_in.is_some() && recurse == Recurse::Yes {
             changes.push(Field::Owner);
             changes.push(Field::Group);
             changes.push(Field::Mode);

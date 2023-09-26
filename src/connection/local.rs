@@ -78,6 +78,15 @@ impl LocalConnection {
     pub fn new(host: &Arc<RwLock<Host>>) -> Self {
         Self { host: Arc::clone(&host) }
     }
+
+    fn trim_newlines(&self, s: &mut String) {
+        if s.ends_with('\n') {
+            s.pop();
+            if s.ends_with('\r') {
+                s.pop();
+            }
+        }
+    }
 }
 
 impl Connection for LocalConnection {
@@ -110,7 +119,8 @@ impl Connection for LocalConnection {
             Ok(x) => {
                 match x.status.code() {
                     Some(rc) => {
-                        let out = convert_out(&x.stdout,&x.stderr);
+                        let mut out = convert_out(&x.stdout,&x.stderr);
+                        self.trim_newlines(&mut out);
                         return Ok(response.command_ok(request,&Arc::new(Some(CommandResult { cmd: cmd.clone(), out: out.clone(), rc: rc }))));
                     },
                     None => {

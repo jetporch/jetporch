@@ -100,6 +100,7 @@ impl IsAction for GitAction {
                 let mut changes : Vec<Field> = Vec::new();
                 // see if the remote directory exists
                 let remote_mode = handle.remote.query_common_file_attributes(request, &self.path, &self.attributes, &mut changes, Recurse::Yes)?;                 
+
                 match remote_mode {
                     // the directory does not exist, need to make everything happen
                     None => Ok(handle.response.needs_creation(request)),
@@ -109,8 +110,9 @@ impl IsAction for GitAction {
                     _ => {
                         
                         let git_path = match self.path.ends_with("/") {
-                            true => format!("{}/{}", self.path, String::from(".git")),
-                            false => self.path.clone()
+                            // could have used pathbuf, but ... anyway ...
+                            true => format!("{}{}", self.path, String::from(".git")),
+                            false => format!("{}/{}", self.path, String::from(".git")),
                         };
 
                         match handle.remote.get_mode(request, &git_path)? {
@@ -123,14 +125,20 @@ impl IsAction for GitAction {
                             // when a git directory has already been checked out at a given location
                             _ => {
                                 let local_version = self.get_local_version(handle, request)?;
-                                let remote_version = self.get_remote_version(handle, request)?;
-                                let local_branch = self.get_local_branch(handle, request)?;
-                                if self.update && (! remote_version.eq(&local_version)) {
+                                if local_version.is_none() {
                                     changes.push(Field::Version);
                                 }
-                                if ! local_branch.eq(&self.branch) {
-                                    changes.push(Field::Branch);
+                                else {
+                                    let remote_version = self.get_remote_version(handle, request)?;
+                                    let local_branch = self.get_local_branch(handle, request)?;
+                                    if self.update && (! remote_version.eq(&local_version.unwrap())) {
+                                        changes.push(Field::Version);
+                                    }
+                                    if ! local_branch.eq(&self.branch) {
+                                        changes.push(Field::Branch);
+                                    }
                                 }
+
                                 if changes.len() > 0 {
                                     Ok(handle.response.needs_modification(request, &changes))
                                 } else {
@@ -152,6 +160,7 @@ impl IsAction for GitAction {
             },
 
             TaskRequestType::Modify => {
+
                 handle.remote.process_common_file_attributes(request, &self.path, &self.attributes, &request.changes, Recurse::Yes)?;
                 if request.changes.contains(&Field::Branch) || request.changes.contains(&Field::Version) {
                     self.pull(handle,request)?;
@@ -194,11 +203,15 @@ impl GitAction {
         }
     }
 
-    fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
+    fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<String>, Arc<TaskResponse>> {
         let cmd = format!("git -C {} rev-parse HEAD", self.path);
-        let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Checked)?;
-        let (_rc, out) = cmd_info(&result);
-        return Ok(out);
+        let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Unchecked)?;
+        let (rc, out) = cmd_info(&result);
+        if rc == 0 {
+            return Ok(Some(out.replace("\n","")));
+        } else {
+            return Ok(None);
+        }
     }
 
     fn get_remote_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String, Arc<TaskResponse>> {
