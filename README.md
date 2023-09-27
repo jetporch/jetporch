@@ -5,9 +5,9 @@ deployment, orchestration, patching, and arbitrary task execution workflows.
 
 Jet is a GPLv3 project, created and run by [Michael DeHaan](https://home.laserllama.net). [(email: michael@michaeldehaan.net)](mailto:michael@michaeldehaan.net).
 
-Key links:
+This README is deliberately sparse to avoid duplicating information. See the following links:
 
-* [Documentation](https://www.jetporch.com/)
+* [Full Project Documentation](https://www.jetporch.com/)
 * [Installation Instructions](https://www.jetporch.com/basics/installing-from-source)
 * [Blog and Release Announcements](https://jetporch.substack.com/)
 * [Discord Chat Details](https://www.jetporch.com/community/discord-chat)
