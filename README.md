@@ -1,3 +1,5 @@
+**RELEASING THIS FRIDAY, 11:30 AM EASTERN***
+
 # JetPorch - the Jet Enterprise Professional Orchestrator
 
 Jet is a general-purpose, community-driven IT automation platform for configuration management, 
