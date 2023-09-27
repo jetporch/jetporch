@@ -1,5 +1,3 @@
-**RELEASING THIS FRIDAY, 11:30 AM EASTERN***
-
 # JetPorch - the Jet Enterprise Professional Orchestrator
 
 Jet is a general-purpose, community-driven IT automation platform for configuration management, 
@@ -7,30 +5,15 @@ deployment, orchestration, patching, and arbitrary task execution workflows.
 
 Jet was created and is led by [Michael DeHaan](mailto:michael@michaeldehaan.net).
 
-# ALL DOCUMENTATION
+* [Documentation](https://www.jetporch.com/)
+* [Installation Instructions](https://www.jetporch.com/basics/installing-from-source)
+* [Blog and Release Announcements](https://jetporch.substack.com/)
+* [Discord Chat]([https](https://www.jetporch.com/community/discord-chat)
 
-https://www.jetporch.com/
+Quick but important notes (thanks for reading!):
 
-# ANNOUNCEMENTS & BLOG
+* Read the official install guide linked above, don't just run "cargo build"
+* Please read the contribution guide on the website before submitting any code or tickets.
+* All user Q&A and help questions should be directed to Discord
 
-Sign up for free emails at https://jetporch.substack.com/
-
-# INSTALLATION
-
-See https://www.jetporch.com/basics/installing-from-source
-
-# LICENSE
-
-Jetporch is GPLv3 licensed and collectively copyrighted by all project contributors.
-
-# CONTRIBUTING
-
-Please read https://www.jetporch.com/community/contributing first
-
-# Help, Questions, Ideas, Discussion?
-
-Please join Discord here: https://www.jetporch.com/community/discord-chat
-
-
-
-
+Jetporch is a GPLv3 licensed program and collectively owned (C 2023) by all project contributors.
