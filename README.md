@@ -3,7 +3,7 @@
 Jet is a general-purpose, community-driven IT automation platform for configuration management, 
 deployment, orchestration, patching, and arbitrary task execution workflows. 
 
-Jet was created and is led by [Michael DeHaan](mailto:michael@michaeldehaan.net).
+Jet was created and is led by [Michael DeHaan](https://home.laserllama.net). [(email)](mailto:michael@michaeldehaan.net).
 
 * [Documentation](https://www.jetporch.com/)
 * [Installation Instructions](https://www.jetporch.com/basics/installing-from-source)
