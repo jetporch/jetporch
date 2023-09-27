@@ -8,7 +8,7 @@ Jet was created and is led by [Michael DeHaan](mailto:michael@michaeldehaan.net)
 * [Documentation](https://www.jetporch.com/)
 * [Installation Instructions](https://www.jetporch.com/basics/installing-from-source)
 * [Blog and Release Announcements](https://jetporch.substack.com/)
-* [Discord Chat]([https](https://www.jetporch.com/community/discord-chat)
+* [Discord Chat](https://www.jetporch.com/community/discord-chat)
 
 Quick but important notes (thanks for reading!):
 
