@@ -1,2 +1,2 @@
-disable_all_formatting: true 
+disable_all_formatting = true
 ignore = ["/"]
