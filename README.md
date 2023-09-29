@@ -3,7 +3,7 @@
 Jetporch (aka Jet) is a general-purpose, community-driven IT automation platform for configuration management, 
 deployment, orchestration, patching, and arbitrary task execution workflows. 
 
-Jet is a GPLv3 licensed project, created and run by [Michael DeHaan](https://home.laserllama.net). [(email: michael@michaeldehaan.net)](mailto:michael@michaeldehaan.net).
+Jet is a GPLv3 licensed project, created and run by [Michael DeHaan](https://home.laserllama.net). [(<michael@michaeldehaan.net>)](mailto:michael@michaeldehaan.net).
 
 Links
 
@@ -13,5 +13,5 @@ Links
 * [Discord Chat](https://www.jetporch.com/community/discord-chat)
 * [Contribution Guide](https://www.jetporch.com/community/contributing)
 
-Route all questions and feature ideas to Discord.
+Please route all questions, help requests, and feature discussion to Discord.
 
