@@ -14,15 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use rs_sha512::{Sha512State,HasherContext};
-use std::hash::BuildHasher;
-use std::hash::Hasher;
+use sha2::{Sha512, Digest};
 
 pub fn sha512(data: &String) -> String {
-    let mut sha512hasher = Sha512State::default().build_hasher();
-    let bytes = data.as_bytes();
-    sha512hasher.write(bytes);
-    let _u64result = sha512hasher.finish();
-    let bytes_result = HasherContext::finish(&mut sha512hasher);
-    return format!("{bytes_result:02x}")
+    let mut hasher = Sha512::new();
+    hasher.update(data.as_bytes());
+    let result = hasher.finalize();
+    format!("{result:x}")
 }
