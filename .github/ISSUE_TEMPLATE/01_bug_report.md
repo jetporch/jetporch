@@ -21,7 +21,7 @@ assignees: ''
 2.
 3.
 
-<!-- optional: sharing playbook content on gist.github.com may be helpful -->
+<!-- optional: sharing CLI commands used and relevant parts of playbook content and/or output on gist.github.com would be helpful -->
 
 ### Additional Information
 
