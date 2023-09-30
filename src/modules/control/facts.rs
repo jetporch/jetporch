@@ -131,6 +131,8 @@ impl FactsAction {
                         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("EL"));
                     } else if v1.find("debian").is_some() {
                         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Debian"))
+                    } else if v1.find("arch").is_some() {
+                        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Arch"))
                     }
                 }
             }

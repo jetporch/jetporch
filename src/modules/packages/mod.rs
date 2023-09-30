@@ -17,4 +17,5 @@
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
 pub mod apt;
+pub mod pacman;
 pub mod yum_dnf;
