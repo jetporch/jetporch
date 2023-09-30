@@ -90,7 +90,7 @@ pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<
         HostOSType::MacOS => Ok(format!("stat -f '%A' '{}'", path)),
     }
 }
-        
+
 pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return match os_type {
