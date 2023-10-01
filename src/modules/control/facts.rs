@@ -104,6 +104,7 @@ impl FactsAction {
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("Linux"));
         // and more facts...
         self.do_linux_os_release(handle, request, mapping)?;
+        self.do_linux_os_arch(handle, request, mapping)?;
         return Ok(());
     }
 
@@ -135,6 +136,16 @@ impl FactsAction {
                 }
             }
         }
+        return Ok(());
+    }
+
+    fn do_linux_os_arch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // run uname -m to get the architecture of the system
+        let cmd = String::from("uname -m");
+        let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
+        let (_rc, out) = cmd_info(&result);
+        let line = out.replace("\n","");
+        self.insert_string(mapping, &String::from("jet_os_arch"), &String::from(line));
         return Ok(());
     }
 }
