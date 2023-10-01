@@ -16,6 +16,8 @@
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
+pub mod common;
+
 pub mod apt;
 pub mod yum_dnf;
-pub mod common;
+pub mod zypper;
