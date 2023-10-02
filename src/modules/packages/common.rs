@@ -61,10 +61,7 @@ pub trait PackageManagementModule {
 
             if self.is_update() {
                 let remote_details = self.get_remote_version(handle, request)?;
-                if remote_details.is_none() {
-                    return Err(handle.response.is_failed(request, &String::from("no remote package information")));
-                }
-                if !pkg.version.eq(&remote_details.unwrap().version) {
+                if remote_details.is_none() || !pkg.version.eq(&remote_details.unwrap().version) {
                     changes.push(Field::Version);
                 }
             } else if version.is_some() {
