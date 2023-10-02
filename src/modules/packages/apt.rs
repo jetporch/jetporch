@@ -15,12 +15,10 @@
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::tasks::*;
+use crate::modules::packages::common::{PackageManagementModule,PackageDetails};
 use crate::handle::handle::{TaskHandle,CheckRc};
-use crate::tasks::fields::Field;
-//#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
-use std::vec::Vec;
 
 const MODULE: &str = "apt";
 
@@ -41,12 +39,6 @@ struct AptAction {
     pub version: Option<String>,
     pub update: bool,
     pub remove: bool,
-}
-
-#[derive(Clone,PartialEq,Debug)]
-struct PackageDetails {
-    name: String,
-    version: String,
 }
 
 impl IsTask for AptTask {
@@ -72,82 +64,43 @@ impl IsTask for AptTask {
 
 }
 
-
 impl IsAction for AptAction {
-
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
-    
-        match request.request_type {
-
-            TaskRequestType::Query => {
-
-                // FIXME: ALL of this query logic is shared between dnf and apt, but it is likely other package managers
-                // will diverge.  Still, consider a common function.
-
-                let mut changes : Vec<Field> = Vec::new();
-                let package_details = self.get_package_details(handle, request)?; 
-
-                if package_details.is_some() {
-                    // package is installed
-                    if self.remove {
-                        return Ok(handle.response.needs_removal(request));
-                    }
-                    let pkg = package_details.unwrap();
-
-                    if self.update {
-                        changes.push(Field::Version);
-                    } else if self.version.is_some() {
-                        let specified_version = self.version.as_ref().unwrap();
-                        if ! pkg.version.eq(specified_version) { changes.push(Field::Version); }
-                    }
-
-                    if changes.len() > 0 {
-                        return Ok(handle.response.needs_modification(request, &changes));
-                    } else {
-                        return Ok(handle.response.is_matched(request));
-                    }
-                } else {
-                    // package is not installed
-                    return match self.remove {
-                        true => Ok(handle.response.is_matched(request)),
-                        false => Ok(handle.response.needs_creation(request))
-                    }
-                }
-            },
-
-            TaskRequestType::Create => {
-                self.install_package(handle, request)?;               
-                return Ok(handle.response.is_created(request));
-            }
-
-            TaskRequestType::Modify => {
-                if request.changes.contains(&Field::Version) {
-                    self.update_package(handle, request)?;
-                }
-                return Ok(handle.response.is_modified(request, request.changes.clone()));
-            }
-
-            TaskRequestType::Remove => {
-                self.remove_package(handle, request)?;
-                return Ok(handle.response.is_removed(request));
-            }
-    
-            _ => { return Err(handle.response.not_supported(request)); }
-    
-        }
+        return self.common_dispatch(handle,request);
     }
-
 }
 
-impl AptAction {
+impl PackageManagementModule for AptAction {
 
-    pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    fn initial_setup(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>) -> Result<(),Arc<TaskResponse>> {
+        // nothing to do here, see how this was used in yum_dnf.rs
+        return Ok(());
+    }
+
+    fn is_update(&self) -> bool {
+        return self.update;
+    }
+
+    fn is_remove(&self) -> bool {
+        return self.remove; 
+    }
+
+    fn get_version(&self) -> Option<String> {
+        return self.version.clone();
+    }
+
+    fn get_remote_version(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        /* need to implement so update returns the correct modification status */
+        return Ok(None);
+    }
+
+    fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let cmd = format!("dpkg-query -W '{}'", self.package);
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked);
         if result.is_ok() {
             let (rc,out) = cmd_info(&result.unwrap());
             if rc == 0 {
-                let details = self.parse_package_details(handle, &out.clone())?;
+                let details = self.parse_local_package_details(handle, &out.clone())?;
                 return Ok(details);
             } else {
                 return Ok(None);
@@ -157,7 +110,32 @@ impl AptAction {
         }
     }
 
-    pub fn parse_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = match self.version.is_none() {
+            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' -qq", self.package),
+            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' -qq", self.package, self.version.as_ref().unwrap())
+        };
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
+    }
+
+    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = match self.version.is_none() {
+            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' --only-upgrade -qq", self.package),
+            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' --only-upgrade -qq", self.package, self.version.as_ref().unwrap())
+        };
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
+    }
+
+    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = format!("DEBIAN_FRONTEND=noninteractive apt-get remove '{}' -qq", self.package);
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
+    }
+
+}
+
+impl AptAction {
+
+    pub fn parse_local_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let mut tokens = out.split("\t");
         let version = tokens.nth(1);
         if version.is_some() {
@@ -166,27 +144,6 @@ impl AptAction {
             // shouldn't occur with rc=0, still don't want to call panic.
             return Ok(None);
         }
-    }
-
-    pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = match self.version.is_none() {
-            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' -qq", self.package),
-            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' -qq", self.package, self.version.as_ref().unwrap())
-        };
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
-    }
-
-    pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = match self.version.is_none() {
-            true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' --only-upgrade -qq", self.package),
-            false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' --only-upgrade -qq", self.package, self.version.as_ref().unwrap())
-        };
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
-    }
-
-    pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("DEBIAN_FRONTEND=noninteractive apt-get remove '{}' -qq", self.package);
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
 }
