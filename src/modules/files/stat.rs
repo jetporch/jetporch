@@ -1,5 +1,5 @@
 // Jetporch
-// Copyright (C) 2023 - Michael DeHaan <michael@michaeldehaan.net> + contributors
+// Copyright (C) 2023 - JetPorch Project Contributors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{tasks::*, inventory::hosts::Host};
+use crate::{tasks::*};
 use crate::handle::handle::TaskHandle;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 
 const MODULE: &str = "stat";
 
@@ -70,7 +70,7 @@ impl IsAction for StatAction {
             TaskRequestType::Passive => {
                 let stat = stat_file(handle, request, &self.path)?;
                 save_results(handle, request, &self.save, stat)?;
-                Ok(handle.response.is_passive(request))
+                return Ok(handle.response.is_passive(request));
             },
 
             _ => { return Err(handle.response.not_supported(request)); }
@@ -103,26 +103,33 @@ fn stat_file(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, path: &String
     match mode_option {
         Some(mode) => {
             let is_dir = handle.remote.get_is_directory(request, path)?;
-            let ownership_option = handle.remote.get_ownership(request, path)?;
-            match ownership_option {
-                Some((owner, group)) => Ok(StatResult{
+            let ownership = handle.remote.get_ownership(request, path)?;
+            if ownership.is_some() {
+                // we can add other properties here, such as file+directory size, including contents, SELinux attributes, etc
+                // return None for the ones that are not supported
+                let (owner, group) = ownership.unwrap();
+                return Ok(StatResult{
                     exists: true,
                     is_dir: is_dir,
                     mode: Some(mode),
                     owner: Some(owner),
                     group: Some(group),
-                }),
-                None => Ok(DOESNT_EXIST),
+                })
+            }
+            else {
+                // file was seemingly deleted between two command executions above, should basically never happen
+                return Ok(DOESNT_EXIST);
             }
         },
+        // file didn't exist the first time we were looking for it
         None => Ok(DOESNT_EXIST),
     }
 }
 
-fn save_results(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, key: &String, stat: StatResult) -> Result<(), Arc<TaskResponse>> {
+fn save_results(handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, key: &String, stat: StatResult) -> Result<(), Arc<TaskResponse>> {
     let mut result = serde_yaml::Mapping::new();
-    let value = serde_yaml::to_value(stat)
-        .map_err(|err| handle.response.is_failed(request, &format!("failed serializing stat results: {}", err)))?;
+    // the following statement really can't fail.
+    let value = serde_yaml::to_value(stat).expect("internal error: failed to unwrap stat");
     result.insert(serde_yaml::Value::String(key.clone()), value);
     handle.host.write().unwrap().update_variables(result);
     Ok(())
