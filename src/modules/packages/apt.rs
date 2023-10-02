@@ -89,9 +89,25 @@ impl PackageManagementModule for AptAction {
         return self.version.clone();
     }
 
-    fn get_remote_version(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    fn get_remote_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         /* need to implement so update returns the correct modification status */
-        return Ok(None);
+        let cmd = format!("apt-cache show {} | grep Version | cut -f2 --delimiter=':'", self.package.clone());
+        let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Unchecked);
+        if result.is_ok() {
+            let (rc,out) = cmd_info(&result.unwrap());
+            // return code unreliable from grep/cut 
+            if out.contains("No packages found") {
+                return Ok(None);
+            }
+            if rc == 0 {
+                let details = self.parse_remote_package_details(handle, &out.clone());
+                return details;
+            } else {
+                return Ok(None);
+            }
+        } else {
+            return Err(result.unwrap());
+        }
     }
 
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
@@ -144,6 +160,10 @@ impl AptAction {
             // shouldn't occur with rc=0, still don't want to call panic.
             return Ok(None);
         }
+    }
+
+    pub fn parse_remote_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        return Ok(Some(PackageDetails { name: self.package.clone(), version: out.trim().to_string() }));
     }
 
 }
