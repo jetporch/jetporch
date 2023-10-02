@@ -96,6 +96,7 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
 // all the supported flags
 
 #[derive(Clone,Debug)]
+#[allow(non_camel_case_types)]
 pub enum Arguments {
     ARGUMENT_VERSION,
     ARGUMENT_INVENTORY,
