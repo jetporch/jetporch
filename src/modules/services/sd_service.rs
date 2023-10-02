@@ -147,7 +147,7 @@ impl SystemdServiceAction {
 
         let result2 = handle.remote.run(request, &is_active_cmd, CheckRc::Unchecked)?;
         let (_rc2,out2) = cmd_info(&result2);
-        if out2.find("inactive").is_some() { is_active = false; }
+        if out2.find("inactive").is_some() || out2.find("failed").is_some() { is_active = false; }
         else if out2.find("active").is_some() { is_active = true; }
         else { 
             return Err(handle.response.is_failed(request, &format!("systemctl activity status unexpected for service({}): {}", self.service, out2))); 
