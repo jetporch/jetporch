@@ -111,7 +111,7 @@ fn stat_file(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, path: &String
                 return Ok(StatResult{
                     exists: true,
                     is_dir: is_dir,
-                    mode: Some(mode),
+                    mode: Some(format!("0o{}", mode)),
                     owner: Some(owner),
                     group: Some(group),
                 })
