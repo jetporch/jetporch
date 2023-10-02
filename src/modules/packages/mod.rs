@@ -18,3 +18,4 @@
 
 pub mod apt;
 pub mod yum_dnf;
+pub mod common;
