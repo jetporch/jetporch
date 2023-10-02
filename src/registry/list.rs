@@ -42,6 +42,7 @@ use crate::modules::files::copy::CopyTask;
 use crate::modules::files::directory::DirectoryTask;
 use crate::modules::files::file::FileTask;
 use crate::modules::files::git::GitTask;
+use crate::modules::files::stat::StatTask;
 use crate::modules::files::template::TemplateTask;
 
 // packages
@@ -61,17 +62,18 @@ pub enum Task {
     Assert(AssertTask),
     Copy(CopyTask),
     Debug(DebugTask),
-    Dnf(YumDnfTask),
     Directory(DirectoryTask),
+    Dnf(YumDnfTask),
     Echo(EchoTask),
-    Fail(FailTask),
     Facts(FactsTask),
+    Fail(FailTask),
     File(FileTask),
     Git(GitTask),
     Pacman(PacmanTask),
     Sd_Service(SystemdServiceTask),
     Set(SetTask),
     Shell(ShellTask),
+    Stat(StatTask),
     Template(TemplateTask),
     Yum(YumDnfTask),
 }
@@ -84,8 +86,8 @@ impl Task {
             Task::Assert(x)     => x.get_module(),
             Task::Copy(x)       => x.get_module(),
             Task::Debug(x)      => x.get_module(),
-            Task::Dnf(x)        => x.get_module(),
             Task::Directory(x)  => x.get_module(),
+            Task::Dnf(x)        => x.get_module(),
             Task::Echo(x)       => x.get_module(),
             Task::Facts(x)      => x.get_module(), 
             Task::Fail(x)       => x.get_module(), 
@@ -95,6 +97,7 @@ impl Task {
             Task::Sd_Service(x) => x.get_module(),
             Task::Set(x)        => x.get_module(), 
             Task::Shell(x)      => x.get_module(), 
+            Task::Stat(x)       => x.get_module(), 
             Task::Template(x)   => x.get_module(), 
             Task::Yum(x)        => x.get_module(),
         };
@@ -106,8 +109,8 @@ impl Task {
             Task::Assert(x)     => x.get_name(),
             Task::Copy(x)       => x.get_name(),
             Task::Debug(x)      => x.get_name(), 
-            Task::Dnf(x)        => x.get_name(),
             Task::Directory(x)  => x.get_name(),
+            Task::Dnf(x)        => x.get_name(),
             Task::Echo(x)       => x.get_name(),
             Task::Facts(x)      => x.get_name(),
             Task::Fail(x)       => x.get_name(), 
@@ -117,6 +120,7 @@ impl Task {
             Task::Sd_Service(x) => x.get_name(),
             Task::Set(x)        => x.get_name(),
             Task::Shell(x)      => x.get_name(), 
+            Task::Stat(x)       => x.get_name(),
             Task::Template(x)   => x.get_name(), 
             Task::Yum(x)        => x.get_name(),
         };
@@ -128,8 +132,8 @@ impl Task {
             Task::Assert(x)     => x.get_with(),
             Task::Copy(x)       => x.get_with(),
             Task::Debug(x)      => x.get_with(), 
-            Task::Dnf(x)        => x.get_with(),
             Task::Directory(x)  => x.get_with(),
+            Task::Dnf(x)        => x.get_with(),
             Task::Echo(x)       => x.get_with(),
             Task::Facts(x)      => x.get_with(),
             Task::Fail(x)       => x.get_with(), 
@@ -139,6 +143,7 @@ impl Task {
             Task::Sd_Service(x) => x.get_with(),
             Task::Set(x)        => x.get_with(),
             Task::Shell(x)      => x.get_with(), 
+            Task::Stat(x)       => x.get_with(), 
             Task::Template(x)   => x.get_with(),
             Task::Yum(x)        => x.get_with(), 
         };
@@ -151,17 +156,18 @@ impl Task {
             Task::Assert(x)     => x.evaluate(handle, request, tm),
             Task::Copy(x)       => x.evaluate(handle, request, tm),
             Task::Debug(x)      => x.evaluate(handle, request, tm), 
-            Task::Dnf(x)        => x.evaluate(handle, request, tm),
             Task::Directory(x)  => x.evaluate(handle, request, tm), 
+            Task::Dnf(x)        => x.evaluate(handle, request, tm),
             Task::Echo(x)       => x.evaluate(handle, request, tm),
-            Task::Fail(x)       => x.evaluate(handle, request, tm),  
             Task::Facts(x)      => x.evaluate(handle, request, tm),
+            Task::Fail(x)       => x.evaluate(handle, request, tm),  
             Task::File(x)       => x.evaluate(handle, request, tm), 
             Task::Git(x)        => x.evaluate(handle, request, tm),
             Task::Pacman(x)     => x.evaluate(handle, request, tm),
             Task::Sd_Service(x) => x.evaluate(handle, request, tm),
             Task::Set(x)        => x.evaluate(handle, request, tm),
             Task::Shell(x)      => x.evaluate(handle, request, tm), 
+            Task::Stat(x)       => x.evaluate(handle, request, tm),
             Task::Template(x)   => x.evaluate(handle, request, tm), 
             Task::Yum(x)        => x.evaluate(handle, request, tm), 
         };
