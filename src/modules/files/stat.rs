@@ -69,14 +69,7 @@ impl IsAction for StatAction {
 
             TaskRequestType::Passive => {
                 let stat = stat_file(handle, request, &self.path)?;
-
-                match serde_yaml::to_value(stat) {
-                    Ok(value) => save_results(&handle.host, &self.save, value),
-                    Err(x) => {
-                        return Err(handle.response.is_failed(request, &format!("failed serializing stat results: {}", x)));
-                    },
-                };
-
+                save_results(handle, request, &self.save, stat)?;
                 Ok(handle.response.is_passive(request))
             },
 
@@ -126,8 +119,11 @@ fn stat_file(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, path: &String
     }
 }
 
-fn save_results(host: &Arc<RwLock<Host>>, key: &String, value: serde_yaml::Value) {
+fn save_results(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, key: &String, stat: StatResult) -> Result<(), Arc<TaskResponse>> {
     let mut result = serde_yaml::Mapping::new();
+    let value = serde_yaml::to_value(stat)
+        .map_err(|err| handle.response.is_failed(request, &format!("failed serializing stat results: {}", err)))?;
     result.insert(serde_yaml::Value::String(key.clone()), value);
-    host.write().unwrap().update_variables(result);
+    handle.host.write().unwrap().update_variables(result);
+    Ok(())
 }
