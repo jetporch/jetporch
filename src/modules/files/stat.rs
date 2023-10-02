@@ -97,7 +97,7 @@ struct StatResult {
     pub group: Option<String>,
 }
 
-const NON_EXISTING_RESULT: StatResult = StatResult{
+const DOESNT_EXIST: StatResult = StatResult{
     exists: false,
     is_dir: None,
     mode: None,
@@ -119,10 +119,10 @@ fn stat_file(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, path: &String
                     owner: Some(owner),
                     group: Some(group),
                 }),
-                None => Ok(NON_EXISTING_RESULT),
+                None => Ok(DOESNT_EXIST),
             }
         },
-        None => Ok(NON_EXISTING_RESULT),
+        None => Ok(DOESNT_EXIST),
     }
 }
 
