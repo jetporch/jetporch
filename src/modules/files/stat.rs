@@ -91,7 +91,7 @@ impl IsAction for StatAction {
 #[derive(Serialize)]
 struct StatResult {
     pub exists: bool,
-    pub is_dir: Option<bool>,
+    pub is_dir: bool,
     pub mode: Option<String>,
     pub owner: Option<String>,
     pub group: Option<String>,
@@ -99,7 +99,7 @@ struct StatResult {
 
 const DOESNT_EXIST: StatResult = StatResult{
     exists: false,
-    is_dir: None,
+    is_dir: false,
     mode: None,
     owner: None,
     group: None,
@@ -113,8 +113,8 @@ fn stat_file(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, path: &String
             let ownership_option = handle.remote.get_ownership(request, path)?;
             match ownership_option {
                 Some((owner, group)) => Ok(StatResult{
-                    exists: is_dir,
-                    is_dir: Some(true),
+                    exists: true,
+                    is_dir: is_dir,
                     mode: Some(mode),
                     owner: Some(owner),
                     group: Some(group),
