@@ -93,7 +93,7 @@ impl ConnectionFactory for SshFactory {
         }
 
         // actually connect here
-        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, self.forward_agent, self.login_password.clone());
+        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, hostname2, self.forward_agent, self.login_password.clone());
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
@@ -110,14 +110,15 @@ pub struct SshConnection {
     pub host: Arc<RwLock<Host>>,
     pub username: String,
     pub port: i64,
+    pub hostname: String, 
     pub session: Option<Session>,
     pub forward_agent: bool,
     pub login_password: Option<String>
 }
 
 impl SshConnection {
-    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, forward_agent: bool, login_password: Option<String>) -> Self {
-        Self { host: Arc::clone(&host), username: username.clone(), port, session: None, forward_agent, login_password }
+    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, hostname: String, forward_agent: bool, login_password: Option<String>) -> Self {
+        Self { host: Arc::clone(&host), username: username.clone(), port, hostname, session: None, forward_agent, login_password }
     }
 }
 
@@ -156,7 +157,7 @@ impl Connection for SshConnection {
         // Connect to the local SSH server - need to get socketaddrs first in order to use Duration for timeout
         let seconds = Duration::from_secs(10);
         assert!(!self.host.read().expect("host read").name.eq("localhost"));
-        let connect_str = format!("{host}:{port}", host=self.host.read().expect("host read").name, port=self.port.to_string());
+        let connect_str = format!("{host}:{port}", host=self.hostname, port=self.port.to_string());
         // connect with timeout requires SocketAddr objects instead of just connection strings
         let addrs_iter = connect_str.as_str().to_socket_addrs();
         
@@ -167,7 +168,7 @@ impl Connection for SshConnection {
         
         // actually connect (finally) here
         let tcp = match TcpStream::connect_timeout(&addr.unwrap(), seconds) { Ok(x) => x, _ => { 
-            return Err(format!("SSH connection attempt failed for {}:{}", self.host.read().expect("host read").name, self.port)); } };
+            return Err(format!("SSH connection attempt failed for {}:{}", self.hostname, self.port)); } };
         
         // new session & handshake
         let mut sess = match Session::new() { Ok(x) => x, _ => { return Err(String::from("SSH session failed")); } };
