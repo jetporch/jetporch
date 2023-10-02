@@ -30,6 +30,7 @@ use crate::util::yaml::show_yaml_error_in_context;
 use crate::cli::version::{GIT_VERSION,GIT_BRANCH,BUILD_TIME};
 use std::path::Path;
 use std::io;
+use std::collections::HashMap;
 
 // the CLI parser struct values hold various values calculated when calling parse() on
 // the struct
@@ -58,6 +59,7 @@ pub struct CliParser {
     pub extra_vars: serde_yaml::Value,
     pub forward_agent: bool,
     pub login_password: Option<String>,
+    pub argument_map: HashMap<String, Arguments>,
 }
 
 // subcommands are usually required
@@ -86,46 +88,121 @@ fn cli_mode_from_string(s: &String) -> Result<u32, String> {
         "ssh"             => Ok(CLI_MODE_SSH),
         "check-ssh"       => Ok(CLI_MODE_CHECK_SSH),
         "__simulate"      => Ok(CLI_MODE_SIMULATE),
-        "show-inventory" => Ok(CLI_MODE_SHOW),
+        "show-inventory"  => Ok(CLI_MODE_SHOW),
         _ => Err(format!("invalid mode: {}", s))
     }
 }
 
 // all the supported flags
-const ARGUMENT_VERSION: &str  = "--version";
-const ARGUMENT_INVENTORY: & str = "--inventory";
-const ARGUMENT_INVENTORY_SHORT: &str = "-i";
-const ARGUMENT_PLAYBOOK: &str  = "--playbook";
-const ARGUMENT_PLAYBOOK_SHORT: &str  = "-p";
-const ARGUMENT_ROLES: &str  = "--roles";
-const ARGUMENT_ROLES_SHORT: &str  = "-r";
-const ARGUMENT_SHOW_GROUPS: &str = "--show-groups";
-const ARGUMENT_SHOW_HOSTS: &str = "--show-hosts";
-const ARGUMENT_LIMIT_GROUPS: &str = "--limit-groups";
-const ARGUMENT_LIMIT_HOSTS: &str = "--limit-hosts";
-const ARGUMENT_HELP: &str = "--help";
-const ARGUMENT_PORT: &str = "--port";
-const ARGUMENT_USER: &str = "--user";
-const ARGUMENT_USER_SHORT: &str = "-u";
-const ARGUMENT_SUDO: &str = "--sudo";
-const ARGUMENT_TAGS: &str = "--tags";
-const ARGUMENT_ALLOW_LOCALHOST: &str = "--allow-localhost-delegation";
-const ARGUMENT_FORWARD_AGENT: &str = "--forward-agent";
-const ARGUMENT_THREADS: &str = "--threads";
-const ARGUMENT_THREADS_SHORT: &str = "-t";
-const ARGUMENT_BATCH_SIZE: &str = "--batch-size";
-const ARGUMENT_VERBOSE: &str = "-v";
-const ARGUMENT_VERBOSER: &str = "-vv";
-const ARGUMENT_VERBOSEST: &str = "-vvv";
-const ARGUMENT_EXTRA_VARS: &str = "--extra-vars";
-const ARGUMENT_ASK_LOGIN_PASSWORD: &str = "--ask-login-password";
 
-const ARGUMENT_EXTRA_VARS_SHORT: &str = "-e";
+#[derive(Clone,Debug)]
+pub enum Arguments {
+    ARGUMENT_VERSION,
+    ARGUMENT_INVENTORY,
+    ARGUMENT_INVENTORY_SHORT,
+    ARGUMENT_PLAYBOOK,
+    ARGUMENT_PLAYBOOK_SHORT,
+    ARGUMENT_ROLES,
+    ARGUMENT_ROLES_SHORT,
+    ARGUMENT_SHOW_GROUPS,
+    ARGUMENT_SHOW_HOSTS,
+    ARGUMENT_LIMIT_GROUPS,
+    ARGUMENT_LIMIT_HOSTS,
+    ARGUMENT_HELP,
+    ARGUMENT_PORT,
+    ARGUMENT_USER,
+    ARGUMENT_USER_SHORT,
+    ARGUMENT_SUDO,
+    ARGUMENT_TAGS,
+    ARGUMENT_ALLOW_LOCALHOST,
+    ARGUMENT_FORWARD_AGENT,
+    ARGUMENT_THREADS,
+    ARGUMENT_THREADS_SHORT,
+    ARGUMENT_BATCH_SIZE,
+    ARGUMENT_VERBOSE,
+    ARGUMENT_VERBOSER,
+    ARGUMENT_VERBOSEST,
+    ARGUMENT_EXTRA_VARS,
+    ARGUMENT_EXTRA_VARS_SHORT,
+    ARGUMENT_ASK_LOGIN_PASSWORD,
+}
+
+impl Arguments {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Arguments::ARGUMENT_VERSION => "--version",
+            Arguments::ARGUMENT_INVENTORY => "--inventory",
+            Arguments::ARGUMENT_INVENTORY_SHORT => "-i",
+            Arguments::ARGUMENT_PLAYBOOK => "--playbook",
+            Arguments::ARGUMENT_PLAYBOOK_SHORT => "-p",
+            Arguments::ARGUMENT_ROLES => "--roles",
+            Arguments::ARGUMENT_ROLES_SHORT => "-r",
+            Arguments::ARGUMENT_SHOW_GROUPS => "--show-groups",
+            Arguments::ARGUMENT_SHOW_HOSTS => "--show-hosts",
+            Arguments::ARGUMENT_LIMIT_GROUPS => "--limit-groups",
+            Arguments::ARGUMENT_LIMIT_HOSTS => "--limit-hosts",
+            Arguments::ARGUMENT_HELP => "--help",
+            Arguments::ARGUMENT_PORT => "--port",
+            Arguments::ARGUMENT_USER => "--user",
+            Arguments::ARGUMENT_USER_SHORT => "-u",
+            Arguments::ARGUMENT_SUDO => "--sudo",
+            Arguments::ARGUMENT_TAGS => "--tags",
+            Arguments::ARGUMENT_ALLOW_LOCALHOST => "--allow-localhost-delegation",
+            Arguments::ARGUMENT_FORWARD_AGENT => "--forward-agent",
+            Arguments::ARGUMENT_THREADS => "--threads",
+            Arguments::ARGUMENT_THREADS_SHORT => "-t",
+            Arguments::ARGUMENT_BATCH_SIZE => "--batch-size",
+            Arguments::ARGUMENT_VERBOSE => "-v",
+            Arguments::ARGUMENT_VERBOSER => "-vv",
+            Arguments::ARGUMENT_VERBOSEST => "-vvv",
+            Arguments::ARGUMENT_EXTRA_VARS => "--extra-vars",
+            Arguments::ARGUMENT_EXTRA_VARS_SHORT => "-e",
+            Arguments::ARGUMENT_ASK_LOGIN_PASSWORD => "--ask-login-password",
+        }
+    }
+}
+
+fn build_argument_map() -> HashMap<String, Arguments> {
+    // this is written backwards mostly for readability
+    let inputs = vec![
+        (Arguments::ARGUMENT_VERSION, "--version"),
+        (Arguments::ARGUMENT_INVENTORY, "--inventory"),
+        (Arguments::ARGUMENT_INVENTORY_SHORT, "-i"),
+        (Arguments::ARGUMENT_PLAYBOOK, "--playbook"),
+        (Arguments::ARGUMENT_PLAYBOOK_SHORT, "-p"),
+        (Arguments::ARGUMENT_ROLES, "--roles"),
+        (Arguments::ARGUMENT_ROLES_SHORT, "-r"),
+        (Arguments::ARGUMENT_SHOW_GROUPS, "--show-groups"),
+        (Arguments::ARGUMENT_SHOW_HOSTS, "--show-hosts"),
+        (Arguments::ARGUMENT_LIMIT_GROUPS, "--limit-groups"),
+        (Arguments::ARGUMENT_LIMIT_HOSTS, "--limit-hosts"),
+        (Arguments::ARGUMENT_HELP, "--help"),
+        (Arguments::ARGUMENT_PORT, "--port"),
+        (Arguments::ARGUMENT_USER, "--user"),
+        (Arguments::ARGUMENT_USER_SHORT, "-u"),
+        (Arguments::ARGUMENT_SUDO, "--sudo"),
+        (Arguments::ARGUMENT_TAGS, "--tags"),
+        (Arguments::ARGUMENT_ALLOW_LOCALHOST, "--allow-localhost-delegation"),
+        (Arguments::ARGUMENT_FORWARD_AGENT, "--forward-agent"),
+        (Arguments::ARGUMENT_THREADS, "--threads"),
+        (Arguments::ARGUMENT_THREADS_SHORT, "-t"),
+        (Arguments::ARGUMENT_BATCH_SIZE, "--batch-size"),
+        (Arguments::ARGUMENT_VERBOSE, "-v"),
+        (Arguments::ARGUMENT_VERBOSER, "-vv"),
+        (Arguments::ARGUMENT_VERBOSEST, "-vvv"),
+        (Arguments::ARGUMENT_EXTRA_VARS, "--extra-vars"),
+        (Arguments::ARGUMENT_EXTRA_VARS_SHORT, "-e"),
+        (Arguments::ARGUMENT_ASK_LOGIN_PASSWORD, "--ask-login-password"),
+    ];
+    let mut map : HashMap<String, Arguments> = HashMap::new();
+    for (e,i) in inputs.iter() {
+        map.insert(i.to_string(), e.clone());
+    }
+    return map
+}
 
 // output from --version
-
 fn show_version() {
-
     let header_table = format!("|-|:-\n\
                                 |jetp | http://www.jetporch.com/\n\
                                 | | (C) Michael DeHaan + contributors, 2023\n\
@@ -135,7 +212,6 @@ fn show_version() {
                                 | --- | ---\n\
                                 | | usage: jetp <MODE> [flags]\n\
                                 |-|-", GIT_VERSION, GIT_BRANCH, BUILD_TIME);
-
     println!("");
     crate::util::terminal::markdown_print(&String::from(header_table));
     println!("");
@@ -217,6 +293,8 @@ fn show_help() {
 }
 
 
+
+
 impl CliParser  {
 
 
@@ -271,7 +349,8 @@ impl CliParser  {
             allow_localhost_delegation: false,
             extra_vars: serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
             forward_agent: false,
-            login_password: None
+            login_password: None,
+            argument_map: build_argument_map(),
         };
         return p;
     }
@@ -309,11 +388,11 @@ impl CliParser  {
 
                     // we should accept --help anywhere, but this is special
                     // handling as with --help we don't need a subcommand
-                    if argument == ARGUMENT_HELP {
+                    if argument == Arguments::ARGUMENT_HELP.as_str() {
                         self.needs_help = true;
                         return Ok(())
                     }
-                    if argument == ARGUMENT_VERSION {
+                    if argument == Arguments::ARGUMENT_VERSION.as_str() {
                         self.needs_version = true;
                         return Ok(());
                     }
@@ -333,55 +412,69 @@ impl CliParser  {
                         // if we expect a flag...
                         // the --help argument requires special handling as it has no
                         // following value
-                        if argument_str == ARGUMENT_HELP {
+                        if argument_str == Arguments::ARGUMENT_HELP.as_str() {
                             self.needs_help = true;
                             return Ok(())
                         }
-                        if argument_str == ARGUMENT_VERSION {
+                        if argument_str == Arguments::ARGUMENT_VERSION.as_str() {
                             self.needs_version = true;
                             return Ok(())
                         }
 
-                        let result = match argument_str {
-                            ARGUMENT_PLAYBOOK          => self.append_playbook(&args[arg_count]),
-                            ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook(&args[arg_count]),
-                            ARGUMENT_ROLES             => self.append_roles(&args[arg_count]),
-                            ARGUMENT_ROLES_SHORT       => self.append_roles(&args[arg_count]),
-                            ARGUMENT_INVENTORY         => self.append_inventory(&args[arg_count]),
-                            ARGUMENT_INVENTORY_SHORT   => self.append_inventory(&args[arg_count]),
-                            ARGUMENT_SUDO              => self.store_sudo(&args[arg_count]),
-                            ARGUMENT_TAGS              => self.store_tags(&args[arg_count]),
-                            ARGUMENT_USER              => self.store_default_user(&args[arg_count]),
-                            ARGUMENT_USER_SHORT        => self.store_default_user(&args[arg_count]),
-                            ARGUMENT_SHOW_GROUPS       => self.store_show_groups(&args[arg_count]),
-                            ARGUMENT_SHOW_HOSTS        => self.store_show_hosts(&args[arg_count]),
-                            ARGUMENT_LIMIT_GROUPS      => self.store_limit_groups(&args[arg_count]),
-                            ARGUMENT_LIMIT_HOSTS       => self.store_limit_hosts(&args[arg_count]),
-                            ARGUMENT_BATCH_SIZE        => self.store_batch_size(&args[arg_count]),
-                            ARGUMENT_THREADS           => self.store_threads(&args[arg_count]),
-                            ARGUMENT_THREADS_SHORT     => self.store_threads(&args[arg_count]),
-                            ARGUMENT_PORT              => self.store_port(&args[arg_count]),
-                            ARGUMENT_ALLOW_LOCALHOST   => self.store_allow_localhost_delegation(),
-                            ARGUMENT_FORWARD_AGENT     => self.store_forward_agent(),
-                            ARGUMENT_VERBOSE           => self.increase_verbosity(1),
-                            ARGUMENT_VERBOSER          => self.increase_verbosity(2),
-                            ARGUMENT_VERBOSEST         => self.increase_verbosity(3),
-                            ARGUMENT_EXTRA_VARS        => self.store_extra_vars(&args[arg_count]),
-                            ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars(&args[arg_count]),
-                            ARGUMENT_ASK_LOGIN_PASSWORD => self.store_login_password(),
+                        let mut standalone_arg_found : bool = true;
 
-                            _                          => Err(format!("invalid flag: {}", argument_str)),
+                        if ! self.argument_map.contains_key(argument_str) {
+                            return Err(format!("unrecognized argument: {}", argument_str));
+                        } 
+                        let arg_enum = self.argument_map.get(argument_str).unwrap().clone();
 
+                        let mut result = match arg_enum {
+                            // all parameters that do not take arguments here
+                            Arguments::ARGUMENT_ALLOW_LOCALHOST    => self.store_allow_localhost_delegation(),
+                            Arguments::ARGUMENT_FORWARD_AGENT      => self.store_forward_agent(),
+                            Arguments::ARGUMENT_VERBOSE            => self.increase_verbosity(1),
+                            Arguments::ARGUMENT_VERBOSER           => self.increase_verbosity(2),
+                            Arguments::ARGUMENT_VERBOSEST          => self.increase_verbosity(3),
+                            Arguments::ARGUMENT_ASK_LOGIN_PASSWORD => self.store_login_password(),
+                            _ => Ok({ standalone_arg_found = false; next_is_value = true; })
                         };
-                        if result.is_err() { return result; }
-                        if argument_str.eq(ARGUMENT_VERBOSE) || argument_str.eq(ARGUMENT_VERBOSER) || argument_str.eq(ARGUMENT_VERBOSEST)
-                             || argument_str.eq(ARGUMENT_ALLOW_LOCALHOST) || argument_str.eq(ARGUMENT_FORWARD_AGENT)
-                             || argument_str.eq(ARGUMENT_ASK_LOGIN_PASSWORD) {
-                            // these do not take arguments
-                        } else {
-                            next_is_value = true;
+
+                        if ! standalone_arg_found {
+                            if arg_count == args.len() {
+                                return Err(format!("missing argument value for {}", argument_str));    
+                            } 
+                            else {
+                                result = match arg_enum {
+                                    // all parameters that do take arguments
+                                    Arguments::ARGUMENT_PLAYBOOK          => self.append_playbook(&args[arg_count]),
+                                    Arguments::ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook(&args[arg_count]),
+                                    Arguments::ARGUMENT_ROLES             => self.append_roles(&args[arg_count]),
+                                    Arguments::ARGUMENT_ROLES_SHORT       => self.append_roles(&args[arg_count]),
+                                    Arguments::ARGUMENT_INVENTORY         => self.append_inventory(&args[arg_count]),
+                                    Arguments::ARGUMENT_INVENTORY_SHORT   => self.append_inventory(&args[arg_count]),
+                                    Arguments::ARGUMENT_SUDO              => self.store_sudo(&args[arg_count]),
+                                    Arguments::ARGUMENT_TAGS              => self.store_tags(&args[arg_count]),
+                                    Arguments::ARGUMENT_USER              => self.store_default_user(&args[arg_count]),
+                                    Arguments::ARGUMENT_USER_SHORT        => self.store_default_user(&args[arg_count]),
+                                    Arguments::ARGUMENT_SHOW_GROUPS       => self.store_show_groups(&args[arg_count]),
+                                    Arguments::ARGUMENT_SHOW_HOSTS        => self.store_show_hosts(&args[arg_count]),
+                                    Arguments::ARGUMENT_LIMIT_GROUPS      => self.store_limit_groups(&args[arg_count]),
+                                    Arguments::ARGUMENT_LIMIT_HOSTS       => self.store_limit_hosts(&args[arg_count]),
+                                    Arguments::ARGUMENT_BATCH_SIZE        => self.store_batch_size(&args[arg_count]),
+                                    Arguments::ARGUMENT_THREADS           => self.store_threads(&args[arg_count]),
+                                    Arguments::ARGUMENT_THREADS_SHORT     => self.store_threads(&args[arg_count]),
+                                    Arguments::ARGUMENT_PORT              => self.store_port(&args[arg_count]),
+                                    Arguments::ARGUMENT_EXTRA_VARS        => self.store_extra_vars(&args[arg_count]),
+                                    Arguments::ARGUMENT_EXTRA_VARS_SHORT  => self.store_extra_vars(&args[arg_count]),
+                                    _  => Err(format!("invalid flag: {}", argument_str)),
+                                };
+                            }
                         }
 
+                        if result.is_err() {
+                            return result;
+                        }
+                        
                     } else {
                         next_is_value = false;
                         continue 'each_argument;
@@ -431,7 +524,7 @@ impl CliParser  {
                     }
                 }
             },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_PLAYBOOK, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_PLAYBOOK.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -450,7 +543,7 @@ impl CliParser  {
                     }
                 }
             },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_ROLES, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_ROLES.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -468,7 +561,7 @@ impl CliParser  {
                     self.inventory_paths.write().unwrap().push(p.clone());
                 }
             }
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_INVENTORY, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_INVENTORY.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -476,7 +569,7 @@ impl CliParser  {
     fn store_show_groups(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.show_groups = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_GROUPS, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_SHOW_GROUPS.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -484,7 +577,7 @@ impl CliParser  {
     fn store_show_hosts(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.show_hosts = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_SHOW_HOSTS, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_SHOW_HOSTS.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -492,7 +585,7 @@ impl CliParser  {
     fn store_limit_groups(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.limit_groups = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_GROUPS, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_LIMIT_GROUPS.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -500,7 +593,7 @@ impl CliParser  {
     fn store_limit_hosts(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.limit_hosts = values; },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_LIMIT_HOSTS, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_LIMIT_HOSTS.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -508,7 +601,7 @@ impl CliParser  {
     fn store_tags(&mut self, value: &String) -> Result<(), String> {
         match split_string(value) {
             Ok(values)  =>  { self.tags = Some(values); },
-            Err(err_msg) =>  return Err(format!("--{} {}", ARGUMENT_TAGS, err_msg)),
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_TAGS.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -525,25 +618,25 @@ impl CliParser  {
 
     fn store_batch_size(&mut self, value: &String) -> Result<(), String> {
         if self.batch_size.is_some() {
-            return Err(format!("{} has been specified already", ARGUMENT_BATCH_SIZE));
+            return Err(format!("{} has been specified already", Arguments::ARGUMENT_BATCH_SIZE.as_str()));
         }
         match value.parse::<usize>() {
             Ok(n) => { self.batch_size = Some(n); return Ok(()); },
-            Err(_e) => { return Err(format!("{}: invalid value",ARGUMENT_BATCH_SIZE)); }
+            Err(_e) => { return Err(format!("{}: invalid value", Arguments::ARGUMENT_BATCH_SIZE.as_str())); }
         }
     }
 
     fn store_threads(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<usize>() {
             Ok(n) =>  { self.threads = n; return Ok(()); }
-            Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_THREADS)); }
+            Err(_e) => { return Err(format!("{}: invalid value", Arguments::ARGUMENT_THREADS.as_str())); }
         }
     }
 
     fn store_port(&mut self, value: &String) -> Result<(), String> {
         match value.parse::<i64>() {
             Ok(n) =>  { self.default_port = n; return Ok(()); }
-            Err(_e) => { return Err(format!("{}: invalid value", ARGUMENT_PORT)); }
+            Err(_e) => { return Err(format!("{}: invalid value", Arguments::ARGUMENT_PORT.as_str())); }
         }
     }
 
@@ -637,7 +730,7 @@ impl CliParser  {
         let mut value = String::new();
         println!("enter login password:");
         match io::stdin().read_line(&mut value) {
-            Ok(_) => { self.login_password = Some(String::from(value.trim())); println!("GOT IT!: ({:?})", self.login_password.clone()) }
+            Ok(_) => { self.login_password = Some(String::from(value.trim())); }
             Err(e) =>  return Err(format!("failure reading input: {}", e))
         }
         return Ok(());
