@@ -136,6 +136,10 @@ impl FactsAction {
                 }
             }
         }
+        // jet_os_flavor should always have a value to prevent errors
+        if ! mapping.read().unwrap().contains_key("jet_os_flavor") {
+            self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("unknown"))
+        }
         return Ok(());
     }
 
