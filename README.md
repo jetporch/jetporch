@@ -13,5 +13,4 @@ Links
 * [Discord Chat](https://www.jetporch.com/community/discord-chat)
 * [Contribution Guide](https://www.jetporch.com/community/contributing)
 
-Please route all questions, help requests, and feature discussion to Discord.
-
+Please route all questions, help requests, and feature discussion to Discord. Thanks!
