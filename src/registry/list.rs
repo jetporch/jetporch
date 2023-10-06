@@ -48,6 +48,7 @@ use crate::modules::files::template::TemplateTask;
 // packages
 use crate::modules::packages::apt::AptTask;
 use crate::modules::packages::yum_dnf::YumDnfTask;
+use crate::modules::packages::zypper::ZypperTask;
 
 // services
 use crate::modules::services::sd_service::SystemdServiceTask;
@@ -74,6 +75,7 @@ pub enum Task {
     Stat(StatTask),
     Template(TemplateTask),
     Yum(YumDnfTask),
+    Zypper(ZypperTask),
 }
 
 impl Task {
@@ -97,6 +99,7 @@ impl Task {
             Task::Stat(x)       => x.get_module(), 
             Task::Template(x)   => x.get_module(), 
             Task::Yum(x)        => x.get_module(),
+            Task::Zypper(x)     => x.get_module(),
         };
     }
 
@@ -119,6 +122,7 @@ impl Task {
             Task::Stat(x)       => x.get_name(),
             Task::Template(x)   => x.get_name(), 
             Task::Yum(x)        => x.get_name(),
+            Task::Zypper(x)     => x.get_name(),
         };
     }
 
@@ -141,6 +145,7 @@ impl Task {
             Task::Stat(x)       => x.get_with(), 
             Task::Template(x)   => x.get_with(),
             Task::Yum(x)        => x.get_with(), 
+            Task::Zypper(x)     => x.get_with(),
         };
     }
 
@@ -164,6 +169,7 @@ impl Task {
             Task::Stat(x)       => x.evaluate(handle, request, tm),
             Task::Template(x)   => x.evaluate(handle, request, tm), 
             Task::Yum(x)        => x.evaluate(handle, request, tm), 
+            Task::Zypper(x)     => x.evaluate(handle, request, tm), 
         };
     }
 
