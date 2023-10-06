@@ -88,6 +88,7 @@ pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<
     return match os_type {
         HostOSType::Linux => Ok(format!("stat --format '%a' '{}'", path)),
         HostOSType::MacOS => Ok(format!("stat -f '%A' '{}'", path)),
+        HostOSType::OpenBSD => Ok(format!("stat -f '%OLp' '{}'", path)),
     }
 }
 
@@ -96,6 +97,7 @@ pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Resul
     return match os_type {
         HostOSType::Linux => Ok(format!("sha512sum '{}'", path)),
         HostOSType::MacOS => Ok(format!("shasum -b -a 512 '{}'", path)),
+        HostOSType::OpenBSD => Ok(format!("cksum -r -a sha512 '{}'", path)),
     }
 }
 

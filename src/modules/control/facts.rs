@@ -81,6 +81,7 @@ impl FactsAction {
         match os_type {
             Some(HostOSType::Linux) => { self.do_linux_facts(handle, request, &facts)?; },
             Some(HostOSType::MacOS) => { self.do_mac_facts(handle, request, &facts)?;   }
+            Some(HostOSType::OpenBSD) => { self.do_openbsd_facts(handle, request, &facts)?;   }
             None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))); }
         };
         self.do_arch(handle, request, &facts)?;
@@ -105,6 +106,14 @@ impl FactsAction {
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("Linux"));
         // and more facts...
         self.do_linux_os_release(handle, request, mapping)?;
+        return Ok(());
+    }
+
+    fn do_openbsd_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // sets jet_os_type=OpenBSD
+        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("OpenBSD"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Unknown"));
+
         return Ok(());
     }
 
