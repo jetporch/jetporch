@@ -18,8 +18,6 @@ pub mod common;
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
-pub mod common;
-
 pub mod apt;
 pub mod pacman;
 pub mod yum_dnf;

@@ -16,11 +16,10 @@
 
 use crate::tasks::*;
 use crate::handle::handle::{TaskHandle,CheckRc};
-use crate::tasks::fields::Field;
+use crate::modules::packages::common::{PackageManagementModule,PackageDetails};
 //#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
-use std::vec::Vec;
 
 const MODULE: &str = "pacman";
 
@@ -43,12 +42,6 @@ struct PacmanAction {
     pub remove: bool,
 }
 
-#[derive(Clone,PartialEq,Debug)]
-struct PackageDetails {
-    name: String,
-    version: String,
-}
-
 impl IsTask for PacmanTask {
 
     fn get_module(&self) -> String { String::from(MODULE) }
@@ -69,95 +62,98 @@ impl IsTask for PacmanTask {
             }
         );
     }
-
 }
 
-
 impl IsAction for PacmanAction {
-
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
-    
-        match request.request_type {
+        return self.common_dispatch(handle,request);
+    }
+}
 
-            TaskRequestType::Query => {
+impl PackageManagementModule for PacmanAction {
 
-                // FIXME: ALL of this query logic is shared between dnf and apt, but it is likely other package managers
-                // will diverge.  Still, consider a common function.
+    fn is_update(&self) -> bool {
+        return self.update;
+    }
 
-                let mut changes : Vec<Field> = Vec::new();
-                let package_details = self.get_package_details(handle, request)?; 
+    fn is_remove(&self) -> bool {
+        return self.remove; 
+    }
 
-                if package_details.is_some() {
-                    // package is installed
-                    if self.remove {
-                        return Ok(handle.response.needs_removal(request));
-                    }
-                    let pkg = package_details.unwrap();
+    fn get_version(&self) -> Option<String> {
+        return self.version.clone();
+    }
 
-                    if self.update {
-                        changes.push(Field::Version);
-                    } else if self.version.is_some() {
-                        let specified_version = self.version.as_ref().unwrap();
-                        if ! pkg.version.eq(specified_version) { changes.push(Field::Version); }
-                    }
+    fn initial_setup(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>) -> Result<(),Arc<TaskResponse>> {
+        return Ok(());
+    }
 
-                    if changes.len() > 0 {
-                        return Ok(handle.response.needs_modification(request, &changes));
-                    } else {
-                        return Ok(handle.response.is_matched(request));
-                    }
-                } else {
-                    // package is not installed
-                    return match self.remove {
-                        true => Ok(handle.response.is_matched(request)),
-                        false => Ok(handle.response.needs_creation(request))
-                    }
-                }
-            },
-
-            TaskRequestType::Create => {
-                self.install_package(handle, request)?;               
-                return Ok(handle.response.is_created(request));
-            }
-
-            TaskRequestType::Modify => {
-                if request.changes.contains(&Field::Version) {
-                    self.update_package(handle, request)?;
-                }
-                return Ok(handle.response.is_modified(request, request.changes.clone()));
-            }
-
-            TaskRequestType::Remove => {
-                self.remove_package(handle, request)?;
-                return Ok(handle.response.is_removed(request));
-            }
-    
-            _ => { return Err(handle.response.not_supported(request)); }
-    
+    fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        let actual_package = self.get_actual_package();
+        let cmd = match self.version.is_none() {
+            true => format!("pacman -Q --info {}", actual_package),
+            false => format!("pacman -Q --info {}-{}", actual_package, self.version.as_ref().unwrap())
+        };
+        let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
+        let (rc,out) = cmd_info(&result);
+        if rc > 1 {
+            return Err(handle.response.is_failed(request, &String::from("pacman query failed")));
         }
+        let details = self.parse_package_details(&out.clone());
+        return Ok(details);
+    }
+
+    fn get_remote_version(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+        // FIXME: (?) without this implemented this module will always return "Modified" with update: true
+        return Ok(None);
+    }
+
+    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let cmd = match self.version.is_none() {
+            true => format!("pacman -S '{}' --noconfirm --noprogressbar --needed", self.package),
+            false => format!("pacman -S '{}={}' --noconfirm --noprogressbar --needed", self.package, self.version.as_ref().unwrap())
+        };
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
+    }
+
+    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let actual_package = self.get_actual_package();
+        let cmd = match self.version.is_none() {
+            true => format!("pacman -Syu '{}' --quiet --noconfirm", actual_package),
+            false => format!("pacman -Syu '{}={}' --quiet --noconfirm", self.package, self.version.as_ref().unwrap())
+        };
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
+    }
+
+    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+        let actual_package = self.get_actual_package();
+        let cmd = format!("pacman -R '{}' --noconfirm --noprogressbar", actual_package);
+        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
 }
 
 impl PacmanAction {
 
-    pub fn get_package_details(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
-        let cmd = match self.version.is_none() {
-            true => format!("pacman -Q --info {}", self.package),
-            false => format!("pacman -Q --info {}-{}", self.package, self.version.as_ref().unwrap())
-        };
-        let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
-        let (_rc,out) = cmd_info(&result);
-        let details = self.parse_package_details(&out.clone())?;
-        return Ok(details);
+    pub fn get_actual_package(&self) -> String {
+        if self.package.contains("/") {
+            let last = self.package.split("/").last();
+            match last {
+                Some(x) => x.to_string(),
+                None => self.package.clone() // should be impossible, appease compiler
+            } 
+        } else {
+            return self.package.clone()
+        }
     }
 
-    pub fn parse_package_details(&self, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+    pub fn parse_package_details(&self, out: &String) -> Option<PackageDetails> {
         let mut name: Option<String> = None;
         let mut version: Option<String> = None;
         for line in out.lines() {
             if line.starts_with("error:") {
-                return Ok(None);
+                // FIXME: is this possible with rc == 1?
+                return None;
             }
             let mut tokens = line.split(":");
             let key = tokens.nth(0);
@@ -170,31 +166,10 @@ impl PacmanAction {
             }
         }
         if name.is_some() && version.is_some() {
-            return Ok(Some(PackageDetails { name: name.unwrap().clone(), version: version.unwrap().clone() }));
+            return Some(PackageDetails { name: name.unwrap().clone(), version: version.unwrap().clone() });
         } else {
-            return Ok(None);
+            return None;
         }
-    }
-
-    pub fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = match self.version.is_none() {
-            true => format!("pacman -S '{}' --noconfirm --noprogressbar --needed", self.package),
-            false => format!("pacman -S '{}={}' --noconfirm --noprogressbar --needed", self.package, self.version.as_ref().unwrap())
-        };
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
-    }
-
-    pub fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = match self.version.is_none() {
-            true => format!("pacman -Syu '{}' --quiet --noconfirm", self.package),
-            false => format!("pacman -Syu '{}={}' --quiet --noconfirm", self.package, self.version.as_ref().unwrap())
-        };
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
-    }
-
-    pub fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
-        let cmd = format!("pacman -R '{}' --noconfirm --noprogressbar", self.package);
-        return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
 }
