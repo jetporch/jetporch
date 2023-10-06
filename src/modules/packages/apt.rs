@@ -93,40 +93,44 @@ impl PackageManagementModule for AptAction {
         /* need to implement so update returns the correct modification status */
         let cmd = format!("apt-cache show {} | grep Version | cut -f2 --delimiter=':'", self.package.clone());
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Unchecked);
-        if result.is_ok() {
-            let (rc,out) = cmd_info(&result.unwrap());
-            // return code unreliable from grep/cut 
-            if out.contains("No packages found") {
-                return Ok(None);
+        match result {
+            Ok(r) => {
+                let (rc,out) = cmd_info(&r);
+                // (differentiated return code is unavailable for this module only, don't repeat this pattern)
+                if out.contains("No packages found") {
+                    return Ok(None);
+                }
+                if rc == 0 {
+                    let details = self.parse_remote_package_details(handle, &out.clone());
+                    return details;
+                } else {
+                    return Ok(None);
+                }
+            },
+            Err(e) => {
+                return Err(e);
             }
-            if rc == 0 {
-                let details = self.parse_remote_package_details(handle, &out.clone());
-                return details;
-            } else {
-                return Ok(None);
-            }
-        } else {
-            return Err(result.unwrap());
         }
     }
 
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let cmd = format!("dpkg-query -W '{}'", self.package);
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked);
-        if result.is_ok() {
-            let (rc,out) = cmd_info(&result.unwrap());
-            if rc == 0 {
-                let details = self.parse_local_package_details(handle, &out.clone())?;
-                return Ok(details);
-            } else {
-                return Ok(None);
-            }
-        } else {
-            return Err(result.unwrap());
+        match result {
+            Ok(r) => {
+                let (rc,out) = cmd_info(&r);
+                if rc == 0 {
+                    let details = self.parse_local_package_details(handle, &out.clone())?;
+                    return Ok(details);
+                } else {
+                    return Ok(None);
+                }
+            },
+            Err(e) => return Err(e)
         }
     }
 
-    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = match self.version.is_none() {
             true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' -qq", self.package),
             false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' -qq", self.package, self.version.as_ref().unwrap())
@@ -134,7 +138,7 @@ impl PackageManagementModule for AptAction {
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = match self.version.is_none() {
             true => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}' --only-upgrade -qq", self.package),
             false => format!("DEBIAN_FRONTEND=noninteractive apt-get install '{}={}' --only-upgrade -qq", self.package, self.version.as_ref().unwrap())
@@ -142,7 +146,7 @@ impl PackageManagementModule for AptAction {
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = format!("DEBIAN_FRONTEND=noninteractive apt-get remove '{}' -qq", self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
@@ -154,12 +158,14 @@ impl AptAction {
     pub fn parse_local_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let mut tokens = out.split("\t");
         let version = tokens.nth(1);
-        if version.is_some() {
-            return Ok(Some(PackageDetails { name: self.package.clone(), version: version.unwrap().trim().to_string() }));
-        } else {
-            // shouldn't occur with rc=0, still don't want to call panic.
-            return Ok(None);
-        }
+        return match version {
+            Some(v) => {
+                Ok(Some(PackageDetails { name: self.package.clone(), version: v.trim().to_string() }))
+            },
+            None => {
+                Ok(None)
+            }
+        };
     }
 
     pub fn parse_remote_package_details(&self, _handle: &Arc<TaskHandle>, out: &String) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {

@@ -90,55 +90,58 @@ impl PackageManagementModule for ZypperAction {
     }
 
     fn get_remote_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
-        /* need to implement so update returns the correct modification status */
         let cmd = format!("zypper --non-interactive --quiet search --match-exact --details '{}'", self.package);
         let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Unchecked);
-        if result.is_ok() {
-            let (rc,out) = cmd_info(&result.unwrap());
-            // return code unreliable from grep/cut 
-            if rc != 0 {
-                return Ok(None);
-            }
-            let details = self.parse_zypper_search_table(&out);
-            return details;
-        } else {
-            return Err(result.unwrap());
+        match result {
+            Ok(r) => {
+                let (rc,out) = cmd_info(&r);
+                if rc == 104 {
+                    Ok(None)
+                } else if rc != 0 {
+                    Err(r)
+                } else {
+                    self.parse_zypper_search_table(handle, request, &out)
+                }
+            },
+            Err(e) => Err(e)
         }
     }
 
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
         let cmd = format!("zypper --non-interactive --quiet search --match-exact --details --installed-only '{}'", self.package);
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked);
-        if result.is_ok() {
-            let (rc,out) = cmd_info(&result.unwrap());
-            if rc == 0 {
-                let details = self.parse_zypper_search_table(&out)?;
-                return Ok(details);
-            } else {
-                return Ok(None);
-            }
-        } else {
-            return Err(result.unwrap());
+        return match result {
+            Ok(r) => {
+                let (rc,out) = cmd_info(&r);
+                if rc == 104 {
+                    Ok(None)
+                } else if rc != 0 {
+                    Err(r)
+                } else {
+                    self.parse_zypper_search_table(handle, request, &out)
+                }
+            },
+            Err(e) => Err(e)
         }
     }
 
-    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn install_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = match &self.version {
-            None => format!("zypper --non-interactive --quiet install '{}'", self.package),
             Some(version) => format!("zypper --non-interactive --quiet  install '{}={}'", self.package, version),
+            None => format!("zypper --non-interactive --quiet install '{}'", self.package),
         };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn update_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = match &self.version {
-            None => format!("zypper --non-interactive --quiet  update '{}'", self.package),
             Some(version) => format!("zypper --non-interactive --quiet update '{}={}'", self.package, version),
+            None => format!("zypper --non-interactive --quiet update '{}'", self.package),
         };
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
 
-    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>>{
+    fn remove_package(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let cmd = format!("zypper --non-interactive --quiet remove '{}'", self.package);
         return handle.remote.run(request, &cmd, CheckRc::Checked);
     }
@@ -156,23 +159,19 @@ impl ZypperAction {
     // ---+------+---------+-----------+--------+------------------------
     // i+ | curl | package | 8.3.0-1.1 | x86_64 | openSUSE-Tumbleweed-Oss
     // ```
-    pub fn parse_zypper_search_table(&self, out: &str) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+
+    pub fn parse_zypper_search_table(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, out: &str) 
+    -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+
         let skip_header = out.trim().lines().nth(2);
         let row = match skip_header {
-            // Not installed
-            None => return Ok(None),
-            Some(row) => row,
+            Some(r) => r,
+            None => return Err(handle.response.is_failed(request, &format!("unable to parse unexpected output from zypper (1): {}", out)))
         };
-
-        let details = match row.split("|").nth(3) {
-            Some(version) => Some(PackageDetails {
-                name: self.package.clone(),
-                version: version.trim().to_string(),
-            }),
-            // shouldn't occur with rc=0, still don't want to call panic.
-            None => None,
+        return match row.split("|").nth(3) {
+            Some(version) => Ok(Some(PackageDetails { name: self.package.clone(), version: version.trim().to_string() })),
+            None => Err(handle.response.is_failed(request, &format!("unable to parse unexpected output from zypper (2): {}", out)))
         };
-        Ok(details)
     }
 
 }
