@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // long with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/** ADD MODULES HERE, KEEP ALPHABETIZED **/
-
 pub mod common;
 
+/** ADD MODULES HERE, KEEP ALPHABETIZED **/
+
 pub mod apt;
+pub mod pacman;
 pub mod yum_dnf;
 pub mod zypper;
