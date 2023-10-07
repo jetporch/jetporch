@@ -298,7 +298,9 @@ impl PlaybookContext {
     // when a host needs to connect over SSH it asks this function - we can use some settings configured
     // already on the context or check some variables in inventory.
 
-    pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64) {
+    // FIXME: this should return a struct
+
+    pub fn get_ssh_connection_details(&self, host: &Arc<RwLock<Host>>) -> (String,String,i64,Option<String>,Option<String>) {
 
         let vars = self.get_complete_blended_variables(host,BlendTarget::NotTemplateModule);
         let host2 = host.read().unwrap();
@@ -330,8 +332,26 @@ impl PlaybookContext {
                 self.ssh_port
             }
         };
+        let keyfile : Option<String> = match vars.contains_key(&String::from("jet_ssh_private_key_file")) {
+            true => match vars.get(&String::from("jet_ssh_private_key_file")).unwrap().as_str() {
+                Some(x) => Some(String::from(x)),
+                None => None
+            },
+            false => None
+        };
+        let passphrase : Option<String> = match vars.contains_key(&String::from("jet_ssh_private_key_passphrase")) {
+            true => match vars.get(&String::from("jet_ssh_private_key_passphrase")).unwrap().as_str() {
+                Some(x) => Some(String::from(x)),
+                None =>  None
+            },
+            false => match env::var("JET_SSH_PRIVATE_KEY_PASSPHRASE") {
+                Ok(x) => Some(x),
+                Err(_) => None
+            }
+        };
 
-        return (remote_hostname, remote_user, remote_port)
+
+        return (remote_hostname, remote_user, remote_port, keyfile, passphrase)
     } 
 
     // loads environment variables into the context, adding an "ENV_foo" prefix
