@@ -1,0 +1,56 @@
+- name: this is a demo of the assert feature
+  groups: 
+   - all
+
+  # change these values or the conditional statements below to see how assert works
+  defaults:
+     dog: scooby
+     ghost: "blinky"
+
+  tasks:
+
+   - !facts
+
+   - !assert
+     name: test1
+     msg: the OS must be Linux
+     true: (eq jet_os_type "Linux")
+       
+   - !assert
+     name: test2
+     msg: the OS must not be MacOS
+     false: (eq jet_os_type "MacOS")
+
+   - !assert
+     name: test3
+     msg: various things must all be true
+     all_true:
+       - (eq dog "scooby")
+       - (eq ghost "blinky")
+          
+   - !assert
+     name: test4
+     msg: none of these things may be true
+     all_false:
+       - (eq jet_os_type "Atari")
+       - (eq ghost "Slimer")
+          
+   - !assert
+     name: test5
+     msg: one of these things must be true
+     some_true:
+       - (eq ghost "Slimer")
+       - (eq jet_os_type "Linux")
+
+# POSSIBLE REAL WORLD EXAMPLE PENDING
+#
+#   - !shell
+#     cmd: cat /etc/motd | grep chickens
+#     save: grep_motd
+#     ignore_errors: true
+#     
+#   - !assert
+#     name: make sure there were no chickens
+#     true: (eq grep_motd.rc 1)
+  
+  

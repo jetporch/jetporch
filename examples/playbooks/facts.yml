@@ -1,0 +1,11 @@
+- name: show facts
+
+  groups:
+    - all
+
+  tasks:
+
+    - !facts
+
+    - !debug
+

@@ -1,0 +1,25 @@
+- name: retry demo
+
+  # touch /tmp/watch_for_it.txt on managed hosts
+  # while this playbook is running
+  
+  groups: 
+    - all
+
+  defaults:
+    test_file: /tmp/watch_for_it.txt
+
+  tasks:
+
+  - !file
+    name: ensure our test file isn't present
+    path: "{{ test_file }}"
+    remove: true
+
+  - !shell
+    cmd: cat '{{ test_file }}'
+    and:
+       retry: 100
+       delay: 10
+
+ 

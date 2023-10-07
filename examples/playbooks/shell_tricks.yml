@@ -1,0 +1,31 @@
+- name: shell tricks
+  groups: 
+    - all
+
+  # does the motd file mention chickens?
+
+  defaults:
+     motd: "/etc/motd"
+
+  tasks:
+
+  - !shell
+    name: see if the motd file contains chickens
+    cmd: "grep -i 'chickens' {{ motd }}"
+    failed_when: (gt rc 1)
+    changed_when: false
+    save: grep_result
+  
+  - !echo
+    msg: "grep result was {{ grep_result.rc }}"   
+     
+  - !echo
+    msg: "the motd mentioned chickens"
+    with:
+        condition: (eq grep_result.rc 0)
+        
+  - !echo
+    msg: "the motd did not mention chickens"
+    with:
+        condition: (eq grep_result.rc 1) 
+        

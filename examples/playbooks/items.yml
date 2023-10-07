@@ -1,0 +1,44 @@
+- name: this is a demo of items loops
+  groups: 
+   - all
+
+  defaults:
+
+     a_list:
+       - uno
+       - dos
+       - tres
+     b_list:
+       - { a: "one", b: 1 }
+       - { a: "two", b: 2 }
+  
+     narf: "Narf!"
+     fjord: "Fjord!!!"
+
+  tasks:
+
+   - !echo
+     name: "looping over a basic list: uno, dos, tres!"
+     msg: "{{ item }}"
+     with:
+        items: a_list
+
+   - !echo
+     name: "looping over a structured list"
+     msg: "a={{ item.a }} b={{ item.b}}"
+     with:
+         items: b_list   
+
+   - !echo
+     name: "this time the list is not from a variable"
+     msg: "{{ item }}"
+     with:
+        items:
+           - "{{ narf }}"
+           - asdf
+           - jkl
+   
+
+
+          
+

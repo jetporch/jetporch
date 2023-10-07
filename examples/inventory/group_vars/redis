@@ -1,0 +1,5 @@
+# variables go here, this is a YAML dictionary
+# FYI: none of these variables are used for this example
+
+backup: test01.example.com
+x: 42

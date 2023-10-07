@@ -1,0 +1,13 @@
+# role definition file for redis role
+
+name: redis
+
+defaults:
+   redis_port: 6379
+
+tasks:
+  - redis.yml
+
+handlers:
+  - redis.yml
+

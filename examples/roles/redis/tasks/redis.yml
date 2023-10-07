@@ -1,0 +1,34 @@
+# task file for redis role
+
+- !facts
+  {}
+
+- !echo
+  msg: "OS distro detected={{ jet_os_flavor }}"
+
+- !dnf
+  package: redis
+  with:
+    condition: (eq jet_os_flavor "EL")
+
+- !apt
+  package: redis
+  with:
+    condition: (eq jet_os_flavor "Debian")
+  
+- !template
+  src: redis.conf.hb
+  dest: /etc/redis/redis.conf
+  attributes:
+     owner: redis
+     group: redis
+     mode: 0o640
+  and:
+     notify: restart redis
+
+- !sd_service
+  service: redis
+  started: true
+  enabled: true
+
+ 

@@ -1,0 +1,5 @@
+# adds two subgroups under group 'region01'
+
+subgroups:
+   - webservers
+   - redis

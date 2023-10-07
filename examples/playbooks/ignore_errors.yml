@@ -1,0 +1,20 @@
+- name: shell tricks
+  groups: 
+    - all
+
+  tasks:
+
+  - !shell
+    cmd: echo hi
+
+  - !fail
+    name: this will not fail
+    and:
+        ignore_errors: true
+
+  - !fail
+    name: this will fail
+
+
+
+
