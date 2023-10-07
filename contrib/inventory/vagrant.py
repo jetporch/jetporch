@@ -43,21 +43,20 @@ from collections import defaultdict
 import json
 
 import six
-#from jeti.module_utils._text import to_text
 from six.moves import StringIO
 
 
 _group = 'vagrant'  # a default group
-_ssh_to_ansible = [('user', 'ansible_user'),
-                   ('hostname', 'ansible_host'),
-                   ('identityfile', 'ansible_ssh_private_key_file'),
-                   ('port', 'ansible_port')]
+_ssh_to_jet = [('user', 'jet_ssh_user'),
+               ('hostname', 'jet_ssh_hostname'),
+               ('identityfile', 'jet_ssh_private_key_file'),
+               ('port', 'jet_ssh_port')]
 
 # Options
 # ------------------------------
 
 parser = OptionParser(usage="%prog [options] --list | --host <machine>")
-parser.add_option('--list', default=False, dest="list", action="store_true",
+parser.add_option('--list', default=True, dest="list", action="store_true",
                   help="Produce a JSON consumable grouping of Vagrant servers for Jeti")
 parser.add_option('--host', default=None, dest="host",
                   help="Generate additional host specific details for given host for Jeti")
@@ -76,8 +75,7 @@ def get_ssh_config():
 # list all the running boxes
 def list_running_boxes():
 
-    #output = to_text(subprocess.check_output(["vagrant", "status"]), errors='surrogate_or_strict').split('\n')
-    output = subprocess.check_output(["vagrant", "status"]).split('\n')
+    output = subprocess.check_output(["vagrant", "status"]).decode('utf-8').split('\n')
 
     boxes = []
 
@@ -93,7 +91,7 @@ def list_running_boxes():
 def get_a_ssh_config(box_name):
     """Gives back a map of all the machine's ssh configurations"""
 
-    output = to_text(subprocess.check_output(["vagrant", "ssh-config", box_name]), errors='surrogate_or_strict')
+    output = subprocess.check_output(["vagrant", "ssh-config", box_name]).decode('utf-8')
     config = SSHConfig()
     config.parse(StringIO(output))
     host_config = config.lookup(box_name)
@@ -105,19 +103,21 @@ def get_a_ssh_config(box_name):
         if os.path.isfile(id):
             host_config['identityfile'] = id
 
-    return dict((v, host_config[k]) for k, v in _ssh_to_ansible)
+    return dict((v, host_config[k]) for k, v in _ssh_to_jet)
 
 
 # List out servers that vagrant has running
 # ------------------------------
 if options.list:
     ssh_config = get_ssh_config()
-    meta = defaultdict(dict)
+    hostvars = defaultdict(dict)
 
     for host in ssh_config:
-        meta['hostvars'][host] = ssh_config[host]
-
-    print(json.dumps({_group: list(ssh_config.keys()), '_meta': meta}))
+        hostvars['hostvars'][host] = ssh_config[host]
+        if any('jet_ssh_port' in k for k in hostvars['hostvars'][host].keys()):
+            ## jet_ssh_port is i64 in jetp
+            hostvars['hostvars'][host]['jet_ssh_port'] = int(hostvars['hostvars'][host]['jet_ssh_port'])
+    print(json.dumps({_group: hostvars}))
     sys.exit(0)
 
 # Get out the host details
