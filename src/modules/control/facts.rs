@@ -82,6 +82,7 @@ impl FactsAction {
             Some(HostOSType::Linux) => { self.do_linux_facts(handle, request, &facts)?; },
             Some(HostOSType::MacOS) => { self.do_mac_facts(handle, request, &facts)?;   }
             Some(HostOSType::OpenBSD) => { self.do_openbsd_facts(handle, request, &facts)?;   }
+            Some(HostOSType::HPUX)  => { self.do_hpux_facts(handle, request, &facts)?;  },
             None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))); }
         };
         self.do_arch(handle, request, &facts)?;
@@ -93,11 +94,27 @@ impl FactsAction {
         mapping.write().unwrap().insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::String(value.clone())); 
     }
 
+    fn do_hpux_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // sets jet_os_type=UNIX
+        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("UNIX"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("UNIX System V"));
+        self.do_hpux_os_release(handle, request, mapping)?;
+        return Ok(());
+    }
+
     fn do_mac_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         // sets jet_os_type=MacOS
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("MacOS"));
         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("OSX"));
+        return Ok(());
+    }
 
+    fn do_hpux_os_release(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // mimics the os_release variables even /etc/os-release does not exist
+        let cmd = String::from("uname -rv");
+        let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
+        let (_rc, out) = cmd_info(&result);
+        self.insert_string(mapping, &String::from("jet_os_release_version_id"), &out);
         return Ok(());
     }
 

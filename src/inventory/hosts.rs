@@ -27,6 +27,7 @@ pub enum HostOSType {
     Linux,
     MacOS,
     OpenBSD,
+    HPUX,
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -110,6 +111,8 @@ impl Host {
             self.os_type = Some(HostOSType::MacOS);
         } else if uname_output.starts_with("OpenBSD") {
             self.os_type = Some(HostOSType::OpenBSD);
+        } else if uname_output.starts_with("HP-UX") {
+            self.os_type = Some(HostOSType::HPUX);
         } else {
             return Err(format!("OS Type could not be detected from uname -a: {}", uname_output));
         }

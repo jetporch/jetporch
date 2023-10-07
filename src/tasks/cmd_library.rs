@@ -89,6 +89,8 @@ pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<
         HostOSType::Linux => Ok(format!("stat --format '%a' '{}'", path)),
         HostOSType::MacOS => Ok(format!("stat -f '%A' '{}'", path)),
         HostOSType::OpenBSD => Ok(format!("stat -f '%OLp' '{}'", path)),
+        // HPUX does not have a stat command, this should help:
+        HostOSType::HPUX  => Ok(format!("perl -e '@x=stat(\"'{}'\"); my $y=sprintf(\"%4o\", $x[2] & 07777); $y=~ s/^\\s+//; print($y);'", path)),
     }
 }
 
@@ -98,6 +100,7 @@ pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Resul
         HostOSType::Linux => Ok(format!("sha512sum '{}'", path)),
         HostOSType::MacOS => Ok(format!("shasum -b -a 512 '{}'", path)),
         HostOSType::OpenBSD => Ok(format!("cksum -r -a sha512 '{}'", path)),
+        HostOSType::HPUX  => Ok(format!("shasum -a 512 '{}'", path)),
     }
 }
 
@@ -129,7 +132,7 @@ pub fn get_delete_file_command(_os_type: HostOSType, untrusted_path: &String) ->
 pub fn get_delete_directory_command(_os_type: HostOSType, untrusted_path: &String, recurse: Recurse) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     match recurse {
-        Recurse::No  => { return Ok(format!("rm -d '{}'", path));    },
+        Recurse::No  => { return Ok(format!("rmdir '{}'", path));  },
         Recurse::Yes => { return Ok(format!("rm -rf '{}'", path)); }
     }
 }
