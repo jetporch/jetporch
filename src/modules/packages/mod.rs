@@ -19,6 +19,7 @@ pub mod common;
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
 pub mod apt;
+pub mod homebrew;
 pub mod pacman;
 pub mod yum_dnf;
 pub mod zypper;

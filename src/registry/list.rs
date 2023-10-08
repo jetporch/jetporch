@@ -47,6 +47,7 @@ use crate::modules::files::template::TemplateTask;
 
 // packages
 use crate::modules::packages::apt::AptTask;
+use crate::modules::packages::homebrew::HomebrewTask;
 use crate::modules::packages::pacman::PacmanTask;
 use crate::modules::packages::yum_dnf::YumDnfTask;
 use crate::modules::packages::zypper::ZypperTask;
@@ -61,6 +62,7 @@ pub enum Task {
     // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
     Apt(AptTask),
     Assert(AssertTask),
+    Brew(HomebrewTask),
     Copy(CopyTask),
     Debug(DebugTask),
     Directory(DirectoryTask),
@@ -86,6 +88,7 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.get_module(),
             Task::Assert(x)     => x.get_module(),
+            Task::Brew(x)       => x.get_module(),
             Task::Copy(x)       => x.get_module(),
             Task::Debug(x)      => x.get_module(),
             Task::Directory(x)  => x.get_module(),
@@ -110,6 +113,7 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.get_name(),
             Task::Assert(x)     => x.get_name(),
+            Task::Brew(x)       => x.get_name(),
             Task::Copy(x)       => x.get_name(),
             Task::Debug(x)      => x.get_name(), 
             Task::Directory(x)  => x.get_name(),
@@ -134,6 +138,7 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.get_with(),
             Task::Assert(x)     => x.get_with(),
+            Task::Brew(x)       => x.get_with(),
             Task::Copy(x)       => x.get_with(),
             Task::Debug(x)      => x.get_with(), 
             Task::Directory(x)  => x.get_with(),
@@ -159,6 +164,7 @@ impl Task {
         return match self {
             Task::Apt(x)        => x.evaluate(handle, request, tm),
             Task::Assert(x)     => x.evaluate(handle, request, tm),
+            Task::Brew(x)       => x.evaluate(handle, request, tm),
             Task::Copy(x)       => x.evaluate(handle, request, tm),
             Task::Debug(x)      => x.evaluate(handle, request, tm), 
             Task::Directory(x)  => x.evaluate(handle, request, tm), 
