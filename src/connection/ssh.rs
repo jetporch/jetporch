@@ -84,7 +84,7 @@ impl ConnectionFactory for SshFactory {
 
         // how we connect to a host depends on some settings of the play (ssh_port, ssh_user), the CLI (--user) and
         // possibly magic variables on the host.  The context contains all of this logic.
-        let (hostname2, user, port, key, passphrase) = ctx.get_ssh_connection_details(host);      
+        let (hostname2, user, port, key, passphrase, key_comment) = ctx.get_ssh_connection_details(host);
         if hostname2.eq("localhost") { 
             // jet_ssh_hostname was set to localhost, which doesn't make a lot of sense but could happen in testing
             // contrived playbooks when we don't want a lot of real remote hosts
@@ -93,7 +93,7 @@ impl ConnectionFactory for SshFactory {
         }
 
         // actually connect here
-        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, hostname2, self.forward_agent, self.login_password.clone(), key, passphrase);
+        let mut conn = SshConnection::new(Arc::clone(&host), &user, port, hostname2, self.forward_agent, self.login_password.clone(), key, passphrase, key_comment);
         return match conn.connect() {
             Ok(_)  => { 
                 let conn2 : Arc<Mutex<dyn Connection>> = Arc::new(Mutex::new(conn));
@@ -115,12 +115,13 @@ pub struct SshConnection {
     pub forward_agent: bool,
     pub login_password: Option<String>,
     pub key: Option<String>,
-    pub passphrase: Option<String>
+    pub passphrase: Option<String>,
+    pub key_comment: Option<String>,
 }
 
 impl SshConnection {
-    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, hostname: String, forward_agent: bool, login_password: Option<String>, key: Option<String>, passphrase: Option<String>) -> Self {
-        Self { host: Arc::clone(&host), username: username.clone(), port, hostname, session: None, forward_agent, login_password, key, passphrase }
+    pub fn new(host: Arc<RwLock<Host>>, username: &String, port: i64, hostname: String, forward_agent: bool, login_password: Option<String>, key: Option<String>, passphrase: Option<String>, key_comment: Option<String>) -> Self {
+        Self { host: Arc::clone(&host), username: username.clone(), port, hostname, session: None, forward_agent, login_password, key, passphrase, key_comment }
     }
 }
 
@@ -183,8 +184,6 @@ impl Connection for SshConnection {
         sess.set_tcp_stream(tcp);
         match sess.handshake() { Ok(_) => {}, _ => { return Err(String::from("SSH handshake failed")); } } ;
         
-        //let identities = agent.identities();
-        
         if self.login_password.is_some() {
             match sess.userauth_password(&self.username.clone(), self.login_password.clone().unwrap().as_str()) {
                 Ok(_) => {},
@@ -208,13 +207,45 @@ impl Connection for SshConnection {
         }
         
         if self.key.is_none() && self.login_password.is_none() {
+            if self.key_comment.is_some() {
             // no key or password given, try to authenticate with the identities in the agent
-            match sess.userauth_agent(&self.username) { 
-                Ok(_) => {}, 
-                Err(x) => { 
-                    return Err(format!("SSH agent authentication failed for user {}: {}", self.username, x));
+            let mut agent = sess.agent().unwrap();
+            match agent.connect() {
+                Ok(_) => {},
+                Err(x) => {
+                    return Err(format!("SSH cannot connect to agent: {}", x));
                 }
             };
+            // list_idintities is needed to populate the identities in memory,
+            // see: https://docs.rs/ssh2/latest/ssh2/struct.Agent.html#method.list_identities
+            match agent.list_identities() {
+                Ok(_) => {},
+                Err(x) => {
+                    return Err(format!("SSH list_identities returned an error, please check whether agent is running: {}", x));
+                }
+            };
+            for ident in agent.identities().unwrap() {
+                match ident.comment() == self.key_comment.clone().unwrap() {
+                    true => {
+                        match agent.userauth(&self.username, &ident) {
+                            Ok(_) => {
+                                // Exit the for-loop
+                                break;
+                            },
+                            Err(x) => { return Err(format!("SSH Key authentication failed for user {} with key_comment {}: {}", self.username, self.key_comment.clone().unwrap(), x)); }
+                        };
+                    }
+                    false => (),
+                }
+            }
+            } else {
+                match sess.userauth_agent(&self.username) { 
+                    Ok(_) => {}, 
+                    Err(x) => { 
+                        return Err(format!("SSH agent authentication failed for user {}: {}", self.username, x));
+                    }
+                };
+            }
         }
 
 
