@@ -105,10 +105,15 @@ def get_a_ssh_config(box_name):
 
     return dict((v, host_config[k]) for k, v in _ssh_to_jet)
 
+# Get out the host details
+# ------------------------------
+if options.host:
+    print(json.dumps(get_a_ssh_config(options.host)))
+    sys.exit(0)
 
 # List out servers that vagrant has running
 # ------------------------------
-if options.list:
+elif options.list:
     ssh_config = get_ssh_config()
     hostvars = defaultdict(dict)
 
@@ -120,11 +125,6 @@ if options.list:
     print(json.dumps({_group: hostvars}))
     sys.exit(0)
 
-# Get out the host details
-# ------------------------------
-elif options.host:
-    print(json.dumps(get_a_ssh_config(options.host)))
-    sys.exit(0)
 
 # Print out help
 # ------------------------------
