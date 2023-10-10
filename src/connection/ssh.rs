@@ -192,7 +192,9 @@ impl Connection for SshConnection {
                 }
             }
         }
+
         if self.key.is_some() {
+            // a specific key was specified, 
             let k2 = self.key.as_ref().unwrap().clone();
             let keypath = Path::new(&k2);
             if ! keypath.exists() {
@@ -208,37 +210,46 @@ impl Connection for SshConnection {
         
         if self.key.is_none() && self.login_password.is_none() {
             if self.key_comment.is_some() {
-            // no key or password given, try to authenticate with the identities in the agent
-            let mut agent = sess.agent().unwrap();
-            match agent.connect() {
-                Ok(_) => {},
-                Err(x) => {
-                    return Err(format!("SSH cannot connect to agent: {}", x));
-                }
-            };
-            // list_idintities is needed to populate the identities in memory,
-            // see: https://docs.rs/ssh2/latest/ssh2/struct.Agent.html#method.list_identities
-            match agent.list_identities() {
-                Ok(_) => {},
-                Err(x) => {
-                    return Err(format!("SSH list_identities returned an error, please check whether agent is running: {}", x));
-                }
-            };
-            for ident in agent.identities().unwrap() {
-                match ident.comment() == self.key_comment.clone().unwrap() {
-                    true => {
-                        match agent.userauth(&self.username, &ident) {
-                            Ok(_) => {
-                                // Exit the for-loop
-                                break;
-                            },
-                            Err(x) => { return Err(format!("SSH Key authentication failed for user {} with key_comment {}: {}", self.username, self.key_comment.clone().unwrap(), x)); }
-                        };
+                // use this specific SSH key
+                let mut agent = sess.agent().unwrap();
+                match agent.connect() {
+                    Ok(_) => {},
+                    Err(x) => {
+                        return Err(format!("SSH cannot connect to agent: {}", x));
                     }
-                    false => (),
+                };
+                // list_identities is needed to populate the identities in memory,
+                // see: https://docs.rs/ssh2/latest/ssh2/struct.Agent.html#method.list_identities
+                match agent.list_identities() {
+                    Ok(_) => {},
+                    Err(x) => {
+                        return Err(format!("SSH list_identities returned an error, please check whether agent is running: {}", x));
+                    }
+                };
+                let mut found : bool = false;
+                for ident in agent.identities().unwrap() {
+                    match ident.comment() == self.key_comment.clone().unwrap() {
+                        true => {
+                            match agent.userauth(&self.username, &ident) {
+                                Ok(_) => {
+                                    // use this identity
+                                    found = true;
+                                    break;
+                                },
+                                Err(x) => { 
+                                    return Err(format!("SSH Key authentication failed for user {} with key {}: {}", 
+                                        self.username, self.key_comment.clone().unwrap(), x)); 
+                                }
+                            };
+                        }
+                        false => (),
+                    }
                 }
-            }
+                if !found {
+                    return Err(format!("specified SSH key not found with comment {}", self.key_comment.clone().unwrap()));
+                }
             } else {
+                // no key comment specified, do not use a specific key
                 match sess.userauth_agent(&self.username) { 
                     Ok(_) => {}, 
                     Err(x) => { 
@@ -247,8 +258,6 @@ impl Connection for SshConnection {
                 };
             }
         }
-
-
 
         if !(sess.authenticated()) { return Err("failed to authenticate".to_string()); };
       
