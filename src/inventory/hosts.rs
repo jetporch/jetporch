@@ -24,10 +24,11 @@ use serde_yaml;
 
 #[derive(Clone,Copy,Debug)]
 pub enum HostOSType {
+    HPUX,
     Linux,
     MacOS,
+    NetBSD,
     OpenBSD,
-    HPUX,
 }
 
 #[derive(Clone,Copy,Debug)]
@@ -105,15 +106,12 @@ impl Host {
 
     // used by connection class on initial connect
     pub fn set_os_info(&mut self, uname_output: &String) -> Result<(),String> {
-        if uname_output.starts_with("Linux") {
-            self.os_type = Some(HostOSType::Linux);
-        } else if uname_output.starts_with("Darwin") {
-            self.os_type = Some(HostOSType::MacOS);
-        } else if uname_output.starts_with("OpenBSD") {
-            self.os_type = Some(HostOSType::OpenBSD);
-        } else if uname_output.starts_with("HP-UX") {
-            self.os_type = Some(HostOSType::HPUX);
-        } else {
+        if uname_output.starts_with("HP-UX")        { self.os_type = Some(HostOSType::HPUX)    }
+        else if uname_output.starts_with("Linux")   { self.os_type = Some(HostOSType::Linux)   }
+        else if uname_output.starts_with("Darwin")  { self.os_type = Some(HostOSType::MacOS)   }
+        else if uname_output.starts_with("NetBSD")  { self.os_type = Some(HostOSType::NetBSD)  }
+        else if uname_output.starts_with("OpenBSD") { self.os_type = Some(HostOSType::OpenBSD) }
+        else {
             return Err(format!("OS Type could not be detected from uname -a: {}", uname_output));
         }
         return Ok(());

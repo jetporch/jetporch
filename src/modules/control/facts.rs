@@ -79,11 +79,12 @@ impl FactsAction {
         let os_type = handle.host.read().unwrap().os_type;
         let facts = Arc::new(RwLock::new(serde_yaml::Mapping::new()));
         match os_type {
-            Some(HostOSType::Linux) => { self.do_linux_facts(handle, request, &facts)?; },
-            Some(HostOSType::MacOS) => { self.do_mac_facts(handle, request, &facts)?;   }
-            Some(HostOSType::OpenBSD) => { self.do_openbsd_facts(handle, request, &facts)?;   }
-            Some(HostOSType::HPUX)  => { self.do_hpux_facts(handle, request, &facts)?;  },
-            None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))); }
+            Some(HostOSType::HPUX)    => { self.do_hpux_facts(handle, request, &facts)?    },
+            Some(HostOSType::Linux)   => { self.do_linux_facts(handle, request, &facts)?   },
+            Some(HostOSType::MacOS)   => { self.do_mac_facts(handle, request, &facts)?     },
+            Some(HostOSType::NetBSD)  => { self.do_netbsd_facts(handle, request, &facts)?  },
+            Some(HostOSType::OpenBSD) => { self.do_openbsd_facts(handle, request, &facts)? },
+            None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))) }
         };
         self.do_arch(handle, request, &facts)?;
         handle.host.write().unwrap().update_facts(&facts);
@@ -130,6 +131,14 @@ impl FactsAction {
         // sets jet_os_type=OpenBSD
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("OpenBSD"));
         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("OpenBSD"));
+
+        return Ok(());
+    }
+
+    fn do_netbsd_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // sets jet_os_type=NetBSD
+        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("NetBSD"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("NetBSD"));
 
         return Ok(());
     }
