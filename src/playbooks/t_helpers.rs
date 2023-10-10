@@ -80,7 +80,7 @@ pub fn register_helpers(handlebars: &mut Handlebars) {
         handlebars.register_helper("ends_with", Box::new(ends_with))
     }
     {
-        handlebars.register_helper("is_defined", Box::new(IsDefined));
+        handlebars.register_helper("isdefined", Box::new(IsDefined));
     }
 }
 
