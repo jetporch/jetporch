@@ -80,7 +80,6 @@ pub fn register_helpers(handlebars: &mut Handlebars) {
         handlebars.register_helper("ends_with", Box::new(ends_with))
     }
     {
-        // handlebars_helper!(isdefined: |v: Json| !v.is_null());
         handlebars.register_helper("isdefined", Box::new(IsDefined));
     }
 }
