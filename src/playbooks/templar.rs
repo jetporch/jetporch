@@ -18,6 +18,8 @@ use serde_yaml;
 use once_cell::sync::Lazy;
 use handlebars::{Handlebars,RenderError};
 
+use crate::playbooks::handlebars_helpers::register_helpers;
+
 // templar contains low-level wrapping around handlebars.
 // this is not used directly when evaluating templates and template
 // expressions, for this, see handle/template.rs
@@ -27,6 +29,7 @@ static HANDLEBARS: Lazy<Handlebars> = Lazy::new(|| {
     // very important: we are not plugging variables into HTML, turn escaping off
     hb.register_escape_fn(handlebars::no_escape);
     hb.set_strict_mode(true);
+    register_helpers(&mut hb);
     return hb;
 });
 
