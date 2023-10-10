@@ -121,7 +121,19 @@ fn load_on_disk_inventory_tree(inventory: &Arc<RwLock<Inventory>>, include_group
 // for inventory/groups/* files
 fn load_groups_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(), String> {
     path_walk(path, |groups_file_path| {
-        let group_name = path_basename_as_string(&groups_file_path).clone();
+
+        let mut group_name = path_basename_as_string(&groups_file_path).clone();
+
+        // skip dot files and backup files
+        if group_name.ends_with("~") || group_name.starts_with(".") {
+            return Ok(());
+        }
+
+        // ignore yaml extensions
+        if group_name.ends_with(".yml") {
+            group_name = group_name[0 .. group_name.len() - 4].to_string();
+        }
+
         let groups_file = jet_file_open(&groups_file_path)?;
         let groups_file_parse_result: Result<YamlGroup, serde_yaml::Error> = serde_yaml::from_reader(groups_file);
         if groups_file_parse_result.is_err() {
