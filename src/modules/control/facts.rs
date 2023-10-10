@@ -171,6 +171,12 @@ impl FactsAction {
                         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Arch"))
                     }
                 }
+                // if /etc/os-release does not have ID_LIKE line, like Archlinux
+                if k1.eq("id") {
+                    if v1.find("arch").is_some() {
+                        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("Arch"));
+                    }
+                }
             }
         }
         // jet_os_flavor should always have a value to prevent errors
