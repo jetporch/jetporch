@@ -18,7 +18,7 @@ use serde_yaml;
 use once_cell::sync::Lazy;
 use handlebars::{Handlebars,RenderError};
 
-use crate::playbooks::handlebars_helpers::register_helpers;
+use crate::playbooks::t_helpers::register_helpers;
 
 // templar contains low-level wrapping around handlebars.
 // this is not used directly when evaluating templates and template

@@ -20,4 +20,4 @@ pub mod visitor;
 pub mod traversal;
 pub mod templar;
 pub mod task_fsm;
-pub mod handlebars_helpers;
+pub mod t_helpers;

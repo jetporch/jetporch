@@ -15,10 +15,10 @@
 
 use handlebars::{Handlebars, RenderError, HelperDef, RenderContext, ScopedJson, JsonValue, Helper, Context, handlebars_helper};
 
-#[allow(non_camel_case_types)]
-pub struct isdefined;
+//#[allow(non_camel_case_types)]
+pub struct IsDefined;
 
-impl HelperDef for isdefined {
+impl HelperDef for IsDefined {
     fn call_inner<'reg: 'rc, 'rc>(
         &self,
         h: &Helper<'reg, 'rc>,
@@ -81,7 +81,7 @@ pub fn register_helpers(handlebars: &mut Handlebars) {
     }
     {
         // handlebars_helper!(isdefined: |v: Json| !v.is_null());
-        handlebars.register_helper("isdefined", Box::new(isdefined));
+        handlebars.register_helper("isdefined", Box::new(IsDefined));
     }
 }
 
