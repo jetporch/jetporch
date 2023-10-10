@@ -20,7 +20,7 @@ use crate::handle::handle::{TaskHandle,CheckRc};
 use serde::{Deserialize};
 use std::sync::Arc;
 
-const MODULE: &str = "brew";
+const MODULE: &str = "homebrew";
 
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
