@@ -86,7 +86,8 @@ pub fn screen_mode(mode: &String) -> Result<String,String> {
 pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return match os_type {
-        // HPUX does not have a stat command
+        // AIX and HPUX do not have a stat command
+        HostOSType::AIX   => Ok(format!("perl -e '@x=stat(\"'{}'\"); my $y=sprintf(\"%4o\", $x[2] & 07777); $y=~ s/^\\s+//; print($y);'", path)),
         HostOSType::HPUX  => Ok(format!("perl -e '@x=stat(\"'{}'\"); my $y=sprintf(\"%4o\", $x[2] & 07777); $y=~ s/^\\s+//; print($y);'", path)),
         HostOSType::Linux => Ok(format!("stat --format '%a' '{}'", path)),
         HostOSType::MacOS => Ok(format!("stat -f '%A' '{}'", path)),
@@ -98,6 +99,7 @@ pub fn get_mode_command(os_type: HostOSType, untrusted_path: &String) -> Result<
 pub fn get_sha512_command(os_type: HostOSType, untrusted_path: &String) -> Result<String,String>  {
     let path = screen_path(untrusted_path)?;
     return match os_type {
+        HostOSType::AIX   => Ok(format!("shasum -a 512 '{}'", path)),
         HostOSType::HPUX  => Ok(format!("shasum -a 512 '{}'", path)),
         HostOSType::Linux => Ok(format!("sha512sum '{}'", path)),
         HostOSType::MacOS => Ok(format!("shasum -b -a 512 '{}'", path)),

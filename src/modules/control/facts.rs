@@ -79,6 +79,7 @@ impl FactsAction {
         let os_type = handle.host.read().unwrap().os_type;
         let facts = Arc::new(RwLock::new(serde_yaml::Mapping::new()));
         match os_type {
+            Some(HostOSType::AIX)     => { self.do_aix_facts(handle, request, &facts)?     },
             Some(HostOSType::HPUX)    => { self.do_hpux_facts(handle, request, &facts)?    },
             Some(HostOSType::Linux)   => { self.do_linux_facts(handle, request, &facts)?   },
             Some(HostOSType::MacOS)   => { self.do_mac_facts(handle, request, &facts)?     },
@@ -95,10 +96,27 @@ impl FactsAction {
         mapping.write().unwrap().insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::String(value.clone())); 
     }
 
+    fn do_aix_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // sets jet_os_type=UNIX
+        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("UNIX"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("AIX"));
+        self.do_aix_os_release(handle, request, mapping)?;
+        return Ok(());
+     }
+
+    fn do_aix_os_release(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        // mimics the os_release variables even /etc/os-release does not exist
+        let cmd = String::from("oslevel -s");
+        let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
+        let (_rc, out) = cmd_info(&result);
+        self.insert_string(mapping, &String::from("jet_os_release_version_id"), &out);
+        return Ok(());
+    }
+
     fn do_hpux_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         // sets jet_os_type=UNIX
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("UNIX"));
-        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("UNIX System V"));
+        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("HP-UX"));
         self.do_hpux_os_release(handle, request, mapping)?;
         return Ok(());
     }
@@ -187,8 +205,15 @@ impl FactsAction {
     }
 
     fn do_arch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        // run uname -m to get the architecture of the system
         let cmd = String::from("uname -m");
+        let os_type = handle.host.read().unwrap().os_type;
+        let cmd: String;
+        match os_type {
+            // AIX 'uname -m' returns a machine ID that does not include arch.
+            Some(HostOSType::AIX) => { cmd = String::from("uname -p") },
+            // run uname -m to get the architecture of the system
+            _ => { cmd = String::from("uname -m") },
+        };
         let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
         let (_rc, out) = cmd_info(&result);
         self.insert_string(mapping, &String::from("jet_os_arch"), &String::from(out));

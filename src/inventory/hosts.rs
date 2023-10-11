@@ -24,6 +24,7 @@ use serde_yaml;
 
 #[derive(Clone,Copy,Debug)]
 pub enum HostOSType {
+    AIX,
     HPUX,
     Linux,
     MacOS,
@@ -106,7 +107,8 @@ impl Host {
 
     // used by connection class on initial connect
     pub fn set_os_info(&mut self, uname_output: &String) -> Result<(),String> {
-        if uname_output.starts_with("HP-UX")        { self.os_type = Some(HostOSType::HPUX)    }
+        if uname_output.starts_with("AIX")          { self.os_type = Some(HostOSType::AIX)     }
+        else if uname_output.starts_with("HP-UX")   { self.os_type = Some(HostOSType::HPUX)    }
         else if uname_output.starts_with("Linux")   { self.os_type = Some(HostOSType::Linux)   }
         else if uname_output.starts_with("Darwin")  { self.os_type = Some(HostOSType::MacOS)   }
         else if uname_output.starts_with("NetBSD")  { self.os_type = Some(HostOSType::NetBSD)  }
