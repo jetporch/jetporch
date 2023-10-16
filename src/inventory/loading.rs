@@ -169,21 +169,29 @@ fn add_group_file_contents_to_inventory(inventory: &Arc<RwLock<Inventory>>, grou
 
 }
             
-// this is used by both on-disk and dynamic inventory sources to load group/ and vars/ directories
+// this is used by both on-disk and dynamic inventory sources to load group_vars/ and host_vars/ directories
 fn load_vars_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path, is_group: bool) -> Result<(), String> {
 
     let inv = inventory.write().unwrap();
 
     path_walk(path, |vars_path| {
 
+        let mut effective_name = path_basename_as_string(&vars_path).clone();
+        // skip dot files and backup files
+        if effective_name.ends_with("~") || effective_name.starts_with(".") {
+            return Ok(());
+        }
+        // ignore yaml extensions
+        if effective_name.ends_with(".yml") {
+            effective_name = effective_name[0 .. effective_name.len() - 4].to_string();
+        }
 
-        let base_name = path_basename_as_string(&vars_path).clone();
         // FIXME: warning and continue instead?
         match is_group {
             true => {
-                if !inv.has_group(&base_name.clone()) { return Ok(()); }
+                if !inv.has_group(&effective_name.clone()) { return Ok(()); }
             } false => {
-                if !inv.has_host(&base_name.clone()) { return Ok(()); }
+                if !inv.has_host(&effective_name.clone()) { return Ok(()); }
             }
         }
         
@@ -200,11 +208,11 @@ fn load_vars_directory(inventory: &Arc<RwLock<Inventory>>, path: &Path, is_group
         //let yaml_string = &serde_yaml::to_string(&yaml_result).unwrap();
         match is_group {
             true  => {
-                let group = inv.get_group(&base_name.clone());
+                let group = inv.get_group(&effective_name.clone());
                 group.write().unwrap().set_variables(yaml_result);
             }
             false => {
-                let host = inv.get_host(&base_name);
+                let host = inv.get_host(&effective_name);
                 host.write().unwrap().set_variables(yaml_result);
             }
         }
