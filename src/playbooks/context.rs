@@ -320,9 +320,12 @@ impl PlaybookContext {
             false => self.ssh_user.clone()
         };
         let remote_port = match vars.contains_key(&String::from("jet_ssh_port")) {
-            true => match vars.get(&String::from("jet_ssh_port")).unwrap().as_i64() {
+            true => match vars.get(&String::from("jet_ssh_port")).unwrap().as_str() {
                 Some(x) => {
-                    x
+                    match x.parse::<i64>() {
+                        Ok(ix) => ix,
+                        Err(_) => self.ssh_port
+                    }
                 },
                 None => {
                     self.ssh_port
