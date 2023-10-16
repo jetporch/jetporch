@@ -27,10 +27,14 @@ const MODULE: &str = "facts";
 #[serde(deny_unknown_fields)]
 pub struct FactsTask {
     pub name: Option<String>,
+    pub facter: Option<String>,
+    pub ohai: Option<String>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
 struct FactsAction {
+    facter: bool,
+    ohai: bool,
 }
 
 impl IsTask for FactsTask {
@@ -43,6 +47,9 @@ impl IsTask for FactsTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(FactsAction {
+                    facter:  handle.template.boolean_option_default_false(&request, tm, &String::from("facter"), &self.facter)?,
+                    ohai:    handle.template.boolean_option_default_false(&request, tm, &String::from("ohai"), &self.ohai)?,
+
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, tm, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, tm, &self.and)?),
@@ -88,12 +95,26 @@ impl FactsAction {
             None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))) }
         };
         self.do_arch(handle, request, &facts)?;
+        if self.facter {
+            self.do_facter(handle, request, &facts)?;
+        }
+        if self.ohai {
+            self.do_ohai(handle, request, &facts)?;
+
+        }
         handle.host.write().unwrap().update_facts(&facts);
         return Ok(());
     }
 
     fn insert_string(&self, mapping: &Arc<RwLock<serde_yaml::Mapping>>, key: &String, value: &String) {
         mapping.write().unwrap().insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::String(value.clone())); 
+    }
+
+    fn insert_json(&self, mapping: &Arc<RwLock<serde_yaml::Mapping>>, key: &String, value: &String) -> Result<(), String> {
+        match serde_json::from_str(value) {
+            Ok(json) => { mapping.write().unwrap().insert(serde_yaml::Value::String(key.clone()), json); Ok(()) }
+            Err(y) => Err(format!("error processing fact JSON: {:?}", y))
+        }
     }
 
     fn do_aix_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
@@ -206,5 +227,25 @@ impl FactsAction {
         self.insert_string(mapping, &String::from("jet_arch"), &String::from(out));
         return Ok(());
     }
+
+    fn do_facter(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        let result = handle.remote.run(request, &String::from("facter --json"), CheckRc::Checked)?;
+        let (_rc, out) = cmd_info(&result);
+        match self.insert_json(mapping, &String::from("facter"), &String::from(out)) {
+            Ok(_) => {},
+            Err(_) => { return Err(handle.response.is_failed(request, &String::from("failed to parse facter output"))) }
+        }
+        return Ok(());    }
+
+    fn do_ohai(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
+        let result = handle.remote.run(request, &String::from("ohai"), CheckRc::Checked)?;
+        let (_rc, out) = cmd_info(&result);
+        match self.insert_json(mapping, &String::from("ohai"), &String::from(out)) {
+            Ok(_) => {},
+            Err(_) => { return Err(handle.response.is_failed(request, &String::from("failed to parse ohai output"))) }
+        }
+        return Ok(());
+    }
+
 }
 
