@@ -327,8 +327,9 @@ impl PlaybookContext {
                         Err(_) => self.ssh_port
                     }
                 },
-                None => {
-                    self.ssh_port
+                None => match vars.get(&String::from("jet_ssh_port")).unwrap().as_i64() {
+                    Some(x) => x,
+                    None => self.ssh_port
                 }
             },
             false => {
