@@ -26,3 +26,5 @@ rayon="1.7.0"
 handlebars="4.3.7"
 sha2="0.10.8"
 guid-create="0.3.1"
+expanduser="1.2.2"
+

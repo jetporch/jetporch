@@ -29,6 +29,7 @@ use crate::handle::template::BlendTarget;
 use std::ops::Deref;
 use std::env;
 use guid_create::GUID;
+use expanduser::expanduser;
 
 // the playbook traversal state, and a little bit more than that.
 // the playbook context keeps track of where we are in a playbook
@@ -338,7 +339,12 @@ impl PlaybookContext {
         };
         let keyfile : Option<String> = match vars.contains_key(&String::from("jet_ssh_private_key_file")) {
             true => match vars.get(&String::from("jet_ssh_private_key_file")).unwrap().as_str() {
-                Some(x) => Some(String::from(x)),
+                Some(x) => {
+                    match expanduser(String::from(x)) {
+                        Ok(expanded) => Some(expanded.display().to_string()),
+                        Err(_) => None
+                    }
+                }
                 None => None
             },
             false => None
