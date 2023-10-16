@@ -114,6 +114,19 @@ impl PackageManagementModule for AptAction {
     }
 
     fn get_local_version(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Option<PackageDetails>,Arc<TaskResponse>> {
+
+        let cmd = format!("dpkg -s '{}' >/dev/null", self.package);
+        let result = handle.remote.run_unsafe(request, &cmd, CheckRc::Unchecked);
+        match result {
+            Ok(r) => {
+                let (rc,_out) = cmd_info(&r);
+                if rc != 0 {
+                    return Ok(None);
+                }
+            },
+            Err(e) => return Err(e)
+        }
+
         let cmd = format!("dpkg-query -W '{}'", self.package);
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked);
         match result {
