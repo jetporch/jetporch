@@ -274,7 +274,7 @@ DEFAULTS = {
 class Ec2Inventory(object):
 
     def _empty_inventory(self):
-        return {"_meta": {"hostvars": {}}}
+        return {"all": {"hostvars": {}}}
 
     def _json_serial(self, obj):
         """JSON serializer for objects not serializable by default json code"""
@@ -1087,7 +1087,7 @@ class Ec2Inventory(object):
                         key = self.to_safe("tag_" + k + "=" + v)
                     else:
                         key = self.to_safe("tag_" + k)
-                    self.push(self.inventory, key, hostname)
+                    self.push_group(self.inventory, key, hostname)
                     if self.nested_groups:
                         self.push_group(self.inventory, 'tags', self.to_safe("tag_" + k))
                         if v:
@@ -1108,10 +1108,10 @@ class Ec2Inventory(object):
                 self.push_group(self.inventory, 'tags', 'tag_none')
 
         # Global Tag: tag all EC2 instances
-        self.push(self.inventory, 'ec2', hostname)
+        self.push_group(self.inventory, 'ec2', hostname)
 
-        self.inventory["_meta"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
-        self.inventory["_meta"]["hostvars"][hostname]['ansible_host'] = dest
+        self.inventory["all"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
+        self.inventory["all"]["hostvars"][hostname]['ansible_host'] = dest
 
     def add_rds_instance(self, instance, region):
         ''' Adds an RDS instance to the inventory and index, as long as it is
@@ -1231,8 +1231,8 @@ class Ec2Inventory(object):
         # Global Tag: all RDS instances
         self.push(self.inventory, 'rds', hostname)
 
-        self.inventory["_meta"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
-        self.inventory["_meta"]["hostvars"][hostname]['ansible_host'] = dest
+        self.inventory["all"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
+        self.inventory["all"]["hostvars"][hostname]['ansible_host'] = dest
 
     def add_elasticache_cluster(self, cluster, region):
         ''' Adds an ElastiCache cluster to the inventory and index, as long as
@@ -1327,7 +1327,7 @@ class Ec2Inventory(object):
 
         host_info = self.get_host_info_dict_from_describe_dict(cluster)
 
-        self.inventory["_meta"]["hostvars"][dest] = host_info
+        self.inventory["all"]["hostvars"][dest] = host_info
 
         # Add the nodes
         for node in cluster['CacheNodes']:
@@ -1415,10 +1415,10 @@ class Ec2Inventory(object):
 
         host_info = self.get_host_info_dict_from_describe_dict(node)
 
-        if dest in self.inventory["_meta"]["hostvars"]:
-            self.inventory["_meta"]["hostvars"][dest].update(host_info)
+        if dest in self.inventory["all"]["hostvars"]:
+            self.inventory["all"]["hostvars"][dest].update(host_info)
         else:
-            self.inventory["_meta"]["hostvars"][dest] = host_info
+            self.inventory["all"]["hostvars"][dest] = host_info
 
     def add_elasticache_replication_group(self, replication_group, region):
         ''' Adds an ElastiCache replication group to the inventory and index '''
@@ -1471,7 +1471,7 @@ class Ec2Inventory(object):
 
         host_info = self.get_host_info_dict_from_describe_dict(replication_group)
 
-        self.inventory["_meta"]["hostvars"][dest] = host_info
+        self.inventory["all"]["hostvars"][dest] = host_info
 
     def get_route53_records(self):
         ''' Get and store the map of resource records to domain names that
