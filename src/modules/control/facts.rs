@@ -86,12 +86,8 @@ impl FactsAction {
         let os_type = handle.host.read().unwrap().os_type;
         let facts = Arc::new(RwLock::new(serde_yaml::Mapping::new()));
         match os_type {
-            Some(HostOSType::AIX)     => { self.do_aix_facts(handle, request, &facts)?     },
-            Some(HostOSType::HPUX)    => { self.do_hpux_facts(handle, request, &facts)?    },
             Some(HostOSType::Linux)   => { self.do_linux_facts(handle, request, &facts)?   },
             Some(HostOSType::MacOS)   => { self.do_mac_facts(handle, request, &facts)?     },
-            Some(HostOSType::NetBSD)  => { self.do_netbsd_facts(handle, request, &facts)?  },
-            Some(HostOSType::OpenBSD) => { self.do_openbsd_facts(handle, request, &facts)? },
             None => { return Err(handle.response.is_failed(request, &String::from("facts not implemented for OS Type"))) }
         };
         self.do_arch(handle, request, &facts)?;
@@ -117,59 +113,15 @@ impl FactsAction {
         }
     }
 
-    fn do_aix_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("UNIX"));
-        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("AIX"));
-        self.do_aix_os_release(handle, request, mapping)?;
-        return Ok(());
-     }
-
-    fn do_aix_os_release(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        // mimics the os_release variables even /etc/os-release does not exist
-        let cmd = String::from("oslevel -s");
-        let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
-        let (_rc, out) = cmd_info(&result);
-        self.insert_string(mapping, &String::from("jet_os_release_version_id"), &out);
-        return Ok(());
-    }
-
-    fn do_hpux_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("UNIX"));
-        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("HP-UX"));
-        self.do_hpux_os_release(handle, request, mapping)?;
-        return Ok(());
-    }
-
     fn do_mac_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("MacOS"));
         self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("OSX"));
         return Ok(());
     }
 
-    fn do_hpux_os_release(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        // mimics the os_release variables even /etc/os-release does not exist
-        let cmd = String::from("uname -rv");
-        let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
-        let (_rc, out) = cmd_info(&result);
-        self.insert_string(mapping, &String::from("jet_os_release_version_id"), &out);
-        return Ok(());
-    }
-
     fn do_linux_facts(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
         self.insert_string(mapping, &String::from("jet_os_type"), &String::from("Linux"));
         self.do_linux_os_release(handle, request, mapping)?;
-        return Ok(());
-    }
-
-    fn do_openbsd_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("OpenBSD"));
-        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("OpenBSD"));
-        return Ok(());
-    }
-
-    fn do_netbsd_facts(&self, _handle: &Arc<TaskHandle>, _request: &Arc<TaskRequest>, mapping: &Arc<RwLock<serde_yaml::Mapping>>) -> Result<(), Arc<TaskResponse>> {
-        self.insert_string(mapping, &String::from("jet_os_type"), &String::from("NetBSD"));
-        self.insert_string(mapping, &String::from("jet_os_flavor"), &String::from("NetBSD"));
         return Ok(());
     }
 
