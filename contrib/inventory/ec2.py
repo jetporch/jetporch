@@ -1111,7 +1111,7 @@ class Ec2Inventory(object):
         self.push_group(self.inventory, 'ec2', hostname)
 
         self.inventory["all"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
-        self.inventory["all"]["hostvars"][hostname]['ansible_host'] = dest
+        self.inventory["all"]["hostvars"][hostname]['jet_ssh_hostname'] = dest
 
     def add_rds_instance(self, instance, region):
         ''' Adds an RDS instance to the inventory and index, as long as it is
@@ -1232,7 +1232,7 @@ class Ec2Inventory(object):
         self.push(self.inventory, 'rds', hostname)
 
         self.inventory["all"]["hostvars"][hostname] = self.get_host_info_dict_from_instance(instance)
-        self.inventory["all"]["hostvars"][hostname]['ansible_host'] = dest
+        self.inventory["all"]["hostvars"][hostname]['jet_ssh_hostname'] = dest
 
     def add_elasticache_cluster(self, cluster, region):
         ''' Adds an ElastiCache cluster to the inventory and index, as long as

@@ -258,7 +258,7 @@ script:
         The private port (container port) on which SSH is listening for connections. Defaults to 22.
 
     DOCKER_DEFAULT_IP:
-        The IP address to assign to ansible_host when the container's SSH port is mapped to interface '0.0.0.0'.
+        The IP address to assign to jet_ssh_hostname when the container's SSH port is mapped to interface '0.0.0.0'.
 
 
 Configuration File
@@ -322,7 +322,7 @@ For the default host and each host in the hosts list define the following attrib
      default: 60
 
   default_ip:
-     description: The IP address to assign to ansible_host when the container's SSH port is mapped to interface
+     description: The IP address to assign to jet_ssh_hostname when the container's SSH port is mapped to interface
      '0.0.0.0'.
      required: false
      default: 127.0.0.1

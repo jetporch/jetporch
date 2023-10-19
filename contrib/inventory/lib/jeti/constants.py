@@ -138,8 +138,8 @@ INVALID_VARIABLE_NAMES = re.compile(r'^[\d\W]|[^\w]')
 # object. The dictionary values are tuples, to account for aliases
 # in variable names.
 
-COMMON_CONNECTION_VARS = frozenset(('ansible_connection', 'ansible_host', 'ansible_user', 'ansible_shell_executable',
-                                    'ansible_port', 'ansible_pipelining', 'ansible_password', 'ansible_timeout',
+COMMON_CONNECTION_VARS = frozenset(('ansible_connection', 'jet_ssh_hostname', 'ansible_user', 'ansible_shell_executable',
+                                    'jet_ssh_port', 'ansible_pipelining', 'ansible_password', 'ansible_timeout',
                                     'ansible_shell_type', 'ansible_module_compression', 'ansible_private_key_file'))
 
 MAGIC_VARIABLE_MAPPING = dict(
@@ -151,10 +151,10 @@ MAGIC_VARIABLE_MAPPING = dict(
     executable=('ansible_shell_executable', ),
 
     # connection common
-    remote_addr=('ansible_ssh_host', 'ansible_host'),
+    remote_addr=('ansible_ssh_host', 'jet_ssh_hostname'),
     remote_user=('ansible_ssh_user', 'ansible_user'),
     password=('ansible_ssh_pass', 'ansible_password'),
-    port=('ansible_ssh_port', 'ansible_port'),
+    port=('ansible_ssh_port', 'jet_ssh_port'),
     pipelining=('ansible_ssh_pipelining', 'ansible_pipelining'),
     timeout=('ansible_ssh_timeout', 'ansible_timeout'),
     private_key_file=('ansible_ssh_private_key_file', 'ansible_private_key_file'),

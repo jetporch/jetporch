@@ -456,9 +456,9 @@ class VMWareInventory(object):
             if not host_mapping or k not in host_mapping:
                 continue
 
-            # set ansible_host (2.x)
+            # set jet_ssh_hostname (2.x)
             try:
-                inventory['_meta']['hostvars'][k]['ansible_host'] = host_mapping[k]
+                inventory['_meta']['hostvars'][k]['jet_ssh_hostname'] = host_mapping[k]
                 # 1.9.x backwards compliance
                 inventory['_meta']['hostvars'][k]['ansible_ssh_host'] = host_mapping[k]
             except Exception:

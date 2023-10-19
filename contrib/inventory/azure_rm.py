@@ -75,7 +75,7 @@ When run for a specific host using the --host option, a resource group is
 required. For a specific host, this script returns the following variables:
 
 {
-  "ansible_host": "XXX.XXX.XXX.XXX",
+  "jet_ssh_hostname": "XXX.XXX.XXX.XXX",
   "computer_name": "computer_name2",
   "fqdn": null,
   "id": "/subscriptions/subscription-id/resourceGroups/galaxy-production/providers/Microsoft.Compute/virtualMachines/object-name",
@@ -685,7 +685,7 @@ class AzureInventory(object):
                 self._get_security_groups(resource_group)
 
             host_vars = dict(
-                ansible_host=None,
+                jet_ssh_hostname=None,
                 private_ip=None,
                 private_ip_alloc_method=None,
                 public_ip=None,
@@ -758,14 +758,14 @@ class AzureInventory(object):
                         host_vars['private_ip'] = ip_config.private_ip_address
                         host_vars['private_ip_alloc_method'] = ip_config.private_ip_allocation_method
                         if self.use_private_ip:
-                            host_vars['ansible_host'] = ip_config.private_ip_address
+                            host_vars['jet_ssh_hostname'] = ip_config.private_ip_address
                         if ip_config.public_ip_address:
                             public_ip_reference = self._parse_ref_id(ip_config.public_ip_address.id)
                             public_ip_address = self._network_client.public_ip_addresses.get(
                                 public_ip_reference['resourceGroups'],
                                 public_ip_reference['publicIPAddresses'])
                             if not self.use_private_ip:
-                                host_vars['ansible_host'] = public_ip_address.ip_address
+                                host_vars['jet_ssh_hostname'] = public_ip_address.ip_address
                             host_vars['public_ip'] = public_ip_address.ip_address
                             host_vars['public_ip_name'] = public_ip_address.name
                             host_vars['public_ip_alloc_method'] = public_ip_address.public_ip_allocation_method

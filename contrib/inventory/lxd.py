@@ -95,6 +95,6 @@ elif len(sys.argv) == 3 and sys.argv[1] == '--host':
         if connection == 'lxd':
             print(json.dumps({'ansible_connection': connection}))
         else:
-            print(json.dumps({'ansible_connection': connection, 'ansible_host': hosts[sys.argv[2]]}))
+            print(json.dumps({'ansible_connection': connection, 'jet_ssh_hostname': hosts[sys.argv[2]]}))
 else:
     print("Need an argument, either --list or --host <host>")

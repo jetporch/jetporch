@@ -51,7 +51,7 @@
 #     default: 60
 #
 #  default_ip:
-#     description: The IP address to assign to ansible_host when the container's SSH port is mapped to interface
+#     description: The IP address to assign to jet_ssh_hostname when the container's SSH port is mapped to interface
 #     '0.0.0.0'.
 #     required: false
 #     default: 127.0.0.1
