@@ -66,7 +66,7 @@ def get_hosts(host=None):
                     ipinfo = x.stdout.read()
                     if 'Value' in ipinfo:
                         a, ip = ipinfo.split(':', 1)
-                        hostvars[curname]['ansible_ssh_host'] = ip.strip()
+                        hostvars[curname]['jet_ssh_host'] = ip.strip()
                 except Exception:
                     pass
 

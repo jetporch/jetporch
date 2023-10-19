@@ -460,7 +460,7 @@ class VMWareInventory(object):
             try:
                 inventory['_meta']['hostvars'][k]['jet_ssh_hostname'] = host_mapping[k]
                 # 1.9.x backwards compliance
-                inventory['_meta']['hostvars'][k]['ansible_ssh_host'] = host_mapping[k]
+                inventory['_meta']['hostvars'][k]['jet_ssh_host'] = host_mapping[k]
             except Exception:
                 continue
 

@@ -240,7 +240,7 @@ class VMwareInventory(object):
             print(e, file=sys.stderr)
         host_info = self._flatten_dict(host_info, prefix)
         if ('%s_ipAddress' % prefix) in host_info:
-            host_info['ansible_ssh_host'] = host_info['%s_ipAddress' % prefix]
+            host_info['jet_ssh_host'] = host_info['%s_ipAddress' % prefix]
         return host_info
 
     def _get_vm_info(self, vm, prefix='vmware'):
@@ -274,7 +274,7 @@ class VMwareInventory(object):
                 vm_info[k] = v
         vm_info = self._flatten_dict(vm_info, prefix)
         if ('%s_ipAddress' % prefix) in vm_info:
-            vm_info['ansible_ssh_host'] = vm_info['%s_ipAddress' % prefix]
+            vm_info['jet_ssh_host'] = vm_info['%s_ipAddress' % prefix]
         return vm_info
 
     def _add_host(self, inv, parent_group, host_name):

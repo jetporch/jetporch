@@ -68,7 +68,7 @@ def list_running_boxes():
 def get_a_ssh_config(box_name):
     config = {}
     config['Host'] = box_name
-    config['ansible_ssh_user'] = 'core'
+    config['jet_ssh_user'] = 'core'
     config['ansible_python_interpreter'] = '/opt/bin/python'
     return config
 

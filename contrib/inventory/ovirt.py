@@ -216,7 +216,7 @@ class OVirtInventory(object):
             'ovirt_tags': self.get_tags(inst),
             'ovirt_stats': stats,
             # Hosts don't have a public name, so we add an IP
-            'ansible_ssh_host': ips[0] if len(ips) > 0 else None
+            'jet_ssh_host': ips[0] if len(ips) > 0 else None
         }
 
     @staticmethod

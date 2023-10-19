@@ -68,9 +68,9 @@ class CloudFormsInventory(object):
                 self.inventory['_meta']['hostvars'][hostname] = {
                     'cloudforms': self.hosts[hostname],
                 }
-                # include the ansible_ssh_host in the top level
-                if 'ansible_ssh_host' in self.hosts[hostname]:
-                    self.inventory['_meta']['hostvars'][hostname]['ansible_ssh_host'] = self.hosts[hostname]['ansible_ssh_host']
+                # include the jet_ssh_host in the top level
+                if 'jet_ssh_host' in self.hosts[hostname]:
+                    self.inventory['_meta']['hostvars'][hostname]['jet_ssh_host'] = self.hosts[hostname]['jet_ssh_host']
 
             data_to_print += self.json_format_dict(self.inventory, self.args.pretty)
 
@@ -362,17 +362,17 @@ class CloudFormsInventory(object):
                         # Add the host to the last tag
                         self.push(self.inventory[safe_parent_tag_name], 'hosts', host['name'])
 
-            # Set ansible_ssh_host to the first available ip address
+            # Set jet_ssh_host to the first available ip address
             if 'ipaddresses' in host and host['ipaddresses'] and isinstance(host['ipaddresses'], list):
                 # If no preference for IPv4, just use the first entry
                 if not self.cloudforms_prefer_ipv4:
-                    host['ansible_ssh_host'] = host['ipaddresses'][0]
+                    host['jet_ssh_host'] = host['ipaddresses'][0]
                 else:
                     # Before we search for an IPv4 address, set using the first entry in case we don't find any
-                    host['ansible_ssh_host'] = host['ipaddresses'][0]
+                    host['jet_ssh_host'] = host['ipaddresses'][0]
                     for currenthost in host['ipaddresses']:
                         if '.' in currenthost:
-                            host['ansible_ssh_host'] = currenthost
+                            host['jet_ssh_host'] = currenthost
 
             # Create additional groups
             for key in ('location', 'type', 'vendor'):

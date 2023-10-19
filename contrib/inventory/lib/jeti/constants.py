@@ -151,10 +151,10 @@ MAGIC_VARIABLE_MAPPING = dict(
     executable=('ansible_shell_executable', ),
 
     # connection common
-    remote_addr=('ansible_ssh_host', 'jet_ssh_hostname'),
-    remote_user=('ansible_ssh_user', 'ansible_user'),
+    remote_addr=('jet_ssh_host', 'jet_ssh_hostname'),
+    remote_user=('jet_ssh_user', 'ansible_user'),
     password=('ansible_ssh_pass', 'ansible_password'),
-    port=('ansible_ssh_port', 'jet_ssh_port'),
+    port=('jet_ssh_port', 'jet_ssh_port'),
     pipelining=('ansible_ssh_pipelining', 'ansible_pipelining'),
     timeout=('ansible_ssh_timeout', 'ansible_timeout'),
     private_key_file=('ansible_ssh_private_key_file', 'ansible_private_key_file'),

@@ -92,7 +92,7 @@ for app in response:
     result[app_name]['hosts'] = []
     result[app_name]['hosts'].append(host)
     result[app_name]['vars'] = {}
-    result[app_name]['vars']['ansible_ssh_user'] = user
+    result[app_name]['vars']['jet_ssh_user'] = user
 
 if len(sys.argv) == 2 and sys.argv[1] == '--list':
     print(json.dumps(result))

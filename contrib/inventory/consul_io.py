@@ -125,7 +125,7 @@ healthy nginx services will be added to the nginix_up group. Defaults to
 as above but for unhealthy services, defaults to '_unavailable'
 
 Note that if the inventory discovers an 'ssh' service running on a node it will
-register the port as ansible_ssh_port in the node's metadata and this port will
+register the port as jet_ssh_port in the node's metadata and this port will
 be used to access the machine.
 ```
 
@@ -357,7 +357,7 @@ class ConsulInventory(object):
         self.add_metadata(node_data, "consul_services", service_name, True)
 
         if self.is_service("ssh", service_name):
-            self.add_metadata(node_data, "ansible_ssh_port", service['Port'])
+            self.add_metadata(node_data, "jet_ssh_port", service['Port'])
 
         if self.config.has_config('servers_suffix'):
             service_name = service_name + self.config.servers_suffix

@@ -98,16 +98,16 @@ class ZabbixInventory(object):
         if self.read_host_inventory:
             api_query['selectInventory'] = "extend"
 
-        data = {'ansible_ssh_host': name}
+        data = {'jet_ssh_host': name}
         if self.use_host_interface or self.read_host_inventory:
             try:
                 hosts_data = api.host.get(api_query)[0]
                 if 'interfaces' in hosts_data:
                     # use first interface only
                     if hosts_data['interfaces'][0]['useip'] == 0:
-                        data['ansible_ssh_host'] = hosts_data['interfaces'][0]['dns']
+                        data['jet_ssh_host'] = hosts_data['interfaces'][0]['dns']
                     else:
-                        data['ansible_ssh_host'] = hosts_data['interfaces'][0]['ip']
+                        data['jet_ssh_host'] = hosts_data['interfaces'][0]['ip']
                 if ('inventory' in hosts_data) and (hosts_data['inventory']):
                     data.update(hosts_data['inventory'])
             except IndexError:
@@ -141,9 +141,9 @@ class ZabbixInventory(object):
             if 'interfaces' in host:
                 # use first interface only
                 if host['interfaces'][0]['useip'] == 0:
-                    hostvars['ansible_ssh_host'] = host['interfaces'][0]['dns']
+                    hostvars['jet_ssh_host'] = host['interfaces'][0]['dns']
                 else:
-                    hostvars['ansible_ssh_host'] = host['interfaces'][0]['ip']
+                    hostvars['jet_ssh_host'] = host['interfaces'][0]['ip']
             if ('inventory' in host) and (host['inventory']):
                 hostvars.update(host['inventory'])
             data['_meta']['hostvars'][hostname] = hostvars

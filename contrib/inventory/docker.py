@@ -47,8 +47,8 @@ Run for Specific Host
 When run for a specific container using the --host option this script returns the following hostvars:
 
 {
-    "ansible_ssh_host": "",
-    "ansible_ssh_port": 0,
+    "jet_ssh_host": "",
+    "jet_ssh_port": 0,
     "docker_apparmorprofile": "",
     "docker_args": [],
     "docker_config": {
@@ -660,8 +660,8 @@ class DockerInventory(object):
                     ip = ''
 
                 facts = dict(
-                    ansible_ssh_host=ip,
-                    ansible_ssh_port=port.get('HostPort', int()),
+                    jet_ssh_host=ip,
+                    jet_ssh_port=port.get('HostPort', int()),
                     docker_name=name,
                     docker_short_id=short_id
                 )

@@ -54,10 +54,10 @@ SSH_CONF = '~/.ssh/config'
 
 _key = 'ssh_config'
 
-_ssh_to_ansible = [('user', 'ansible_ssh_user'),
-                   ('hostname', 'ansible_ssh_host'),
+_ssh_to_ansible = [('user', 'jet_ssh_user'),
+                   ('hostname', 'jet_ssh_host'),
                    ('identityfile', 'ansible_ssh_private_key_file'),
-                   ('port', 'ansible_ssh_port')]
+                   ('port', 'jet_ssh_port')]
 
 
 def get_config():

@@ -113,8 +113,8 @@ Configuration:
         Default: public
 
         A configuration that will tell the inventory script to use a specific
-        server network to determine the ansible_ssh_host value. If no address
-        is found, ansible_ssh_host will not be set. Accepts a comma-separated
+        server network to determine the jet_ssh_host value. If no address
+        is found, jet_ssh_host will not be set. Accepts a comma-separated
         list of network names, the first found wins.
 
     access_ip_version:
@@ -122,8 +122,8 @@ Configuration:
         Default: 4
 
         A configuration related to "access_network" that will attempt to
-        determine the ansible_ssh_host value for either IPv4 or IPv6. If no
-        address is found, ansible_ssh_host will not be set.
+        determine the jet_ssh_host value for either IPv4 or IPv6. If no
+        address is found, jet_ssh_host will not be set.
         Acceptable values are: 4 or 6. Values other than 4 or 6
         will be ignored, and 4 will be used. Accepts a comma-separated list,
         the first found wins.
@@ -212,7 +212,7 @@ def host(regions, hostname):
                     hostvars[key] = value
 
                 # And finally, add an IP address
-                hostvars['ansible_ssh_host'] = server.accessIPv4
+                hostvars['jet_ssh_host'] = server.accessIPv4
     print(json.dumps(hostvars, sort_keys=True, indent=4))
 
 
@@ -322,30 +322,30 @@ def _list_into_cache(regions):
                     groups['image-%s' % server.image['id']].append(server.name)
 
             # And finally, add an IP address
-            ansible_ssh_host = None
+            jet_ssh_host = None
             # use accessIPv[46] instead of looping address for 'public'
             for network_name in networks:
-                if ansible_ssh_host:
+                if jet_ssh_host:
                     break
                 if network_name == 'public':
                     for version_name in ip_versions:
-                        if ansible_ssh_host:
+                        if jet_ssh_host:
                             break
                         if version_name == 6 and server.accessIPv6:
-                            ansible_ssh_host = server.accessIPv6
+                            jet_ssh_host = server.accessIPv6
                         elif server.accessIPv4:
-                            ansible_ssh_host = server.accessIPv4
-                if not ansible_ssh_host:
+                            jet_ssh_host = server.accessIPv4
+                if not jet_ssh_host:
                     addresses = server.addresses.get(network_name, [])
                     for address in addresses:
                         for version_name in ip_versions:
-                            if ansible_ssh_host:
+                            if jet_ssh_host:
                                 break
                             if address.get('version') == version_name:
-                                ansible_ssh_host = address.get('addr')
+                                jet_ssh_host = address.get('addr')
                                 break
-            if ansible_ssh_host:
-                hostvars[server.name]['ansible_ssh_host'] = ansible_ssh_host
+            if jet_ssh_host:
+                hostvars[server.name]['jet_ssh_host'] = jet_ssh_host
 
     if hostvars:
         groups['_meta'] = {'hostvars': hostvars}
