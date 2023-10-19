@@ -234,7 +234,7 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
                 None => { return Err(format!("unable to get status code from process: {}", path.display())) }
             }
         },
-        Err(_x) => { return Err(format!("inventory script failed: {}", path.display())); }
+        Err(y) => { return Err(format!("inventory script failed: {}, {}", path.display(), y)); }
     };
 
     let file_parse_result: Result<HashMap<String, DynamicInventoryJsonEntry>, serde_json::Error> = serde_json::from_str(&output);
@@ -279,11 +279,11 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
             }
         }
         if entry.vars.as_ref().is_some() {
+            let mut grp = group.write().unwrap();
             let vars = entry.vars.as_ref().unwrap();
-            for (_key, values) in vars.iter() {
-                let vars = convert_json_vars(&values);
-                let mut grp = group.write().unwrap();
-                grp.update_variables(vars);
+            for (key, values) in vars.iter() {
+                let map2 = convert_json_vars2(key, &values);
+                grp.update_variables(map2);
             }
         }
     }
@@ -295,11 +295,22 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
 
 pub fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
     let json = input.to_string();
-    let file_parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_str(&json);
-    match file_parse_result {
+    let parse_result: Result<serde_yaml::Mapping, serde_yaml::Error> = serde_yaml::from_str(&json);
+    match parse_result {
        Ok(parsed) => return parsed.clone(),
-       Err(y) => panic!("unable to load JSON back to YAML, this shouldn't happen: {}", y)
+       Err(y) => panic!("unable to load JSON back to YAML (1), this shouldn't happen: {}", y)
     } 
 }
 
-
+pub fn convert_json_vars2(key: &String, input: &serde_json::Value) -> serde_yaml::Mapping {
+    let json = input.to_string();
+    let parse_result: Result<serde_yaml::Value, serde_yaml::Error> = serde_yaml::from_str(&json);
+    match parse_result {
+       Ok(parsed) => {
+            let mut result = serde_yaml::Mapping::new();
+            result.insert(serde_yaml::Value::String(String::from(key.clone())), parsed.clone());
+            return result
+       },
+       Err(y) => panic!("unable to load JSON back to YAML (2), this shouldn't happen: {}", y)
+    } 
+}
