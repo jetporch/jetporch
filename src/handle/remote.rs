@@ -456,16 +456,19 @@ impl Remote {
         for change in changes.iter() {
             match change {
                 Field::Owner => {
-                    assert!(attributes.owner.is_some(), "owner is set");
-                    self.set_owner(request, remote_path, &attributes.owner.as_ref().unwrap(), recurse)?;
+                    if attributes.owner.is_some() {
+                        self.set_owner(request, remote_path, &attributes.owner.as_ref().unwrap(), recurse)?;
+                    }
                 },
                 Field::Group => {
-                    assert!(attributes.group.is_some(), "owner is set");
-                    self.set_group(request, remote_path, &attributes.group.as_ref().unwrap(), recurse)?;
+                    if attributes.group.is_some() {
+                        self.set_group(request, remote_path, &attributes.group.as_ref().unwrap(), recurse)?;
+                    }
                 },
                 Field::Mode => {
-                    assert!(attributes.mode.is_some(), "owner is set");
-                    self.set_mode(request, remote_path, &attributes.mode.as_ref().unwrap(), recurse)?;
+                    if attributes.mode.is_some() {
+                        self.set_mode(request, remote_path, &attributes.mode.as_ref().unwrap(), recurse)?;
+                    }
                 },
                 _ => {}
             }
