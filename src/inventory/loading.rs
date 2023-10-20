@@ -51,8 +51,8 @@ pub enum DynamicInventoryJson {
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DynamicInventoryJsonEntry {
-    hostvars : Option<HashMap<String, serde_json::Value>>, /* if supplied, hosts is not supplied */
-    vars     : Option<HashMap<String, serde_json::Value>>,
+    hostvars : Option<serde_json::Map<String, serde_json::Value>>, /* if supplied, hosts is not supplied */
+    vars     : Option<serde_json::Map<String, serde_json::Value>>,
     children : Option<Vec<String>>,
     hosts    : Option<Vec<String>>
 }
@@ -280,11 +280,9 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
         }
         if entry.vars.as_ref().is_some() {
             let vars = entry.vars.as_ref().unwrap();
-            for (_key, values) in vars.iter() {
-                let vars = convert_json_vars(&values);
-                let mut grp = group.write().unwrap();
-                grp.update_variables(vars);
-            }
+            let vars = convert_json_vars(&serde_json::Value::Object(vars.clone()));
+            let mut grp = group.write().unwrap();
+            grp.update_variables(vars);
         }
     }
 
