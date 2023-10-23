@@ -32,7 +32,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
     let location = yaml_error.location();
     let mut yaml_error_str = String::from(format!("{}", yaml_error));
 
-    // FIXME: make a utility function for this and also use it in show.rs
     yaml_error_str.truncate(YAML_ERROR_WIDTH);
     if yaml_error_str.len() > YAML_ERROR_WIDTH - 3 {
         yaml_error_str.push_str("...");
@@ -57,9 +56,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 
     banner(&format!("Error reading YAML file: {}, {}", path.display(), yaml_error_str).to_string());
 
-    //if error_line < YAML_ERROR_SHOW_LINES {
-    //    show_start = 1;
-    // }
     let show_start: usize;
     let mut show_stop : usize = error_line + YAML_ERROR_SHOW_LINES;
     
@@ -93,33 +89,6 @@ pub fn show_yaml_error_in_context(yaml_error: &serde_yaml::Error, path: &Path) {
 }
 
 pub fn blend_variables(a: &mut serde_yaml::Value, b: serde_yaml::Value) {
-
-    /* saving these notes as useful for template code probably
-    println!("~");
-    if a.is_mapping() {
-        println!("A: I'm a mapping!");
-    } else if a.is_string() {
-        println!("A: I'm a string!");
-    } else if a.is_null() {
-        println!("A: I'm null")
-    } else if a.is_sequence() {
-        println!("A: I'm sequence");
-    } else {
-        println!("A: I'm something else!");
-    }
-
-    if b.is_mapping() {
-        println!("B: I'm a mapping!");
-    } else if b.is_string() {
-        println!("B: I'm a string!");
-    } else if b.is_null() {
-        println!("B: I'm null");
-    } else if a.is_sequence() {
-        println!("B: I'm sequence");
-    } else {
-        println!("B: I'm something else!");
-    }
-    */
 
     match (a, b) {
 
