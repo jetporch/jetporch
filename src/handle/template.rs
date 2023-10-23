@@ -236,6 +236,24 @@ impl Template {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn integer_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: Option<u64>) -> Result<Option<u64>,Arc<TaskResponse>> {
+        // templates an optional value that must resolve to an integer or None
+        if tm == TemplateMode::Off {
+            return Ok(None);
+        }
+        if template.is_none() {
+            return Ok(default);
+        }
+        let st = self.string(request, tm, field, &template.as_ref().unwrap())?;
+        let num = st.parse::<u64>();
+        // FIXME: these can use map_err
+        return match num {
+            Ok(num) => Ok(Some(num)),
+            Err(_err) => Err(self.response.is_failed(request, &format!("field ({}) value is not an integer: {}", field, st)))
+        }
+    }
+
     pub fn integer_option_to_integer(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
         // templates an optional value that must resolve to an integer
         if tm == TemplateMode::Off {
