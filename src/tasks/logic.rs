@@ -101,9 +101,9 @@ impl PostLogicInput {
         return Ok(Some(PostLogicEvaluated {
             notify: handle.template.string_option_trim(request, tm, &String::from("notify"), &input2.notify)?,
             // unsafe here means the options cannot be sent to the shell, which they are not.
-            delay:         handle.template.integer_option(request, tm, &String::from("delay"), &input2.delay, 1)?,
+            delay:         handle.template.integer_option_to_integer(request, tm, &String::from("delay"), &input2.delay, 1)?,
             ignore_errors: handle.template.boolean_option_default_false(request, tm, &String::from("ignore_errors"), &input2.ignore_errors)?,
-            retry:         handle.template.integer_option(request, tm, &String::from("retry"), &input2.retry, 0)?,
+            retry:         handle.template.integer_option_to_integer(request, tm, &String::from("retry"), &input2.retry, 0)?,
         }));
     }
 }

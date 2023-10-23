@@ -236,7 +236,7 @@ impl Template {
         }
     }
 
-    pub fn integer_option(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
+    pub fn integer_option_to_integer(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, template: &Option<String>, default: u64) -> Result<u64,Arc<TaskResponse>> {
         // templates an optional value that must resolve to an integer
         if tm == TemplateMode::Off {
             return Ok(0);
