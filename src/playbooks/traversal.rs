@@ -457,7 +457,7 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
             if has_group_limits {
                 let mut ok = false;
                 for group_name in run_state.limit_groups.iter() {
-                    if v.read().unwrap().has_group(group_name) {
+                    if v.read().unwrap().has_ancestor_group(group_name) {
                         ok = true; 
                         break;
                     }

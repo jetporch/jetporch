@@ -132,6 +132,22 @@ impl Host {
         return false;
     }
 
+    // get_ancestor_groups(&self, depth_limit: usize) -> HashMap<String, Arc<RwLock<Group>>>
+
+    pub fn has_ancestor_group(&self, group_name: &String) -> bool {
+        for (k,v) in self.groups.iter() {
+            if k == group_name {
+                return true;
+            }
+            for (k2,_v2) in v.read().unwrap().get_ancestor_groups(10) {
+                if k2 == group_name.clone() {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     pub fn get_group_names(&self) -> Vec<String> {
         return self.get_groups().iter().map(|(k,_v)| k.clone()).collect();
     }
