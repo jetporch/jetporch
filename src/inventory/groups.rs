@@ -27,7 +27,7 @@ pub struct Group {
     pub parents : HashMap<String, Arc<RwLock<Self>>>,
     pub hosts : HashMap<String, Arc<RwLock<Host>>>,
     pub variables : serde_yaml::Mapping,
-    dyn_variables : serde_yaml::Value,
+    //dyn_variables : serde_yaml::Value,
 }
 
 impl Group {
@@ -39,7 +39,7 @@ impl Group {
             parents : HashMap::new(),
             hosts : HashMap::new(),
             variables : serde_yaml::Mapping::new(),
-            dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
+            //dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
         }
     }
 
@@ -175,13 +175,18 @@ impl Group {
         return self.variables.clone();
     }
 
+    //pub fn get_dyn_variables(&self) -> serde_yaml::Mapping {
+    //    return self.dyn_variables.clone();
+    //}
+
     pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
         self.variables = variables.clone();
     }
 
     pub fn update_variables(&mut self, mapping: serde_yaml::Mapping) {
-        let map = mapping.clone();
-        blend_variables(&mut self.dyn_variables, serde_yaml::Value::Mapping(map));
+        for (k,v) in mapping.iter() {
+            self.variables.insert(k.clone(),v.clone());
+        }
     }
 
     pub fn get_blended_variables(&self) -> serde_yaml::Mapping {
@@ -191,7 +196,6 @@ impl Group {
             let theirs : serde_yaml::Value = serde_yaml::Value::from(v.read().expect("group read").get_variables());
             blend_variables(&mut blended, theirs);
         }
-        blend_variables(&mut blended, self.dyn_variables.clone());
         let mine = serde_yaml::Value::from(self.get_variables());
         blend_variables(&mut blended, mine);
         return match blended {
