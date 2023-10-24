@@ -51,8 +51,8 @@ pub enum DynamicInventoryJson {
 #[derive(Debug,Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DynamicInventoryJsonEntry {
-    hostvars : Option<serde_json::Map<String, serde_json::Value>>, /* if supplied, hosts is not supplied */
-    vars     : Option<serde_json::Map<String, serde_json::Value>>,
+    hostvars : Option<HashMap<String, serde_json::Value>>, /* if supplied, hosts is not supplied */
+    vars     : Option<HashMap<String, serde_json::Value>>,
     children : Option<Vec<String>>,
     hosts    : Option<Vec<String>>
 }
@@ -280,8 +280,11 @@ fn load_dynamic_inventory(inv: &Arc<RwLock<Inventory>>, path: &Path) -> Result<(
         }
         if entry.vars.as_ref().is_some() {
             let mut grp = group.write().unwrap();
-            let vars = convert_json_vars(&serde_json::Value::Object(entry.vars.clone().unwrap()));
-            grp.update_variables(vars);
+            let vars = entry.vars.as_ref().unwrap();
+            for (key, values) in vars.iter() {
+                let map2 = convert_json_vars2(key, &values);
+                grp.update_variables(map2);
+            }
         }
     }
 
@@ -296,5 +299,18 @@ pub fn convert_json_vars(input: &serde_json::Value) -> serde_yaml::Mapping {
     match parse_result {
        Ok(parsed) => return parsed.clone(),
        Err(y) => panic!("unable to load JSON back to YAML (1), this shouldn't happen: {}", y)
+    } 
+}
+
+pub fn convert_json_vars2(key: &String, input: &serde_json::Value) -> serde_yaml::Mapping {
+    let json = input.to_string();
+    let parse_result: Result<serde_yaml::Value, serde_yaml::Error> = serde_yaml::from_str(&json);
+    match parse_result {
+       Ok(parsed) => {
+            let mut result = serde_yaml::Mapping::new();
+            result.insert(serde_yaml::Value::String(String::from(key.clone())), parsed.clone());
+            return result
+       },
+       Err(y) => panic!("unable to load JSON back to YAML (2), this shouldn't happen: {}", y)
     } 
 }
