@@ -190,7 +190,7 @@ fn run_task_on_host(
         let condition = &evaluated.with.as_ref().as_ref().unwrap().condition; // lol rust
         if condition.is_some() {
             let cond = handle.template.test_condition(&validate, TemplateMode::Strict, &condition.as_ref().unwrap())?;
-            if (!cond) {
+            if ! cond {
                 return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
             }
         }

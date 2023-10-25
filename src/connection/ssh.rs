@@ -34,6 +34,8 @@ use std::path::Path;
 use std::time::Duration;
 use std::net::ToSocketAddrs;
 use std::fs::File;
+//use std::io;
+use std::io;
 
 // implementation for both Ssh Connections and the Ssh Connection factory
 
@@ -337,7 +339,7 @@ impl Connection for SshConnection {
         // this is a streaming copy that should be fine with large files.
 
         let src_open_result = File::open(src);
-        let mut src = match src_open_result {
+        let src = match src_open_result {
             Ok(x) => x,
             Err(y) => { return Err(response.is_failed(request, &format!("failed to open source file: {y}"))); }
         };
@@ -350,10 +352,20 @@ impl Connection for SshConnection {
         };
         let sftp_path = Path::new(&remote_path);
         let fh_result = sftp.create(sftp_path);
-        let mut fh = match fh_result {
+        let fh = match fh_result {
             Ok(x) => x,
             Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed (1): {y}"))) }
         };
+
+        let mut src2 = std::io::BufReader::with_capacity(1000000, src);
+        let mut fh2 = std::io::BufWriter::with_capacity(1000000, fh);
+
+        match io::copy(&mut src2, &mut fh2) {
+            Ok(_) => {},
+            Err(y) => { return Err(response.is_failed(request, &format!("sftp copy failed (1): {y}"))) }
+        };
+
+        /*
 
         let chunk_size = 64536;
 
@@ -372,6 +384,8 @@ impl Connection for SshConnection {
 
             }
         }
+        */
+
         return Ok(());
     }
 }
