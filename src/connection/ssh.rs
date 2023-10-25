@@ -365,27 +365,6 @@ impl Connection for SshConnection {
             Err(y) => { return Err(response.is_failed(request, &format!("sftp copy failed (1): {y}"))) }
         };
 
-        /*
-
-        let chunk_size = 64536;
-
-        loop {
-            let mut chunk = Vec::with_capacity(chunk_size);
-            let mut taken = std::io::Read::by_ref(&mut src).take(chunk_size as u64);
-            let take_result = taken.read_to_end(&mut chunk);
-            let n = match take_result {
-                Ok(x) => x,
-                Err(y) => { return Err(response.is_failed(request, &format!("failed during file transfer: {y}"))); }
-            };
-            if n == 0 { break; }
-            match fh.write(&chunk) {
-                Err(y) => { return Err(response.is_failed(request, &format!("sftp write failed: {y}"))); }
-                _ => {},
-
-            }
-        }
-        */
-
         return Ok(());
     }
 }
