@@ -27,7 +27,6 @@ pub struct Group {
     pub parents : HashMap<String, Arc<RwLock<Self>>>,
     pub hosts : HashMap<String, Arc<RwLock<Host>>>,
     pub variables : serde_yaml::Mapping,
-    //dyn_variables : serde_yaml::Value,
 }
 
 impl Group {
@@ -39,7 +38,6 @@ impl Group {
             parents : HashMap::new(),
             hosts : HashMap::new(),
             variables : serde_yaml::Mapping::new(),
-            //dyn_variables: serde_yaml::Value::from(serde_yaml::Mapping::new()),
         }
     }
 
@@ -174,10 +172,6 @@ impl Group {
     pub fn get_variables(&self) -> serde_yaml::Mapping {
         return self.variables.clone();
     }
-
-    //pub fn get_dyn_variables(&self) -> serde_yaml::Mapping {
-    //    return self.dyn_variables.clone();
-    //}
 
     pub fn set_variables(&mut self, variables: serde_yaml::Mapping) {
         self.variables = variables.clone();

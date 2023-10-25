@@ -45,7 +45,7 @@ pub enum ItemsInput {
 
 #[derive(Debug)]
 pub struct PreLogicEvaluated {
-    pub condition: bool,
+    pub condition: Option<String>, // this is not evaluated here
     pub subscribe: Option<String>,
     pub sudo: Option<String>,
     pub items: Option<ItemsInput>,
@@ -78,10 +78,7 @@ impl PreLogicInput {
         }
         let input2 = input.as_ref().unwrap();
         return Ok(Some(PreLogicEvaluated {
-            condition: match &input2.condition {
-                Some(cond2) => handle.template.test_condition(request, tm, cond2)?,
-                None        => true
-            },
+            condition: input2.condition.clone(),
             sudo: handle.template.string_option_no_spaces(request, tm, &String::from("sudo"), &input2.sudo)?,
             subscribe: handle.template.no_template_string_option_trim(&input2.subscribe),
             items: input2.items.clone(),

@@ -158,9 +158,17 @@ fn run_task_on_host(
 
     let (delegated, connection, handle) = match gac_result {
         // construct the TaskHandle if the original connection is to be used
-        Ok((None, ref conn)) => (None, conn, Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))),
+        Ok((None, ref conn)) => (
+            None, 
+            conn, 
+            Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))
+        ),
         // construct the TaskHandle if a delegate connection is to be used
-        Ok((Some(delegate), ref conn)) => (Some(delegate.clone()), conn, Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))),
+        Ok((Some(delegate), ref conn)) => (
+            Some(delegate.clone()), 
+            conn, 
+            Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(conn), Arc::clone(host)))
+        ),
         // something went wrong when processing delegates, create a throw-away handle just so we can use the response functions
         Err(msg) => {
             let tmp_handle = Arc::new(TaskHandle::new(Arc::clone(run_state), Arc::clone(&input_connection), Arc::clone(host)));
@@ -177,6 +185,16 @@ fn run_task_on_host(
     // initially we run this in 'template off' mode which returns basically junk
     // but allows us to get the 'items' data off the collection. 
     let evaluated = task.evaluate(&handle, &validate, TemplateMode::Off)?;
+
+    if evaluated.with.is_some() {
+        let condition = &evaluated.with.as_ref().as_ref().unwrap().condition; // lol rust
+        if condition.is_some() {
+            let cond = handle.template.test_condition(&validate, TemplateMode::Strict, &condition.as_ref().unwrap())?;
+            if (!cond) {
+                return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
+            }
+        }
+    }
 
     // see if we are iterating over a list of items or not
     let items_input = match evaluated.with.is_some() {
@@ -290,11 +308,7 @@ fn run_task_on_host_inner(
                 return Ok(handle.response.is_skipped(&Arc::clone(&validate))); 
             }
         }
-        // if a condition was provided and it was false, skip the task
-        // lack of a condition provides a 'true' condition, hence no use of option processing here
-        if ! logic.condition {
-            return Ok(handle.response.is_skipped(&Arc::clone(&validate)));
-        }
+        
         // if sudo was requested on the specific task override any sudo computations above
         if logic.sudo.is_some() {
             sudo = Some(logic.sudo.as_ref().unwrap().clone());
