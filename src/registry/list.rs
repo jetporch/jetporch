@@ -26,6 +26,9 @@ use std::sync::Arc;
 
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY SECTION
 
+// accessctl
+use crate::modules::access::user::UserTask;
+
 // commands
 use crate::modules::commands::shell::ShellTask;
 
@@ -78,6 +81,7 @@ pub enum Task {
     Shell(ShellTask),
     Stat(StatTask),
     Template(TemplateTask),
+    User(UserTask),
     Yum(YumDnfTask),
     Zypper(ZypperTask),
 }
@@ -104,6 +108,7 @@ impl Task {
             Task::Shell(x)      => x.get_module(), 
             Task::Stat(x)       => x.get_module(), 
             Task::Template(x)   => x.get_module(), 
+            Task::User(x)       => x.get_module(),
             Task::Yum(x)        => x.get_module(),
             Task::Zypper(x)     => x.get_module(),
         };
@@ -129,6 +134,7 @@ impl Task {
             Task::Shell(x)      => x.get_name(), 
             Task::Stat(x)       => x.get_name(),
             Task::Template(x)   => x.get_name(), 
+            Task::User(x)       => x.get_name(),
             Task::Yum(x)        => x.get_name(),
             Task::Zypper(x)     => x.get_name(),
         };
@@ -154,6 +160,7 @@ impl Task {
             Task::Shell(x)      => x.get_with(), 
             Task::Stat(x)       => x.get_with(), 
             Task::Template(x)   => x.get_with(),
+            Task::User(x)       => x.get_with(),
             Task::Yum(x)        => x.get_with(), 
             Task::Zypper(x)     => x.get_with(),
         };
@@ -180,6 +187,7 @@ impl Task {
             Task::Shell(x)      => x.evaluate(handle, request, tm), 
             Task::Stat(x)       => x.evaluate(handle, request, tm),
             Task::Template(x)   => x.evaluate(handle, request, tm), 
+            Task::User(x)       => x.evaluate(handle, request, tm),
             Task::Yum(x)        => x.evaluate(handle, request, tm), 
             Task::Zypper(x)     => x.evaluate(handle, request, tm), 
         };

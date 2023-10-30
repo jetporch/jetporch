@@ -70,7 +70,7 @@ impl Remote {
         }
     }
 
-    fn unwrap_string_result(&self, request: &Arc<TaskRequest>, str_result: &Result<String,String>) -> Result<String, Arc<TaskResponse>> {
+    pub fn unwrap_string_result(&self, request: &Arc<TaskRequest>, str_result: &Result<String,String>) -> Result<String, Arc<TaskResponse>> {
         return match str_result {
             Ok(x) => Ok(x.clone()),
             Err(y) => {
