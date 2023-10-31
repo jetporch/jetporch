@@ -22,7 +22,7 @@ use std::sync::RwLock;
 use std::collections::HashSet;
 use serde_yaml;
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone,Copy,Debug,PartialEq)]
 pub enum HostOSType {
     Linux,
     MacOS,

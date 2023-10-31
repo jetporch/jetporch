@@ -38,7 +38,7 @@ pub struct UserTask {
     pub gecos:          Option<String>,
     pub shell:          Option<String>,
     pub remove:         Option<String>,
-    pub cleanup:        Option<String>, // remove $HOME and $MAIL
+    pub cleanup:        Option<String>,
     pub with:           Option<PreLogicInput>,
     pub and:            Option<PostLogicInput>
 }
@@ -82,11 +82,11 @@ impl IsTask for UserTask {
                         match &self.groups {
                             Some(groups) => {
                                 let mut templated_groups: HashSet<String> = HashSet::new();
-                                 for group in groups {
+                                for group in groups {
                                     templated_groups.insert(handle.template.string_no_spaces(request, tm, &String::from("groups"), group)?);
-                                 }
-                                 Some(templated_groups)
                                 }
+                                Some(templated_groups)
+                            },
                             None => {None}
                         }
                     },
@@ -109,12 +109,16 @@ impl IsAction for UserAction {
 
     fn dispatch(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<Arc<TaskResponse>, Arc<TaskResponse>> {
 
-        let os_type = handle.host.read().unwrap().os_type.unwrap();
-        let actual: UserDetails = self.get_user_details(handle, request)?;
-
         match request.request_type {
 
             TaskRequestType::Query => {
+
+                let os_type = handle.host.read().unwrap().os_type.unwrap();
+                if os_type != HostOSType::Linux {
+                    return Err(handle.response.is_failed(request, &String::from("this user module only supports Linux")));
+                }
+
+                let actual: UserDetails = self.get_user_details(handle, request)?;
 
                 match (actual.exists, self.remove) {
                     (false, true)  => return Ok(handle.response.is_matched(request)),
@@ -137,22 +141,20 @@ impl IsAction for UserAction {
             },
 
             TaskRequestType::Create => {
-                let cmd_result = self.create_user_command(os_type);
-                let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+                let cmd = self.create_user_command();
                 handle.remote.run(request, &cmd, CheckRc::Checked)?;
                 return Ok(handle.response.is_created(request));
             },
 
             TaskRequestType::Modify => {
-                let cmd_result = self.modify_user_command(os_type, &actual);
-                let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+                let actual: UserDetails = self.get_user_details(handle, request)?;
+                let cmd = self.modify_user_command(&actual);
                 handle.remote.run(request, &cmd, CheckRc::Checked)?;
                 return Ok(handle.response.is_modified(request, request.changes.clone()));
             },
 
             TaskRequestType::Remove => {
-                let cmd_result = self.delete_user_command(os_type);
-                let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+                let cmd = self.delete_user_command();
                 handle.remote.run(request, &cmd, CheckRc::Checked)?;
                 return Ok(handle.response.is_removed(request))
             }
@@ -168,18 +170,14 @@ impl IsAction for UserAction {
 impl UserAction {
 
     fn get_gid(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<String,Arc<TaskResponse>>  {
-        let os_type = handle.host.read().unwrap().os_type.unwrap();
-        let cmd_result = self.get_user_gid_command(os_type);
-        let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+        let cmd = self.get_user_gid_command();
         let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
         let (_, out) = cmd_info(&result);
         return Ok(out);
     }
 
     fn get_groups(&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<HashSet<String>,Arc<TaskResponse>>  {
-        let os_type = handle.host.read().unwrap().os_type.unwrap();
-        let cmd_result = self.get_user_groups_command(os_type);
-        let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+        let cmd = self.get_user_groups_command();
         let result = handle.remote.run(request, &cmd, CheckRc::Checked)?;
         let (_, out) = cmd_info(&result);
         let str_vec: Vec<&str> = out.split_whitespace().collect();
@@ -188,9 +186,7 @@ impl UserAction {
     }
 
     fn get_user_details (&self, handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>) -> Result<UserDetails,Arc<TaskResponse>> {
-        let os_type = handle.host.read().unwrap().os_type.unwrap();
-        let cmd_result = self.get_user_command(os_type);
-        let cmd = handle.remote.unwrap_string_result(request, &cmd_result)?;
+        let cmd = self.get_user_command();
         let result = handle.remote.run(request, &cmd, CheckRc::Unchecked)?;
         let (rc, out) = cmd_info(&result);
 
@@ -217,27 +213,21 @@ impl UserAction {
                         shell:  Some(items[6].to_string()),
                     })
             }
-            error => { return Err(handle.response.is_failed(request, &format!("failure getting user details, rc: '{}'",error))); }
+            x => { return Err(handle.response.is_failed(request, &format!("failure getting user details, rc: '{}'", x))); }
         }
     }
 
-    fn get_user_command(&self, os_type: HostOSType) -> Result<String,String> {
+    fn get_user_command(&self) -> String {
         // returns a string devided by 6 colons (':')
         // user:pwd:UID:GID:Gecos:Homedir:Shell
         // F.e.: alice:x:1000:1000:alice:/home/alice:/bin/bash
         // Of course: the pwd field does just contain an 'x' in modern Unix/Linux because of /etc/shadow
-        match os_type {
-            HostOSType::Linux => { return Ok(format!("getent passwd '{}'", self.user)); },
-            HostOSType::MacOS => { return Err(format!("user module not yet supported for '{:?}'", os_type)) },
-        }
+        return format!("getent passwd '{}'", self.user);
     }
 
-    fn create_user_command(&self, os_type: HostOSType) -> Result<String,String> {
-        let mut cmd = String::new();
-        match os_type {
-            HostOSType::Linux => cmd.push_str("useradd"),
-            HostOSType::MacOS => return Err(format!("user module not yet supported for '{:?}'", os_type)),
-        }
+    fn create_user_command(&self) -> String {
+        let mut cmd = String::from("useradd");
+
         if self.uid.is_some() {
             cmd.push_str(&format!(" -u '{}'", self.uid.as_ref().unwrap()));
         }
@@ -257,18 +247,14 @@ impl UserAction {
         if self.shell.is_some() {
             cmd.push_str(&format!(" -s '{}'", self.shell.as_ref().unwrap()));
         }
-        cmd.push_str(&format!(" '{}'", self.user));
 
-        return Ok(cmd);
+        cmd.push_str(&format!(" '{}'", self.user));
+        return cmd;
     }
 
-    fn modify_user_command(&self, os_type: HostOSType, actual: &UserDetails) -> Result<String,String> {
-        let mut cmd = String::new();
+    fn modify_user_command(&self, actual: &UserDetails) -> String {
+        let mut cmd = String::from("usermod");
 
-        match os_type {
-            HostOSType::Linux => cmd.push_str("usermod"),
-            HostOSType::MacOS => return Err(format!("user module not yet supported for '{:?}'", os_type)),
-        }
         if self.gid.is_some() {
             cmd.push_str(&format!(" -g '{}'", self.gid.as_ref().unwrap()));
         }
@@ -291,14 +277,14 @@ impl UserAction {
                                 }
                                 let final_groups: Vec<String> = groups.iter().cloned().collect();
                                 cmd.push_str(&format!(" -G '{}'",final_groups.join(",")));
-                            }
+                            },
                             // otherwise we just take the new ones
                             None => {
                                 let final_groups: Vec<String> = self.groups.as_ref().unwrap().iter().cloned().collect();
                                 cmd.push_str(&format!(" -G '{}'",final_groups.join(",")));
                             }
                         }
-                    }
+                    },
                     // just replace existing groups with new groups
                     false => {
                         let final_groups: Vec<String> = self.groups.as_ref().unwrap().iter().cloned().collect();
@@ -308,85 +294,60 @@ impl UserAction {
         }
         cmd.push_str(&format!(" '{}'", self.user));
 
-        return Ok(cmd);
+        return cmd;
     }
 
-    fn delete_user_command(&self, os_type: HostOSType) -> Result<String,String> {
-        match os_type {
-            HostOSType::Linux => {
-                match self.cleanup {
-                    false => return Ok(format!("userdel '{}'", self.user)),
-                    true => return Ok(format!("userdel -r '{}'", self.user)),
-                }
-            },
-            HostOSType::MacOS => return Err(format!("user module not yet supported for '{:?}'", os_type)),
+    fn delete_user_command(&self) -> String {
+        match self.cleanup {
+            false => return format!("userdel '{}'", self.user),
+            true => return format!("userdel -r '{}'", self.user),
         }
     }
 
-    fn get_user_gid_command(&self, os_type: HostOSType) -> Result<String,String> {
-        // Returns a string containing the primary group name.
-        match os_type {
-            HostOSType::Linux => { return Ok(format!("id -gn '{}'", self.user)); },
-            HostOSType::MacOS => return Err(format!("user module not yet supported for '{:?}'", os_type)),
-        }
+    fn get_user_gid_command(&self) -> String {
+        // returns a string containing the primary group name.
+        return format!("id -gn '{}'", self.user);
     }
 
-    fn get_user_groups_command(&self, os_type: HostOSType) -> Result<String,String> {
-        // Returns a string containing a space separated list of group names.
-          match os_type {
-            HostOSType::Linux => { return Ok(format!("id -Gn '{}'", self.user)); },
-            HostOSType::MacOS => return Err(format!("user module not yet supported for '{:?}'", os_type)),
-        }
+    fn get_user_groups_command(&self) -> String {
+        // returns a string containing a space separated list of group names.
+        return format!("id -Gn '{}'", self.user);
     }
 
     fn string_wants_change(our: &Option<String>, actual: &Option<String>) -> bool {
-        // we only act if there is a value defined in yaml (our):
         if our.is_some() {
-            match actual {
-                // we only need to compare if the host (actual) has that value set:
-                Some(actual_value) => if ! our.as_ref().unwrap().eq(actual_value) {
-                    // we only need to change if both values differ -> change:
-                    return true;
-                }
-                // Otherwise we create that value -> change
-                None => { return true; }
+            if actual.is_none() {
+                return true
+            }
+            if ! our.as_ref().unwrap().eq(actual.as_ref().unwrap()) {
+                return true;
             }
         }
-        // otherwise no change
         return false;
     }
 
     fn groups_wants_change(&self, actual: &UserDetails) -> bool {
-        // we only act if there is a value defined in yaml (self.groups):
-        if self.groups.is_some() {
-            match &actual.groups {
-                // we only need to compare if the host (actual) has groups:
-                Some(actual_groups) => {
-                    // to compare correct we need to add the actual primary group
-                    // to our defined groups and compare them.
-                    let actual_gid =  actual.gid.as_ref().unwrap();
-                    let mut groups = self.groups.clone().unwrap();
-                    groups.insert(actual_gid.to_string());
-                    // compare depends on append mode
-                    match &self.append {
-                        true => {
-                            if ! (groups.is_subset(&actual_groups)) {
-                                return true;
-                            }
-                        }
-                        false => {
-                            if ! (&groups == actual_groups) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-                // Otherwise we create that groups -> change
-                None => { return true; }
-            }
+        
+        if self.groups.is_none() {
+            // no preference about configuration on the remote system
+            return false
         }
-        // otherwise no change
-        return false;
+        if actual.groups.is_none() {
+            // no remote groups yet
+            return true;
+        }
+        
+        let actual_groups      = actual.groups.as_ref().unwrap();
+        let actual_gid         = actual.gid.as_ref().unwrap();
+        let mut desired_groups = self.groups.clone().unwrap();
+
+        desired_groups.insert(actual_gid.to_string());
+        if self.append { 
+            return ! desired_groups.is_subset(&actual_groups);
+        } else {
+            return desired_groups != *actual_groups
+        }
+    
     }
 
 }
