@@ -26,7 +26,7 @@ const MODULE: &str = "debug";
 #[serde(deny_unknown_fields)]
 pub struct DebugTask {
     pub name: Option<String>,
-    pub variables: Option<Vec<String>>,
+    pub vars: Option<Vec<String>>,
     pub with: Option<PreLogicInput>,
     pub and: Option<PostLogicInput>
 }
@@ -34,7 +34,7 @@ pub struct DebugTask {
 #[allow(dead_code)]
 struct DebugAction {
     pub name: String,
-    pub variables: Option<Vec<String>>,
+    pub vars: Option<Vec<String>>,
 }
 
 impl IsTask for DebugTask {
@@ -48,7 +48,7 @@ impl IsTask for DebugTask {
             EvaluatedTask {
                 action: Arc::new(DebugAction {
                     name: self.name.clone().unwrap_or(String::from(MODULE)),
-                    variables: self.variables.clone()
+                    vars: self.vars.clone()
                 }),
                 with: Arc::new(PreLogicInput::template(handle, request, tm, &self.with)?),
                 and: Arc::new(PostLogicInput::template(handle, request, tm, &self.and)?),
@@ -69,14 +69,14 @@ impl IsAction for DebugAction {
 
             TaskRequestType::Passive => {
                 let mut map : serde_yaml::Mapping = serde_yaml::Mapping::new();
-                let no_vars = self.variables.is_none();
+                let no_vars = self.vars.is_none();
                 let blended = handle.run_state.context.read().unwrap().get_complete_blended_variables(&handle.host, BlendTarget::NotTemplateModule);
                 for (k,v) in blended.iter() {
                     let k2 : String = match k {
                         serde_yaml::Value::String(s) => s.clone(),
                         _ => { panic!("invalid key in mapping"); }
                     };
-                    if no_vars || self.variables.as_ref().unwrap().contains(&k2) {
+                    if no_vars || self.vars.as_ref().unwrap().contains(&k2) {
                         if ! k2.eq(&String::from("item")) {
                             map.insert(k.clone(), v.clone());
                         }
