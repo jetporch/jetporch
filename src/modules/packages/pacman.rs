@@ -17,7 +17,6 @@
 use crate::tasks::*;
 use crate::handle::handle::{TaskHandle,CheckRc};
 use crate::modules::packages::common::{PackageManagementModule,PackageDetails};
-//#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::sync::Arc;
 

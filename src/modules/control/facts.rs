@@ -17,7 +17,6 @@
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
 use crate::inventory::hosts::{HostOSType};
-//#[allow(unused_imports)]
 use serde::Deserialize;
 use std::sync::{Arc,RwLock};
 

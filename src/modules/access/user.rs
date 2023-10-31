@@ -18,7 +18,6 @@ use crate::inventory::hosts::HostOSType;
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
 use crate::tasks::fields::Field;
-//#[allow(unused_imports)]
 use serde::{Deserialize};
 use std::collections::{HashSet};
 use std::sync::Arc;
