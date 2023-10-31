@@ -91,7 +91,7 @@ impl IsTask for UserTask {
                         }
                     },
                     append:         handle.template.boolean_option_default_false(&request, tm, &String::from("append"), &self.append)?,
-                    create_home:    handle.template.boolean_option_default_false(&request, tm, &String::from("create_home"), &self.create_home)?,
+                    create_home:    handle.template.boolean_option_default_true(&request, tm, &String::from("create_home"), &self.create_home)?,
                     gecos:          handle.template.string_option(request, tm, &String::from("gecos"), &self.gecos)?,
                     shell:          handle.template.string_option(request, tm, &String::from("shell"), &self.shell)?,
                     remove:         handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?,
