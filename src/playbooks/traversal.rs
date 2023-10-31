@@ -136,6 +136,10 @@ fn handle_play(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
     }
     run_state.visitor.read().unwrap().on_play_start(&run_state.context);
 
+    // make sure all host and groups used to limit exists
+    validate_limit_groups(run_state, play)?;
+    validate_limit_hosts(run_state, play)?;
+
     // make sure all hosts are valid and we have some hosts to talk to
     validate_groups(run_state, play)?;
     let hosts = get_play_hosts(run_state, play);
@@ -474,6 +478,34 @@ fn get_play_hosts(run_state: &Arc<RunState>,play: &Play) -> Vec<Arc<RwLock<Host>
     }
 
     return results.iter().map(|(_k,v)| Arc::clone(&v)).collect();
+}
+
+fn validate_limit_groups(run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
+
+    // limit groups on the command line can't mention any groups that aren't in inventory
+
+    let limit_groups = &run_state.limit_groups;
+    let inv = run_state.inventory.read().unwrap();
+    for group_name in limit_groups.iter() {
+        if !inv.has_group(&group_name.clone()) {
+            return Err(format!("--limit-groups: at least one referenced group ({}) is not found in inventory", group_name));
+        }
+    }
+    return Ok(());
+}
+
+fn validate_limit_hosts(run_state: &Arc<RunState>, _play: &Play) -> Result<(), String> {
+
+    // limit hosts on the command line can't mention any hosts that aren't in inventory
+
+    let limit_hosts = &run_state.limit_hosts;
+    let inv = run_state.inventory.read().unwrap();
+    for host_name in limit_hosts.iter() {
+        if !inv.has_host(&host_name.clone()) {
+            return Err(format!("--limit-hosts: at least one referenced host ({}) is not found in inventory", host_name));
+        }
+    }
+    return Ok(());
 }
 
 fn validate_groups(run_state: &Arc<RunState>, play: &Play) -> Result<(), String> {
