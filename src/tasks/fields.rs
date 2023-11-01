@@ -37,6 +37,7 @@ pub enum Field {
     Shell,
     Start,
     Stop,
+    Uid,
     Version,
 }
 

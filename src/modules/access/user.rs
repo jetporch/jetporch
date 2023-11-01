@@ -31,10 +31,12 @@ pub struct UserTask {
     pub name:           Option<String>,
     pub user:           String,
     pub uid:            Option<String>,
+    pub system:         Option<String>,
     pub gid:            Option<String>,
     pub groups:         Option<HashSet<String>>,
     pub append:         Option<String>,
     pub create_home:    Option<String>,
+    pub user_group:     Option<String>,
     pub gecos:          Option<String>,
     pub shell:          Option<String>,
     pub remove:         Option<String>,
@@ -46,10 +48,12 @@ pub struct UserTask {
 struct UserAction {
     pub user:           String,
     pub uid:            Option<u64>,
+    pub system:         bool,
     pub gid:            Option<String>,
     pub groups:         Option<HashSet<String>>,
     pub append:         bool,
     pub create_home:    bool,
+    pub user_group:     bool,
     pub gecos:          Option<String>,
     pub shell:          Option<String>,
     pub remove:         bool,
@@ -58,6 +62,7 @@ struct UserAction {
 
 struct UserDetails {
     exists:     bool,
+    uid:        Option<u64>,
     gid:        Option<String>,
     groups:     Option<HashSet<String>>,
     gecos:      Option<String>,
@@ -77,6 +82,7 @@ impl IsTask for UserTask {
                 action: Arc::new(UserAction {
                     user:           handle.template.string_no_spaces(request, tm, &String::from("user"), &self.user)?,
                     uid:            handle.template.integer_option(request, tm, &String::from("uid"), &self.uid, None)?,
+                    system:         handle.template.boolean_option_default_false(&request, tm, &String::from("system"), &self.system)?,
                     gid:            handle.template.string_option(request, tm, &String::from("gid"), &self.gid)?,
                     groups:         {
                         match &self.groups {
@@ -92,6 +98,7 @@ impl IsTask for UserTask {
                     },
                     append:         handle.template.boolean_option_default_false(&request, tm, &String::from("append"), &self.append)?,
                     create_home:    handle.template.boolean_option_default_true(&request, tm, &String::from("create_home"), &self.create_home)?,
+                    user_group:     handle.template.boolean_option_default_true(&request, tm, &String::from("user_group"), &self.user_group)?,
                     gecos:          handle.template.string_option(request, tm, &String::from("gecos"), &self.gecos)?,
                     shell:          handle.template.string_option(request, tm, &String::from("shell"), &self.shell)?,
                     remove:         handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?,
@@ -127,6 +134,7 @@ impl IsAction for UserAction {
                     (true, false)  => {
 
                         let mut changes : Vec<Field> = Vec::new();
+                        if UserAction::u64_wants_change(&self.uid, &actual.uid) { changes.push(Field::Uid); }
                         if UserAction::string_wants_change(&self.gid, &actual.gid) { changes.push(Field::Gid); }
                         if UserAction::string_wants_change(&self.gecos, &actual.gecos) { changes.push(Field::Gecos); }
                         if UserAction::string_wants_change(&self.shell, &actual.shell){ changes.push(Field::Shell); }
@@ -195,6 +203,7 @@ impl UserAction {
             2 => {
                 return Ok(UserDetails {
                     exists:     false,
+                    uid:        None,
                     gid:        None,
                     groups:     None,
                     gecos:      None,
@@ -207,6 +216,7 @@ impl UserAction {
                 let groups = Some(self.get_groups(handle, request)?);
                     return Ok(UserDetails {
                         exists: true,
+                        uid:    Some(items[2].parse().unwrap()),
                         gid:    gid,
                         groups: groups,
                         gecos:  Some(items[4].to_string()),
@@ -231,6 +241,9 @@ impl UserAction {
         if self.uid.is_some() {
             cmd.push_str(&format!(" -u '{}'", self.uid.as_ref().unwrap()));
         }
+        if self.system && self.uid.is_none() {
+            cmd.push_str(" -r");
+        }
         if self.gid.is_some() {
             cmd.push_str(&format!(" -g '{}'", self.gid.as_ref().unwrap()));
         }
@@ -240,6 +253,13 @@ impl UserAction {
         }
         if self.create_home {
             cmd.push_str(" -m");
+        } else {
+            cmd.push_str(" -M");
+        }
+        if self.user_group {
+            cmd.push_str(" -U");
+        } else {
+            cmd.push_str(" -N");
         }
         if self.gecos.is_some() {
             cmd.push_str(&format!(" -c '{}'", self.gecos.as_ref().unwrap()));
@@ -255,6 +275,9 @@ impl UserAction {
     fn modify_user_command(&self, actual: &UserDetails) -> String {
         let mut cmd = String::from("usermod");
 
+        if self.uid.is_some() {
+            cmd.push_str(&format!(" -u '{}'", self.uid.as_ref().unwrap()));
+        }
         if self.gid.is_some() {
             cmd.push_str(&format!(" -g '{}'", self.gid.as_ref().unwrap()));
         }
@@ -315,6 +338,18 @@ impl UserAction {
     }
 
     fn string_wants_change(our: &Option<String>, actual: &Option<String>) -> bool {
+        if our.is_some() {
+            if actual.is_none() {
+                return true
+            }
+            if ! our.as_ref().unwrap().eq(actual.as_ref().unwrap()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn u64_wants_change(our: &Option<u64>, actual: &Option<u64>) -> bool {
         if our.is_some() {
             if actual.is_none() {
                 return true
