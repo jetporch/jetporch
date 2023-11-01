@@ -287,13 +287,17 @@ impl Connection for SshConnection {
     }
 
     fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
+        
+        let cmd2 = format!(" LANG=C {}", cmd.clone());
+        
         let result = match forward {   
             Forward::Yes => match self.forward_agent {
-                false => self.run_command_low_level(cmd),
-                true  => self.run_command_with_ssh_a(cmd)
+                false => self.run_command_low_level(&cmd2),
+                true  => self.run_command_with_ssh_agent_forward(&cmd2)
             },
-            Forward::No => self.run_command_low_level(cmd)
+            Forward::No => self.run_command_low_level(&cmd2)
         };
+
 
         match result {
             Ok((rc,s)) => {
@@ -398,7 +402,7 @@ impl SshConnection {
         return Ok((exit_status, s.clone()));
     }
 
-    fn run_command_with_ssh_a(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
+    fn run_command_with_ssh_agent_forward(&self, cmd: &String) -> Result<(i32,String),(i32,String)> {
         // this is annoying but libssh2 agent support is not really working, so if we need to SSH -A we need to invoke
         // SSHd directly, which we need to for example with git clones. we will likely use this again
         // for fanout support.
