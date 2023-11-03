@@ -114,7 +114,7 @@ impl Connection for LocalConnection {
 
     fn run_command(&self, response: &Arc<Response>, request: &Arc<TaskRequest>, cmd: &String, _forward: Forward) -> Result<Arc<TaskResponse>,Arc<TaskResponse>> {
         let mut base = Command::new("sh");
-        let command = base.arg("-c").arg("LANG=C").arg(cmd).arg("2>&1");
+        let command = base.arg("-c").arg(cmd).arg("2>&1");
         match command.output() {
             Ok(x) => {
                 match x.status.code() {
