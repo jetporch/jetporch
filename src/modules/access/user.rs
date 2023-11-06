@@ -28,36 +28,36 @@ const MODULE: &str = "user";
 #[derive(Deserialize,Debug)]
 #[serde(deny_unknown_fields)]
 pub struct UserTask {
-    pub name:           Option<String>,
-    pub user:           String,
-    pub uid:            Option<String>,
-    pub system:         Option<String>,
-    pub gid:            Option<String>,
-    pub groups:         Option<HashSet<String>>,
-    pub append:         Option<String>,
-    pub create_home:    Option<String>,
-    pub user_group:     Option<String>,
-    pub gecos:          Option<String>,
-    pub shell:          Option<String>,
-    pub remove:         Option<String>,
-    pub cleanup:        Option<String>,
-    pub with:           Option<PreLogicInput>,
-    pub and:            Option<PostLogicInput>
+    pub name:              Option<String>,
+    pub user:              String,
+    pub uid:               Option<String>,
+    pub system:            Option<String>,
+    pub gid:               Option<String>,
+    pub groups:            Option<HashSet<String>>,
+    pub append:            Option<String>,
+    pub create_home:       Option<String>,
+    pub create_user_group: Option<String>,
+    pub gecos:             Option<String>,
+    pub shell:             Option<String>,
+    pub remove:            Option<String>,
+    pub cleanup:           Option<String>,
+    pub with:              Option<PreLogicInput>,
+    pub and:               Option<PostLogicInput>
 }
 
 struct UserAction {
-    pub user:           String,
-    pub uid:            Option<u64>,
-    pub system:         bool,
-    pub gid:            Option<String>,
-    pub groups:         Option<HashSet<String>>,
-    pub append:         bool,
-    pub create_home:    bool,
-    pub user_group:     bool,
-    pub gecos:          Option<String>,
-    pub shell:          Option<String>,
-    pub remove:         bool,
-    pub cleanup:        bool,
+    pub user:              String,
+    pub uid:               Option<u64>,
+    pub system:            bool,
+    pub gid:               Option<String>,
+    pub groups:            Option<HashSet<String>>,
+    pub append:            bool,
+    pub create_home:       bool,
+    pub create_user_group: bool,
+    pub gecos:             Option<String>,
+    pub shell:             Option<String>,
+    pub remove:            bool,
+    pub cleanup:           bool,
 }
 
 struct UserDetails {
@@ -80,10 +80,10 @@ impl IsTask for UserTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(UserAction {
-                    user:           handle.template.string_no_spaces(request, tm, &String::from("user"), &self.user)?,
-                    uid:            handle.template.integer_option(request, tm, &String::from("uid"), &self.uid, None)?,
-                    system:         handle.template.boolean_option_default_false(&request, tm, &String::from("system"), &self.system)?,
-                    gid:            handle.template.string_option(request, tm, &String::from("gid"), &self.gid)?,
+                    user:              handle.template.string_no_spaces(request, tm, &String::from("user"), &self.user)?,
+                    uid:               handle.template.integer_option(request, tm, &String::from("uid"), &self.uid, None)?,
+                    system:            handle.template.boolean_option_default_false(&request, tm, &String::from("system"), &self.system)?,
+                    gid:               handle.template.string_option(request, tm, &String::from("gid"), &self.gid)?,
                     groups:         {
                         match &self.groups {
                             Some(groups) => {
@@ -96,13 +96,13 @@ impl IsTask for UserTask {
                             None => {None}
                         }
                     },
-                    append:         handle.template.boolean_option_default_false(&request, tm, &String::from("append"), &self.append)?,
-                    create_home:    handle.template.boolean_option_default_true(&request, tm, &String::from("create_home"), &self.create_home)?,
-                    user_group:     handle.template.boolean_option_default_true(&request, tm, &String::from("user_group"), &self.user_group)?,
-                    gecos:          handle.template.string_option(request, tm, &String::from("gecos"), &self.gecos)?,
-                    shell:          handle.template.string_option(request, tm, &String::from("shell"), &self.shell)?,
-                    remove:         handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?,
-                    cleanup:        handle.template.boolean_option_default_false(&request, tm, &String::from("cleanup"), &self.cleanup)?,
+                    append:            handle.template.boolean_option_default_false(&request, tm, &String::from("append"), &self.append)?,
+                    create_home:       handle.template.boolean_option_default_true(&request, tm, &String::from("create_home"), &self.create_home)?,
+                    create_user_group: handle.template.boolean_option_default_true(&request, tm, &String::from("create_user_group"), &self.create_user_group)?,
+                    gecos:             handle.template.string_option(request, tm, &String::from("gecos"), &self.gecos)?,
+                    shell:             handle.template.string_option(request, tm, &String::from("shell"), &self.shell)?,
+                    remove:            handle.template.boolean_option_default_false(&request, tm, &String::from("remove"), &self.remove)?,
+                    cleanup:           handle.template.boolean_option_default_false(&request, tm, &String::from("cleanup"), &self.cleanup)?,
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
@@ -256,7 +256,7 @@ impl UserAction {
         } else {
             cmd.push_str(" -M");
         }
-        if self.user_group {
+        if self.create_user_group {
             cmd.push_str(" -U");
         } else {
             cmd.push_str(" -N");
