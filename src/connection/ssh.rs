@@ -387,7 +387,7 @@ impl SshConnection {
             Ok(x) => x,
             Err(y) => { return Err((500, format!("channel session failed: {:?}", y))); }
         };
-        let actual_cmd = format!("{} 2>&1", cmd);
+        let actual_cmd = format!("LANG=C {} 2>&1", cmd);
         match channel.exec(&actual_cmd) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
         let mut s = String::new();
         match channel.read_to_string(&mut s) { Ok(_x) => {}, Err(y) => { return Err((500,y.to_string())) } };
@@ -406,7 +406,7 @@ impl SshConnection {
         let mut base = Command::new("ssh");
         let hostname = &self.host.read().unwrap().name;
         let port = format!("{}", self.port);
-        let cmd2 = format!("{} 2>&1", cmd);
+        let cmd2 = format!("LANG=C {} 2>&1", cmd);
         let command = base.arg(hostname).arg("-p").arg(port).arg("-l").arg(self.username.clone()).arg("-A").arg(cmd2);
         match command.output() {
             Ok(x) => {
