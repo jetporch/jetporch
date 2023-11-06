@@ -51,7 +51,7 @@ pub struct RunState {
     pub limit_groups: Vec<String>,
     pub batch_size: Option<usize>,
     pub context: Arc<RwLock<PlaybookContext>>,
-    pub visitor: Arc<RwLock<dyn PlaybookVisitor>>,
+    pub visitor: Arc<RwLock<PlaybookVisitor>>,
     pub connection_factory: Arc<RwLock<dyn ConnectionFactory>>,
     pub tags: Option<Vec<String>>,
     pub allow_localhost_delegation: bool

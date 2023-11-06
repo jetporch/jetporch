@@ -48,7 +48,7 @@ impl Response {
         return Arc::clone(&self.run_state.context);
     }
 
-    pub fn get_visitor(&self) -> Arc<RwLock<dyn PlaybookVisitor>> {
+    pub fn get_visitor(&self) -> Arc<RwLock<PlaybookVisitor>> {
         return Arc::clone(&self.run_state.visitor);
     }
 

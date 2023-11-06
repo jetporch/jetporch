@@ -21,57 +21,65 @@ use crate::tasks::*;
 use std::sync::RwLock;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
-use std::marker::{Send,Sync};
+//use std::marker::{Send,Sync};
 use crate::connection::command::CommandResult;
 use crate::playbooks::traversal::HandlerMode;
 
 // visitor contains various functions that are called from all over the program
-// to send feedback to the user.  Eventually this object will also take
-// care of logging requirements (TODO)
+// to send feedback to the user and logs
 
-pub trait PlaybookVisitor : Send + Sync {
+#[derive(PartialEq)]
+pub enum CheckMode {
+    Yes,
+    No
+}
 
-    fn banner(&self) {
+pub struct PlaybookVisitor {
+    pub check_mode: CheckMode,
+}
+
+impl PlaybookVisitor {
+
+    pub fn new(check_mode: CheckMode) -> Self {
+        let s = Self {
+            check_mode: check_mode
+        };
+        s
+    }
+
+    pub fn is_check_mode(&self) -> bool { 
+        return self.check_mode == CheckMode::Yes; 
+    }
+
+    pub fn banner(&self) {
         println!("----------------------------------------------------------");
     }
 
-    fn debug(&self, message: &String) {
-        println!("{color_cyan}  ..... (debug) : {}{color_reset}", message);
-    }
-
     // used by the echo module
-    fn debug_host(&self, host: &Arc<RwLock<Host>>, message: &String) {
+    pub fn debug_host(&self, host: &Arc<RwLock<Host>>, message: &String) {
         println!("{color_cyan}  ..... {} : {}{color_reset}", host.read().unwrap().name, message);
     }
 
-    // a version of debug that locks with a mutex to prevent the output from being interlaced
-    fn debug_lines(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, messages: &Vec<String>) {
-        let _lock = context.write().unwrap();
-        for message in messages.iter() {
-            self.debug_host(host, &message);
-        }
-    }
-
-    fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    pub fn on_playbook_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         let ctx = context.read().unwrap();
         let path = ctx.playbook_path.as_ref().unwrap();
         self.banner();
         println!("> playbook start: {}", path)
     }
 
-    fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    pub fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         let play = &context.read().unwrap().play;
         self.banner();
         println!("> play: {}", play.as_ref().unwrap());
     }
 
-    fn on_role_start(&self, _context: &Arc<RwLock<PlaybookContext>>) {
+    pub fn on_role_start(&self, _context: &Arc<RwLock<PlaybookContext>>) {
     }
 
-    fn on_role_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
+    pub fn on_role_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
     }
 
-    fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>, failed: bool) {
+    pub fn on_play_stop(&self, context: &Arc<RwLock<PlaybookContext>>, failed: bool) {
         // failed occurs if *ALL* hosts in a play have failed
         let ctx = context.read().unwrap();
         let play_name = ctx.get_play_name();
@@ -85,13 +93,13 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) {
+    pub fn on_exit(&self, context: &Arc<RwLock<PlaybookContext>>) {
         println!("----------------------------------------------------------");
         println!("");
         show_playbook_summary(context);
     }
 
-    fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, is_handler: HandlerMode) {
+    pub fn on_task_start(&self, context: &Arc<RwLock<PlaybookContext>>, is_handler: HandlerMode) {
         let context = context.read().unwrap();
         let task = context.task.as_ref().unwrap();
         let role = &context.role;
@@ -110,30 +118,27 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
+    pub fn on_batch(&self, batch_num: usize, batch_count: usize, batch_size: usize) {
         self.banner();
         println!("> batch {}/{}, {} hosts", batch_num+1, batch_count, batch_size);
     }
 
-    fn on_task_stop(&self, _context: &Arc<RwLock<PlaybookContext>>) {
-    }
-
-    fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+    pub fn on_host_task_start(&self, _context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         println!("… {} => running", host2.name);
     }
 
-    fn on_notify_handler(&self, host: &Arc<RwLock<Host>>, which_handler: &String) {
+    pub fn on_notify_handler(&self, host: &Arc<RwLock<Host>>, which_handler: &String) {
         let host2 = host.read().unwrap();
         println!("… {} => notified: {}", host2.name, which_handler);
     }
 
-    fn on_host_delegate(&self, host: &Arc<RwLock<Host>>, delegated: &String) {
+    pub fn on_host_delegate(&self, host: &Arc<RwLock<Host>>, delegated: &String) {
         let host2 = host.read().unwrap();
         println!("{color_blue}✓ {} => delegating to: {}{color_reset}",  &host2.name, delegated.clone());
     }
 
-    fn on_host_task_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+    pub fn on_host_task_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         let mut context = context.write().unwrap();
         context.increment_attempted_for_host(&host2.name);
@@ -181,7 +186,7 @@ pub trait PlaybookVisitor : Send + Sync {
 
     // the check mode version of on_host_task_ok - different possible states, slightly different output
 
-    fn on_host_task_check_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+    pub fn on_host_task_check_ok(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         let mut context = context.write().unwrap();
         context.increment_attempted_for_host(&host2.name);
@@ -224,12 +229,12 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_host_task_retry(&self, _context: &Arc<RwLock<PlaybookContext>>,host: &Arc<RwLock<Host>>, retries: u64, delay: u64) {
+    pub fn on_host_task_retry(&self, _context: &Arc<RwLock<PlaybookContext>>,host: &Arc<RwLock<Host>>, retries: u64, delay: u64) {
         let host2 = host.read().unwrap();
         println!("{color_blue}! {} => retrying ({} retries left) in {} seconds{color_reset}",host2.name,retries,delay);
     }
 
-    fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
+    pub fn on_host_task_failed(&self, context: &Arc<RwLock<PlaybookContext>>, task_response: &Arc<TaskResponse>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         if task_response.msg.is_some() {
             let msg = &task_response.msg;
@@ -252,13 +257,13 @@ pub trait PlaybookVisitor : Send + Sync {
         context.write().unwrap().increment_failed_for_host(&host2.name);
     }
 
-    fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
+    pub fn on_host_connect_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>) {
         let host2 = host.read().unwrap();
         context.write().unwrap().increment_failed_for_host(&host2.name);
         println!("{color_red}! connection failed to host: {}{color_reset}", host2.name);
     }
 
-    fn get_exit_status(&self, context: &Arc<RwLock<PlaybookContext>>) -> i32 {
+    pub fn get_exit_status(&self, context: &Arc<RwLock<PlaybookContext>>) -> i32 {
         let failed_hosts = context.read().unwrap().get_hosts_failed_count();
         return match failed_hosts {
             0 => 0,
@@ -266,21 +271,21 @@ pub trait PlaybookVisitor : Send + Sync {
         };
     }
     
-    fn on_before_transfer(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, path: &String) {
+    pub fn on_before_transfer(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, path: &String) {
         let host2 = host.read().unwrap();
         if context.read().unwrap().verbosity > 0 {
             println!("{color_blue}! {} => transferring to: {}", host2.name, &path.clone());
         }
     }
 
-    fn on_command_run(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, cmd: &String) {
+    pub fn on_command_run(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, cmd: &String) {
         let host2 = host.read().unwrap();
         if context.read().unwrap().verbosity > 0 {
             println!("{color_blue}! {} => exec: {}", host2.name, &cmd.clone());
         }
     }
 
-    fn on_command_ok(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
+    pub fn on_command_ok(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
         let host2 = host.read().unwrap();
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
         if context.read().unwrap().verbosity > 2 {
@@ -292,7 +297,7 @@ pub trait PlaybookVisitor : Send + Sync {
         }
     }
 
-    fn on_command_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
+    pub fn on_command_failed(&self, context: &Arc<RwLock<PlaybookContext>>, host: &Arc<RwLock<Host>>, result: &Arc<Option<CommandResult>>,) {
         let host2 = host.read().expect("context read");
         let cmd_result = result.as_ref().as_ref().expect("missing command result");
         if context.read().unwrap().verbosity > 2 {
@@ -303,8 +308,6 @@ pub trait PlaybookVisitor : Send + Sync {
             println!("    rc: {}{color_reset}", cmd_result.rc);
         }
     }
-
-    fn is_check_mode(&self) -> bool;
 
 }
 

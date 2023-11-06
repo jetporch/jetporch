@@ -21,40 +21,11 @@ use crate::connection::local::LocalFactory;
 use crate::connection::no::NoFactory;
 use crate::playbooks::traversal::{playbook_traversal,RunState};
 use crate::playbooks::context::PlaybookContext;
-use crate::playbooks::visitor::PlaybookVisitor;
+use crate::playbooks::visitor::{PlaybookVisitor,CheckMode};
 use crate::inventory::inventory::Inventory;
 use std::sync::{Arc,RwLock};
 
 // code behind *most* playbook related CLI commands, launched from main.rs
-
-// FIXME: the original plan was for visitors to be able to override more behavior
-// than just check mode, but so far we are *not* using it. We can
-// probably move to merging visitor with
-// context, and using the CheckMode enum when constructing context, 
-// eliminating some weird interactions
-// when sometimes visitor calls context and in other times outside code
-// calls context.
-
-struct CheckVisitor {}
-impl CheckVisitor {
-    pub fn new() -> Self { Self {} }
-}
-impl PlaybookVisitor for CheckVisitor {
-    fn is_check_mode(&self)     -> bool { return true; }
-}
-
-struct LiveVisitor {}
-impl LiveVisitor {
-    pub fn new() -> Self { Self {} }
-}
-impl PlaybookVisitor for LiveVisitor {
-    fn is_check_mode(&self)     -> bool { return false; }
-}
-
-enum CheckMode {
-    Yes,
-    No
-}
 
 enum ConnectionMode {
     Ssh,
@@ -95,10 +66,7 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
         // to run-state.  Context should mostly *not* get parameters from the parser unless they
         // are going to appear in variables.
         context: Arc::new(RwLock::new(PlaybookContext::new(parser))),
-        visitor: match check_mode {
-            CheckMode::Yes => Arc::new(RwLock::new(CheckVisitor::new())),
-            CheckMode::No => Arc::new(RwLock::new(LiveVisitor::new())),
-        },
+        visitor: Arc::new(RwLock::new(PlaybookVisitor::new(check_mode))),
         connection_factory: match connection_mode {
             ConnectionMode::Ssh => Arc::new(RwLock::new(SshFactory::new(inventory, parser.forward_agent, parser.login_password.clone()))),
             ConnectionMode::Local => Arc::new(RwLock::new(LocalFactory::new(inventory))),
