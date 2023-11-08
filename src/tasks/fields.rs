@@ -38,6 +38,7 @@ pub enum Field {
     Start,
     Stop,
     Uid,
+    Users,
     Version,
 }
 

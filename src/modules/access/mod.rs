@@ -16,4 +16,5 @@
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
+pub mod group;
 pub mod user;

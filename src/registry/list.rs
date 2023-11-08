@@ -27,6 +27,7 @@ use std::sync::Arc;
 // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY SECTION
 
 // accessctl
+use crate::modules::access::group::GroupTask;
 use crate::modules::access::user::UserTask;
 
 // commands
@@ -76,6 +77,7 @@ pub enum Task {
     Fail(FailTask),
     File(FileTask),
     Git(GitTask),
+    Group(GroupTask),
     Homebrew(HomebrewTask),
     Pacman(PacmanTask),
     Sd_Service(SystemdServiceTask),
@@ -105,6 +107,7 @@ impl Task {
             Task::Fail(x)       => x.get_module(), 
             Task::File(x)       => x.get_module(),
             Task::Git(x)        => x.get_module(), 
+            Task::Group(x)      => x.get_module(),
             Task::Homebrew(x)   => x.get_module(),
             Task::Pacman(x)     => x.get_module(),
             Task::Sd_Service(x) => x.get_module(),
@@ -133,6 +136,7 @@ impl Task {
             Task::Fail(x)       => x.get_name(), 
             Task::File(x)       => x.get_name(), 
             Task::Git(x)        => x.get_name(),
+            Task::Group(x)      => x.get_name(),
             Task::Homebrew(x)   => x.get_name(),
             Task::Pacman(x)     => x.get_name(),
             Task::Sd_Service(x) => x.get_name(),
@@ -161,6 +165,7 @@ impl Task {
             Task::Fail(x)       => x.get_with(), 
             Task::File(x)       => x.get_with(),
             Task::Git(x)        => x.get_with(), 
+            Task::Group(x)      => x.get_with(),
             Task::Homebrew(x)   => x.get_with(),
             Task::Pacman(x)     => x.get_with(),
             Task::Sd_Service(x) => x.get_with(),
@@ -189,6 +194,7 @@ impl Task {
             Task::Fail(x)       => x.evaluate(handle, request, tm),  
             Task::File(x)       => x.evaluate(handle, request, tm), 
             Task::Git(x)        => x.evaluate(handle, request, tm),
+            Task::Group(x)      => x.evaluate(handle, request, tm),
             Task::Homebrew(x)   => x.evaluate(handle, request, tm),
             Task::Pacman(x)     => x.evaluate(handle, request, tm),
             Task::Sd_Service(x) => x.evaluate(handle, request, tm),
