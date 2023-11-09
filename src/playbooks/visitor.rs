@@ -21,9 +21,13 @@ use crate::tasks::*;
 use std::sync::RwLock;
 use crate::inventory::hosts::Host;
 use inline_colorization::{color_red,color_blue,color_green,color_cyan,color_reset,color_yellow};
-//use std::marker::{Send,Sync};
 use crate::connection::command::CommandResult;
 use crate::playbooks::traversal::HandlerMode;
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+use std::fs::File;
+use serde_json::json;
+use guid_create::GUID;
 
 // visitor contains various functions that are called from all over the program
 // to send feedback to the user and logs
@@ -36,15 +40,93 @@ pub enum CheckMode {
 
 pub struct PlaybookVisitor {
     pub check_mode: CheckMode,
+    pub logfile: Option<Arc<RwLock<File>>>,
+    pub run_id: String
+}
+
+pub struct LogData {
+    pub run_id: String,
+    pub event: String,
+    pub play: Option<String>,
+    pub task: Option<String>,
+    pub task_args: Option<String>,
+    pub cmd: Option<String>,
+    pub cmd_rc: Option<String>,
+    pub cmd_out: Option<String>,
+    pub task_status: Option<String>,
+    pub host: Option<String>,
+    pub summary: Option<serde_json::map::Map<String,serde_json::Value>>
 }
 
 impl PlaybookVisitor {
 
     pub fn new(check_mode: CheckMode) -> Self {
+
+        // TODO: make logfile location configurable by environment variable
+        let logfile : Option<Arc<RwLock<File>>> = match OpenOptions::new().write(true).append(true).open("/var/log/jetp/jetp.log") {
+            Ok(x) => Some(Arc::new(RwLock::new(x))),
+            Err(_) => None
+        };
+
+
         let s = Self {
-            check_mode: check_mode
+            check_mode: check_mode,
+            logfile: logfile,
+            run_id: GUID::rand().to_string()
         };
         s
+    }
+
+    pub fn log_entry(&self, event: &String, context: Arc<RwLock<PlaybookContext>>) -> LogData {
+        let ctx = context.read().unwrap();
+        LogData {
+            run_id: self.run_id.clone(),
+            event: event.clone(),
+            play: ctx.play.clone(),
+            task: None,
+            task_args: None,
+            cmd: None,
+            cmd_rc: None,
+            cmd_out: None,
+            task_status: None,
+            host: None,
+            summary: None
+        }
+    }
+
+    pub fn log(&self, log: &LogData) {
+
+        if self.logfile.is_none() {
+            return;
+        }
+
+        return;
+
+        let mut obj =  serde_json::map::Map::new();
+        obj.insert(String::from("run_id"), json!(self.run_id));
+        obj.insert(String::from("event"), json!(log.event.clone()));
+
+        if log.play.is_some()        { obj.insert(String::from("play"),        json!(log.play.clone().unwrap()));        }
+        if log.task.is_some()        { obj.insert(String::from("task"),        json!(log.task.clone().unwrap()));        }
+        if log.task_args.is_some()   { obj.insert(String::from("task_args"),   json!(log.task_args.clone().unwrap()));        }
+        if log.cmd.is_some()         { obj.insert(String::from("cmd"),         json!(log.cmd.clone().unwrap()));         }
+        if log.cmd_rc.is_some()      { obj.insert(String::from("cmd_rc"),      json!(log.cmd_rc.clone().unwrap()));      }
+        if log.cmd_out.is_some()     { obj.insert(String::from("cmd_out"),     json!(log.cmd_out.clone().unwrap()));     }
+        if log.task_status.is_some() { obj.insert(String::from("task_status"), json!(log.task_status.clone().unwrap())); }
+        if log.host.is_some()        { obj.insert(String::from("host"),        json!(log.host.clone().unwrap()));        }
+        if log.summary.is_some()     { obj.insert(String::from("summary"),     json!(log.summary.clone().unwrap()));     }
+
+        match serde_json::to_string(&obj) {
+            Ok(json_str) => {
+                let mut f = self.logfile.as_ref().unwrap().write().unwrap();
+                match writeln!(f, "{}",  json_str) {
+                    Ok(_) => {},
+                    Err(_e) => { }
+                }
+            },
+            Err(_y) => {}
+        }
+
     }
 
     pub fn is_check_mode(&self) -> bool { 
@@ -64,13 +146,21 @@ impl PlaybookVisitor {
         let ctx = context.read().unwrap();
         let path = ctx.playbook_path.as_ref().unwrap();
         self.banner();
-        println!("> playbook start: {}", path)
+        println!("> playbook start: {}", path);
+
+        let log_entry = self.log_entry(&String::from("PLAYBOOK_START"), context.clone());
+        self.log(&log_entry);
     }
 
     pub fn on_play_start(&self, context: &Arc<RwLock<PlaybookContext>>) {
         let play = &context.read().unwrap().play;
         self.banner();
         println!("> play: {}", play.as_ref().unwrap());
+
+        let log_entry = self.log_entry(&String::from("PLAY_START"), context.clone());
+        self.log(&log_entry);
+
+
     }
 
     pub fn on_role_start(&self, _context: &Arc<RwLock<PlaybookContext>>) {

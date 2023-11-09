@@ -119,3 +119,4 @@ pub fn handle_show(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser) -> Re
     }
     return Ok(());
 }
+
