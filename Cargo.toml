@@ -19,7 +19,7 @@ ssh2="0.9.4"
 serde_derive= "=1.0.171"
 serde= { version = "1.0.171",  features = ["derive"] }
 serde_yaml="0.9.25"
-serde_json="1.0.105"
+serde_json = {version = "1.0.105", features = ["preserve_order"]} 
 termimad="0.20"
 inline_colorization="0.1.5"
 rayon="1.7.0"
@@ -27,4 +27,5 @@ handlebars="4.3.7"
 sha2="0.10.8"
 guid-create="0.3.1"
 expanduser="1.2.2"
-
+indexmap = {version = "2.1.0", features = ["serde"]}
+chrono="0.4.31"
