@@ -74,7 +74,7 @@ impl PlaybookVisitor {
         };
 
         // TODO: make logfile location configurable by environment variable
-        let logfile : Option<Arc<RwLock<File>>> = match OpenOptions::new().write(true).append(true).open(logpath) {
+        let logfile : Option<Arc<RwLock<File>>> = match OpenOptions::new().write(true).create(true).append(true).open(logpath) {
             Ok(x) => Some(Arc::new(RwLock::new(x))),
             Err(_) => None
         };
