@@ -1,0 +1,29 @@
+- name: demo external module feature
+  groups: 
+    - all
+  
+  tasks:
+
+  # NOTE: this feature is in development for release 0.2 and is not complete at this time
+
+    - !external  
+      use: demo_external.py
+      params:
+         a: 1
+         b: 2
+         c: [ 'foo', 'bar', 'baz']
+      save: result
+      #failed_when: (ne sum 3)
+      changed_when: false
+
+    - !debug
+      vars: 
+        - result
+
+    - !external  
+      use: demo_external.py
+      params:
+         simulate_failure: true
+
+
+  

@@ -16,4 +16,5 @@
 
 /** ADD MODULES HERE, KEEP ALPHABETIZED **/
 
+pub mod external;
 pub mod shell;

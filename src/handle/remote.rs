@@ -182,7 +182,7 @@ impl Remote {
 
     // when we need to write a file we need to place it in a particular temp location and then move it
 
-    fn get_transfer_location(&self, request: &Arc<TaskRequest>, _path: &String) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
+    pub fn get_transfer_location(&self, request: &Arc<TaskRequest>) -> Result<(Option<PathBuf>, Option<PathBuf>), Arc<TaskResponse>> {
         let whoami = match self.get_whoami() {
             Ok(x) => x,
             Err(y) => { return Err(self.response.is_failed(request, &format!("cannot determine current user: {}", y))) }
@@ -223,7 +223,7 @@ impl Remote {
 
     pub fn write_data<G>(&self, request: &Arc<TaskRequest>, data: &String, path: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
         where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
-        let (temp_dir, temp_path) = self.get_transfer_location(request, path)?;
+        let (temp_dir, temp_path) = self.get_transfer_location(request)?;
         let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), path); /* will be either temp_path or path */
         self.response.get_visitor().read().expect("read visitor").on_before_transfer(&self.response.get_context(), &Arc::clone(&self.host), &real_path);
         let xfer_result = self.connection.lock().unwrap().write_data(&self.response, request, data, &real_path)?;
@@ -236,7 +236,7 @@ impl Remote {
 
     pub fn copy_file<G>(&self, request: &Arc<TaskRequest>, src: &Path, dest: &String, mut before_complete: G) -> Result<(), Arc<TaskResponse>> 
     where G: FnMut(&String) -> Result<(), Arc<TaskResponse>> {   
-        let (temp_dir, temp_path) = self.get_transfer_location(request, dest)?;
+        let (temp_dir, temp_path) = self.get_transfer_location(request)?;
         let real_path = self.get_effective_filename(temp_dir.clone(), temp_path.clone(), dest); /* will be either temp_path or path */
         self.response.get_visitor().read().expect("read visitor").on_before_transfer(&self.response.get_context(), &Arc::clone(&self.host), &real_path);
         let xfer_result = self.connection.lock().unwrap().copy_file(&self.response, &request, src, &real_path)?;        

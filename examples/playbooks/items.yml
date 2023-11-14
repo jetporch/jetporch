@@ -38,6 +38,14 @@
            - asdf
            - jkl
    
+   - !echo
+     name: "this time with a list of dicts"
+     msg: "{{ item.a }}, {{ item.b }}"
+     with:
+        items:
+           - { a: "a", b: "b" }
+           - { a: "c", b: "d" }
+
 
 
           

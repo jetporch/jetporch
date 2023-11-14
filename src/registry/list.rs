@@ -30,6 +30,7 @@ use std::sync::Arc;
 use crate::modules::access::user::UserTask;
 
 // commands
+use crate::modules::commands::external::ExternalTask;
 use crate::modules::commands::shell::ShellTask;
 
 // control
@@ -70,6 +71,7 @@ pub enum Task {
     Directory(DirectoryTask),
     Dnf(YumDnfTask),
     Echo(EchoTask),
+    External(ExternalTask),
     Facts(FactsTask),
     Fail(FailTask),
     File(FileTask),
@@ -89,6 +91,7 @@ pub enum Task {
 impl Task {
 
     pub fn get_module(&self) -> String {
+        // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Apt(x)        => x.get_module(),
             Task::Assert(x)     => x.get_module(),
@@ -97,6 +100,7 @@ impl Task {
             Task::Directory(x)  => x.get_module(),
             Task::Dnf(x)        => x.get_module(),
             Task::Echo(x)       => x.get_module(),
+            Task::External(x)   => x.get_module(),
             Task::Facts(x)      => x.get_module(), 
             Task::Fail(x)       => x.get_module(), 
             Task::File(x)       => x.get_module(),
@@ -115,6 +119,7 @@ impl Task {
     }
 
     pub fn get_name(&self) -> Option<String> {
+        // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Apt(x)        => x.get_name(),
             Task::Assert(x)     => x.get_name(),
@@ -123,6 +128,7 @@ impl Task {
             Task::Directory(x)  => x.get_name(),
             Task::Dnf(x)        => x.get_name(),
             Task::Echo(x)       => x.get_name(),
+            Task::External(x)   => x.get_name(),
             Task::Facts(x)      => x.get_name(),
             Task::Fail(x)       => x.get_name(), 
             Task::File(x)       => x.get_name(), 
@@ -141,6 +147,7 @@ impl Task {
     }
 
     pub fn get_with(&self) -> Option<PreLogicInput> {
+        // ADD NEW MODULES HERE, KEEP ALPHABETIZED BY NAME
         return match self {
             Task::Apt(x)        => x.get_with(),
             Task::Assert(x)     => x.get_with(),
@@ -149,6 +156,7 @@ impl Task {
             Task::Directory(x)  => x.get_with(),
             Task::Dnf(x)        => x.get_with(),
             Task::Echo(x)       => x.get_with(),
+            Task::External(x)   => x.get_with(),
             Task::Facts(x)      => x.get_with(),
             Task::Fail(x)       => x.get_with(), 
             Task::File(x)       => x.get_with(),
@@ -176,6 +184,7 @@ impl Task {
             Task::Directory(x)  => x.evaluate(handle, request, tm), 
             Task::Dnf(x)        => x.evaluate(handle, request, tm),
             Task::Echo(x)       => x.evaluate(handle, request, tm),
+            Task::External(x)   => x.evaluate(handle, request, tm),
             Task::Facts(x)      => x.evaluate(handle, request, tm),
             Task::Fail(x)       => x.evaluate(handle, request, tm),  
             Task::File(x)       => x.evaluate(handle, request, tm), 
