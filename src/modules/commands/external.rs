@@ -58,6 +58,8 @@ impl IsTask for ExternalTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(ExternalAction {
+                    // FIXME: add a JET_MODULE_PATH / --modules CLI parameter and make it search through these, also look in ./modules
+                    // relative to CWD
                     use_module: handle.template.find_module_path(request, tm, &String::from("use"), &self.use_module)?,
                     // FIXME: template the parameters
                     params: {
@@ -97,9 +99,8 @@ impl IsAction for ExternalAction {
                 let module_str_path = module_tmp_file.as_path().display().to_string();
                 let param_str_path = param_tmp_file.as_path().display().to_string();
 
-                //println!("tmp file 2 = {:?}", tmp_file2);
-
                 // FIXME: transfer the module to a temp path
+                // FIXME: use the copy file method here
                 let module_contents = handle.local.read_file(&request, &self.use_module)?;
                 handle.remote.write_data(request, &module_contents, &module_str_path.clone(), |f| { /* after save */
                     // not using the after save handler for this module
