@@ -18,9 +18,7 @@ use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
 use crate::connection::command::cmd_info;
 use serde::{Deserialize};
-use std::sync::{Arc,RwLock};
-use crate::inventory::hosts::Host;
-use serde_yaml;
+use std::sync::{Arc};
 use serde_json;
 use std::path::PathBuf;
 
@@ -42,9 +40,9 @@ pub struct ExternalTask {
 struct ExternalAction {
     pub use_module: PathBuf,
     pub params: serde_json::Map<String, serde_json::Value>,
-    pub save: Option<String>, 
-    pub failed_when: Option<String>,
-    pub changed_when: Option<String>,
+    //pub save: Option<String>, 
+    //pub failed_when: Option<String>,
+    //pub changed_when: Option<String>,
 }
 
 
@@ -65,9 +63,9 @@ impl IsTask for ExternalTask {
                     params: {
                         self.params.clone()
                     },
-                    save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
-                    failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
-                    changed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("changed_when"), &self.changed_when)?,
+                    //save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
+                    //failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
+                    //changed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("changed_when"), &self.changed_when)?,
 
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
@@ -89,11 +87,12 @@ impl IsAction for ExternalAction {
             },
 
             TaskRequestType::Execute => {
-                let task_result : Arc<TaskResponse>;
+                //let task_result : Arc<TaskResponse>;
 
-                let (tmp_path1, tmp_file1) = handle.remote.get_transfer_location(request)?;
+                let (_tmp_path1, tmp_file1) = handle.remote.get_transfer_location(request)?;
                 let (_tmp_path2, tmp_file2) = handle.remote.get_transfer_location(request)?;
 
+                //let module_source_str_path = self.use_module.display().to_string();
                 let module_tmp_file = tmp_file1.as_ref().unwrap();
                 let param_tmp_file = tmp_file2.as_ref().unwrap();
                 let module_str_path = module_tmp_file.as_path().display().to_string();
@@ -101,19 +100,25 @@ impl IsAction for ExternalAction {
 
                 // FIXME: transfer the module to a temp path
                 // FIXME: use the copy file method here
+                /*
                 let module_contents = handle.local.read_file(&request, &self.use_module)?;
                 handle.remote.write_data(request, &module_contents, &module_str_path.clone(), |f| { /* after save */
                     // not using the after save handler for this module
                     return Ok(());
                 })?;
+                */
+
+                handle.remote.copy_file(request, self.use_module.as_path(), &module_str_path.clone(), |_f| { 
+                    return Ok(()) 
+                })?;
                 
                 let params_data = match serde_json::to_string(&self.params) {
                     Ok(x) => x,
-                    Err(y) => {
+                    Err(_y) => {
                         return Err(handle.response.is_failed(request,  &String::from("unable to load JSON inputs")));
                     }
                 };
-                handle.remote.write_data(request, &params_data, &param_str_path.clone(), |f| {
+                handle.remote.write_data(request, &params_data, &param_str_path.clone(), |_f| {
                     // not using the after save handler for this module
                     return Ok(());
                 })?;
@@ -124,7 +129,7 @@ impl IsAction for ExternalAction {
                 // FIXME: run the module, record the result
                 let module_run = format!("{} < {}", module_str_path.clone(), param_str_path.clone());
                 let result = handle.remote.run_unsafe(request, &module_run, CheckRc::Checked)?;
-                let (rc, out) = cmd_info(&result);
+                let (_rc, out) = cmd_info(&result);
 
                 println!("DEBUG: cmd out: {}", out);
 
@@ -175,6 +180,7 @@ impl IsAction for ExternalAction {
 
 }
 
+/*
 fn build_results_map(rc: i32, out: &String) -> serde_yaml::Mapping {
     let mut result = serde_yaml::Mapping::new();
     let num : serde_yaml::Value = serde_yaml::from_str(&format!("{}", rc)).unwrap();
@@ -190,3 +196,4 @@ fn save_results(host: &Arc<RwLock<Host>>, key: &String, map_data: serde_yaml::Ma
     result.insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::Mapping(map_data.clone()));
     host.write().unwrap().update_variables(result);
 }
+*/
