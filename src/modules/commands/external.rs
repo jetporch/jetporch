@@ -18,9 +18,10 @@ use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
 use crate::connection::command::cmd_info;
 use serde::{Deserialize};
-use std::sync::{Arc};
+use std::sync::{Arc,RwLock};
 use serde_json;
 use std::path::PathBuf;
+use crate::inventory::hosts::Host;
 
 const MODULE: &str = "External";
 
@@ -40,9 +41,9 @@ pub struct ExternalTask {
 struct ExternalAction {
     pub use_module: PathBuf,
     pub params: serde_json::Map<String, serde_json::Value>,
-    //pub save: Option<String>, 
-    //pub failed_when: Option<String>,
-    //pub changed_when: Option<String>,
+    pub save: Option<String>, 
+    pub failed_when: Option<String>,
+    pub changed_when: Option<String>,
 }
 
 
@@ -63,10 +64,9 @@ impl IsTask for ExternalTask {
                     params: {
                         self.params.clone()
                     },
-                    //save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
-                    //failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
-                    //changed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("changed_when"), &self.changed_when)?,
-
+                    save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
+                    failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
+                    changed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("changed_when"), &self.changed_when)?,
                 }),
                 with: Arc::new(PreLogicInput::template(&handle, &request, tm, &self.with)?),
                 and: Arc::new(PostLogicInput::template(&handle, &request, tm, &self.and)?),
@@ -87,26 +87,14 @@ impl IsAction for ExternalAction {
             },
 
             TaskRequestType::Execute => {
-                //let task_result : Arc<TaskResponse>;
 
                 let (_tmp_path1, tmp_file1) = handle.remote.get_transfer_location(request)?;
                 let (_tmp_path2, tmp_file2) = handle.remote.get_transfer_location(request)?;
 
-                //let module_source_str_path = self.use_module.display().to_string();
                 let module_tmp_file = tmp_file1.as_ref().unwrap();
                 let param_tmp_file = tmp_file2.as_ref().unwrap();
                 let module_str_path = module_tmp_file.as_path().display().to_string();
                 let param_str_path = param_tmp_file.as_path().display().to_string();
-
-                // FIXME: transfer the module to a temp path
-                // FIXME: use the copy file method here
-                /*
-                let module_contents = handle.local.read_file(&request, &self.use_module)?;
-                handle.remote.write_data(request, &module_contents, &module_str_path.clone(), |f| { /* after save */
-                    // not using the after save handler for this module
-                    return Ok(());
-                })?;
-                */
 
                 handle.remote.copy_file(request, self.use_module.as_path(), &module_str_path.clone(), |_f| { 
                     return Ok(()) 
@@ -128,17 +116,13 @@ impl IsAction for ExternalAction {
 
                 // FIXME: run the module, record the result
                 let module_run = format!("{} < {}", module_str_path.clone(), param_str_path.clone());
-                let result = handle.remote.run_unsafe(request, &module_run, CheckRc::Checked)?;
-                let (_rc, out) = cmd_info(&result);
+                let task_result = handle.remote.run_unsafe(request, &module_run, CheckRc::Checked)?;
+                let (rc, out) = cmd_info(&task_result);
 
-                println!("DEBUG: cmd out: {}", out);
+                handle.remote.delete_file(request, &param_str_path.clone())?;
+                handle.remote.delete_file(request, &module_str_path.clone())?;
 
-                // FIXME: delete the module and inputs
-                //handle.remote.delete_file(request, module_tmp_file)?;
-                //handle.remote.delete_file(request, param_tmp_file)?;
-
-                /*
-                let map_data = build_results_map(rc, &out);
+                let map_data = build_results_map(handle, request, rc, &out)?;
 
                 let should_fail = match self.failed_when.is_none() {
                     true => match rc { 0 => false, _ => true },
@@ -167,10 +151,7 @@ impl IsAction for ExternalAction {
                         false => Ok(handle.response.is_passive(request))
                     }
                 };
-                */
                 
-                return Err(handle.response.is_failed(&request, &String::from("implementation incomplete")));
-
             },
     
             _ => { return Err(handle.response.not_supported(&request)); }
@@ -180,15 +161,24 @@ impl IsAction for ExternalAction {
 
 }
 
-/*
-fn build_results_map(rc: i32, out: &String) -> serde_yaml::Mapping {
+fn build_results_map(handle: &Arc<TaskHandle>, request: &Arc<TaskRequest>, rc: i32, out: &String) -> Result<serde_yaml::Mapping, Arc<TaskResponse>> {
     let mut result = serde_yaml::Mapping::new();
-    let num : serde_yaml::Value = serde_yaml::from_str(&format!("{}", rc)).unwrap();
-    result.insert(serde_yaml::Value::String(String::from("rc")), num);
-    //result.insert(serde_yaml::Value::String(String::from("rc")),  serde_yaml::Value::String(format!("{}", rc)));
-
-    result.insert(serde_yaml::Value::String(String::from("out")), serde_yaml::Value::String(out.clone()));
-    return result;
+    let data : serde_yaml::Value = match serde_yaml::from_str(out) {
+        Ok(x) => x,
+        Err(_y) => { return Err(handle.response.is_failed(request, &format!("failed to parse external module response: {}", out))) },
+    };
+    result.insert(serde_yaml::Value::String(String::from("rc")), rc.into());
+    match data {
+        serde_yaml::Value::Mapping(data_map) => {
+            for (k,v) in data_map.iter() {
+                result.insert(k.clone(), v.clone());
+            }
+        },
+        _ => {
+            return Err(handle.response.is_failed(request, &format!("response should be a map: {}", out)));
+        }
+    }
+    return Ok(result);
 }
 
 fn save_results(host: &Arc<RwLock<Host>>, key: &String, map_data: serde_yaml::Mapping) {
@@ -196,4 +186,3 @@ fn save_results(host: &Arc<RwLock<Host>>, key: &String, map_data: serde_yaml::Ma
     result.insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::Mapping(map_data.clone()));
     host.write().unwrap().update_variables(result);
 }
-*/

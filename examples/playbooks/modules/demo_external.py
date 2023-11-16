@@ -2,23 +2,13 @@
 
 import json
 import sys
+import fileinput
 
-data = "\n".join(sys.stdin.readlines())
-data = json.loads(data)
-
+data = json.loads("\n".join([ x for x in fileinput.input() ]))
 result = {}
+result['sum'] = data["a"] + data["b"]
+result['difference'] = data["a"] - data["b"]
 
-# any non-zero exit will use 'msg' as an error message if the output is JSON
-should_fail = result.get('simulate_failure', False)
-if should_fail:
-    result['msg'] = 'failing on request'
-    msg = json.dumps(result)
-    print(msg)
-    sys.exit(1)
-
-# otherwise print any json you want, but be sure to supress all non-JSON output
-result['sum'] = data['a'] + data['b']
-result['difference'] = data['a'] - data['b']
 msg = json.dumps(result)
 
 print(msg)
