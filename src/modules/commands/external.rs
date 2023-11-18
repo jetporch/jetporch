@@ -57,8 +57,6 @@ impl IsTask for ExternalTask {
         return Ok(
             EvaluatedTask {
                 action: Arc::new(ExternalAction {
-                    // FIXME: add a JET_MODULE_PATH / --modules CLI parameter and make it search through these, also look in ./modules
-                    // relative to CWD
                     use_module: handle.template.find_module_path(request, tm, &String::from("use"), &self.use_module)?,
                     // FIXME: template the parameters
                     params: {

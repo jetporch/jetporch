@@ -357,9 +357,21 @@ impl Template {
         return self.find_sub_path(&String::from("templates"), request, tm, field, str_path);
     }
 
-    pub fn find_module_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
-        // simialr to find_template_path, this one assumes a 'modules/' directory for relative paths.
-        return self.find_sub_path(&String::from("modules"), request, tm, field, str_path);
+    pub fn find_module_path(&self, request: &Arc<TaskRequest>, _tm: TemplateMode, _field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {
+
+        // when we need to find a module we look for it in the configured module paths
+        for path_buf in self.run_state.module_paths.read().unwrap().iter() {
+        
+            let mut pb = path_buf.clone();
+            pb.push(str_path.clone());
+         
+             if pb.exists() {
+                return Ok(pb);
+            }
+        }
+
+        return Err(self.response.is_failed(request, &format!("module not found: {}", str_path)));
+       
     }
 
     pub fn find_file_path(&self, request: &Arc<TaskRequest>, tm: TemplateMode, field: &String, str_path: &String) -> Result<PathBuf, Arc<TaskResponse>> {

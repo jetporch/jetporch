@@ -59,6 +59,7 @@ fn playbook(inventory: &Arc<RwLock<Inventory>>, parser: &CliParser, check_mode: 
         inventory: Arc::clone(inventory),
         playbook_paths: Arc::clone(&parser.playbook_paths),
         role_paths: Arc::clone(&parser.role_paths),
+        module_paths: Arc::clone(&parser.module_paths),
         limit_hosts: parser.limit_hosts.clone(),
         limit_groups: parser.limit_groups.clone(),
         batch_size: parser.batch_size.clone(),

@@ -39,6 +39,7 @@ pub struct CliParser {
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub inventory_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub module_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub limit_groups: Vec<String>,
     pub limit_hosts: Vec<String>,
     pub inventory_set: bool,
@@ -126,6 +127,8 @@ pub enum Arguments {
     ARGUMENT_EXTRA_VARS,
     ARGUMENT_EXTRA_VARS_SHORT,
     ARGUMENT_ASK_LOGIN_PASSWORD,
+    ARGUMENT_MODULES,
+    ARGUMENT_MODULES_SHORT
 }
 
 impl Arguments {
@@ -138,6 +141,8 @@ impl Arguments {
             Arguments::ARGUMENT_PLAYBOOK_SHORT => "-p",
             Arguments::ARGUMENT_ROLES => "--roles",
             Arguments::ARGUMENT_ROLES_SHORT => "-r",
+            Arguments::ARGUMENT_MODULES => "--modules",
+            Arguments::ARGUMENT_MODULES_SHORT => "-m",
             Arguments::ARGUMENT_SHOW_GROUPS => "--show-groups",
             Arguments::ARGUMENT_SHOW_HOSTS => "--show-hosts",
             Arguments::ARGUMENT_LIMIT_GROUPS => "--limit-groups",
@@ -172,6 +177,8 @@ fn build_argument_map() -> HashMap<String, Arguments> {
         (Arguments::ARGUMENT_PLAYBOOK, "--playbook"),
         (Arguments::ARGUMENT_PLAYBOOK_SHORT, "-p"),
         (Arguments::ARGUMENT_ROLES, "--roles"),
+        (Arguments::ARGUMENT_MODULES, "--modules"),
+        (Arguments::ARGUMENT_MODULES_SHORT, "-m"),
         (Arguments::ARGUMENT_ROLES_SHORT, "-r"),
         (Arguments::ARGUMENT_SHOW_GROUPS, "--show-groups"),
         (Arguments::ARGUMENT_SHOW_HOSTS, "--show-hosts"),
@@ -307,6 +314,7 @@ impl CliParser  {
             playbook_paths: Arc::new(RwLock::new(Vec::new())),
             inventory_paths: Arc::new(RwLock::new(Vec::new())),
             role_paths: Arc::new(RwLock::new(Vec::new())),
+            module_paths: Arc::new(RwLock::new(Vec::new())),
             needs_help: false,
             needs_version: false,
             mode: CLI_MODE_UNSET,
@@ -451,6 +459,8 @@ impl CliParser  {
                                     Arguments::ARGUMENT_PLAYBOOK_SHORT    => self.append_playbook(&args[arg_count]),
                                     Arguments::ARGUMENT_ROLES             => self.append_roles(&args[arg_count]),
                                     Arguments::ARGUMENT_ROLES_SHORT       => self.append_roles(&args[arg_count]),
+                                    Arguments::ARGUMENT_MODULES           => self.append_modules(&args[arg_count]),
+                                    Arguments::ARGUMENT_MODULES_SHORT     => self.append_modules(&args[arg_count]),
                                     Arguments::ARGUMENT_INVENTORY         => self.append_inventory(&args[arg_count]),
                                     Arguments::ARGUMENT_INVENTORY_SHORT   => self.append_inventory(&args[arg_count]),
                                     Arguments::ARGUMENT_SUDO              => self.store_sudo(&args[arg_count]),
@@ -499,6 +509,8 @@ impl CliParser  {
         if self.playbook_set {
             self.add_role_paths_from_environment()?;
             self.add_implicit_role_paths()?;
+            self.add_module_paths_from_environment()?;
+            self.add_implicit_module_paths()?;
         }
         Ok(())
 
@@ -532,7 +544,6 @@ impl CliParser  {
 
     fn append_roles(&mut self, value: &String) -> Result<(), String> {
 
-        // FIXME: TODO: also load from environment at JET_ROLES_PATH
         match parse_paths(&String::from("-r/--roles"), value) {
             Ok(paths)  =>  { 
                 for p in paths.iter() {
@@ -545,6 +556,24 @@ impl CliParser  {
                 }
             },
             Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_ROLES.as_str(), err_msg)),
+        }
+        return Ok(());
+    }
+
+    fn append_modules(&mut self, value: &String) -> Result<(), String> {
+
+        match parse_paths(&String::from("-m/--modules"), value) {
+            Ok(paths)  =>  { 
+                for p in paths.iter() {
+                    if p.is_dir() {
+                        let full = std::fs::canonicalize(p.as_path()).unwrap();
+                        self.module_paths.write().unwrap().push(full.to_path_buf()); 
+                    } else {
+                        return Err(format!("modules directory not found: {:?}", p));
+                    }
+                }
+            },
+            Err(err_msg) =>  return Err(format!("--{} {}", Arguments::ARGUMENT_MODULES.as_str(), err_msg)),
         }
         return Ok(());
     }
@@ -668,6 +697,23 @@ impl CliParser  {
         return Ok(());
     }
 
+    fn add_implicit_module_paths(&mut self) -> Result<(), String> {
+        let paths = self.playbook_paths.read().unwrap();
+        for pb in paths.iter() {
+            let dirname = directory_as_string(pb.as_path());
+            let mut pathbuf = PathBuf::new();
+            pathbuf.push(dirname);
+            pathbuf.push("modules");
+            if pathbuf.is_dir() {
+                let full = fs::canonicalize(pathbuf.as_path()).unwrap();
+                self.module_paths.write().unwrap().push(full.to_path_buf());
+            } else {
+                // ignore as there does not need to be a modules/ dir alongside playbooks
+            }
+        }
+        return Ok(());
+    }
+
     fn add_role_paths_from_environment(&mut self) -> Result<(), String> {
 
         let env_roles_path = env::var("JET_ROLES_PATH");
@@ -678,6 +724,25 @@ impl CliParser  {
                         if p.is_dir() {
                             let full = fs::canonicalize(p.as_path()).unwrap();
                             self.role_paths.write().unwrap().push(full.to_path_buf());
+                        }
+                    }
+                },
+                Err(y) => return Err(y)
+            };
+        }
+        return Ok(());
+    }
+
+    fn add_module_paths_from_environment(&mut self) -> Result<(), String> {
+
+        let env_modules_path = env::var("JET_MODULES_PATH");
+        if env_modules_path.is_ok() {
+            match parse_paths(&String::from("$JET_MODULES_PATH"), &env_modules_path.unwrap()) {
+                Ok(paths) => {
+                    for p in paths.iter() {
+                        if p.is_dir() {
+                            let full = fs::canonicalize(p.as_path()).unwrap();
+                            self.module_paths.write().unwrap().push(full.to_path_buf());
                         }
                     }
                 },

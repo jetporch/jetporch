@@ -17,7 +17,6 @@
       # changed_when: (lt sum 50)
       # changed_when: false
 
-
     - !debug
       vars: 
         - result

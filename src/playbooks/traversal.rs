@@ -47,6 +47,7 @@ pub struct RunState {
     pub inventory: Arc<RwLock<Inventory>>,
     pub playbook_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub role_paths: Arc<RwLock<Vec<PathBuf>>>,
+    pub module_paths: Arc<RwLock<Vec<PathBuf>>>,
     pub limit_hosts: Vec<String>,
     pub limit_groups: Vec<String>,
     pub batch_size: Option<usize>,
@@ -616,4 +617,5 @@ fn find_role(run_state: &Arc<RunState>, _play: &Play, role_name: String) -> Resu
     }
     return Err(format!("role not found: {}", role_name));
 }  
+
 
