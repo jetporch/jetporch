@@ -1,6 +1,8 @@
 - name: demo external module feature
   groups: 
     - all
+  vars:
+    b: 20
   
   tasks:
 
@@ -10,7 +12,7 @@
       use: demo_external.py
       params:
          a: 1
-         b: 2
+         b: "{{ b }}"
          c: [ "foo", "bar", "baz"]
       save: result
       # failed_when: (lt sum 50)

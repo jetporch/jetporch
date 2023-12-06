@@ -16,7 +16,6 @@
 
 use crate::tasks::*;
 use crate::handle::handle::TaskHandle;
-use crate::connection::command::cmd_info;
 use serde::{Deserialize};
 use std::sync::{Arc,RwLock};
 use serde_json;
@@ -40,7 +39,7 @@ pub struct ExternalTask {
 }
 struct ExternalAction {
     pub use_module: PathBuf,
-    pub params: serde_json::Map<String, serde_json::Value>,
+    pub params: String,
     pub save: Option<String>, 
     pub failed_when: Option<String>,
     pub changed_when: Option<String>,
@@ -60,7 +59,19 @@ impl IsTask for ExternalTask {
                     use_module: handle.template.find_module_path(request, tm, &String::from("use"), &self.use_module)?,
                     // FIXME: template the parameters
                     params: {
-                        self.params.clone()
+                        let params_data = match serde_json::to_string(&self.params) {
+                            Ok(x) => x,
+                            Err(_y) => {
+                                return Err(handle.response.is_failed(request,  &String::from("unable to load JSON inputs")));
+                            }
+                        };
+                        // note: this level of templating occurs at runtime and we would /like/ to do it earlier.
+                        match handle.template.string_unsafe_for_shell(request, TemplateMode::Strict, &String::from("params"), &params_data) {
+                            Ok(x) => x,
+                            Err(y) => {
+                                return Err(handle.response.is_failed(request, &format!("unable to template parameters: {:?}",y)));
+                            }
+                        }
                     },
                     save: handle.template.string_option_no_spaces(&request, tm, &String::from("save"), &self.save)?,
                     failed_when: handle.template.string_option_unsafe_for_shell(&request, tm, &String::from("failed_when"), &self.failed_when)?,
@@ -98,13 +109,7 @@ impl IsAction for ExternalAction {
                     return Ok(()) 
                 })?;
                 
-                let params_data = match serde_json::to_string(&self.params) {
-                    Ok(x) => x,
-                    Err(_y) => {
-                        return Err(handle.response.is_failed(request,  &String::from("unable to load JSON inputs")));
-                    }
-                };
-                handle.remote.write_data(request, &params_data, &param_str_path.clone(), |_f| {
+                handle.remote.write_data(request, &self.params.clone(), &param_str_path.clone(), |_f| {
                     // not using the after save handler for this module
                     return Ok(());
                 })?;
@@ -112,7 +117,6 @@ impl IsAction for ExternalAction {
                 let chmod = format!("chmod +x '{}'", module_str_path.clone());
                 handle.remote.run(request, &chmod, CheckRc::Checked)?;
 
-                // FIXME: run the module, record the result
                 let module_run = format!("{} < {}", module_str_path.clone(), param_str_path.clone());
                 let task_result = handle.remote.run_unsafe(request, &module_run, CheckRc::Checked)?;
                 let (rc, out) = cmd_info(&task_result);
@@ -184,3 +188,4 @@ fn save_results(host: &Arc<RwLock<Host>>, key: &String, map_data: serde_yaml::Ma
     result.insert(serde_yaml::Value::String(key.clone()), serde_yaml::Value::Mapping(map_data.clone()));
     host.write().unwrap().update_variables(result);
 }
+

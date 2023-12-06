@@ -6,8 +6,11 @@ import fileinput
 
 data = json.loads("\n".join([ x for x in fileinput.input() ]))
 result = {}
-result['sum'] = data["a"] + data["b"]
-result['difference'] = data["a"] - data["b"]
+data_a = int(data["a"])
+data_b = int(data["b"])
+
+result['sum'] = data_a + data_b
+result['difference'] = data_a - data_b
 
 msg = json.dumps(result)
 
